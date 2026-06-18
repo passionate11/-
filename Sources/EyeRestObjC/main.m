@@ -532,6 +532,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *summaryLabel;
 @property(nonatomic, strong) NSTextField *statsOverviewLabel;
 @property(nonatomic, strong) NSTextField *statsMonthLabel;
+@property(nonatomic, strong) NSTextField *statsInsightLabel;
 @property(nonatomic, strong) NSTextField *statsQualityLabel;
 @property(nonatomic, strong) NSTextField *statsStandLabel;
 @property(nonatomic, strong) NSTextField *statsStreakLabel;
@@ -938,16 +939,23 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.exportBackupButton];
 
     self.statsMonthLabel = [NSTextField labelWithString:@""];
-    self.statsMonthLabel.frame = NSMakeRect(24, 156, 480, 20);
+    self.statsMonthLabel.frame = NSMakeRect(24, 154, 480, 20);
     self.statsMonthLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.statsMonthLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.statsMonthLabel];
 
-    self.statsQualityLabel = [self metricLabelWithFrame:NSMakeRect(24, 124, 150, 24)];
+    self.statsInsightLabel = [NSTextField wrappingLabelWithString:@""];
+    self.statsInsightLabel.frame = NSMakeRect(24, 126, 480, 24);
+    self.statsInsightLabel.font = [NSFont systemFontOfSize:11.5 weight:NSFontWeightMedium];
+    self.statsInsightLabel.maximumNumberOfLines = 2;
+    self.statsInsightLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:self.statsInsightLabel];
+
+    self.statsQualityLabel = [self metricLabelWithFrame:NSMakeRect(24, 104, 150, 24)];
     [card addSubview:self.statsQualityLabel];
-    self.statsStandLabel = [self metricLabelWithFrame:NSMakeRect(190, 124, 150, 24)];
+    self.statsStandLabel = [self metricLabelWithFrame:NSMakeRect(190, 104, 150, 24)];
     [card addSubview:self.statsStandLabel];
-    self.statsStreakLabel = [self metricLabelWithFrame:NSMakeRect(356, 124, 150, 24)];
+    self.statsStreakLabel = [self metricLabelWithFrame:NSMakeRect(356, 104, 150, 24)];
     [card addSubview:self.statsStreakLabel];
 
     NSArray<NSString *> *dayTitles = @[@"周一", @"周二", @"周三", @"周四", @"周五", @"周六", @"周日"];
@@ -956,7 +964,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     CGFloat startX = 24;
     CGFloat gap = 8;
     CGFloat barWidth = 28;
-    CGFloat baseY = 34;
+    CGFloat baseY = 28;
     for (NSInteger index = 0; index < 7; index++) {
         CGFloat x = startX + index * (barWidth + gap);
         NSView *slot = ERRoundedView(NSMakeRect(x, baseY, barWidth, 72), ERColor(0.93, 0.94, 0.97, 1), 12);
@@ -964,7 +972,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [bars addObject:slot];
 
         NSTextField *label = [NSTextField labelWithString:dayTitles[index]];
-        label.frame = NSMakeRect(x - 10, 10, 48, 22);
+        label.frame = NSMakeRect(x - 10, 4, 48, 22);
         label.alignment = NSTextAlignmentCenter;
         label.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
         label.textColor = NSColor.secondaryLabelColor;
@@ -975,7 +983,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.statsBarLabels = labels;
 
     NSTextField *heatmapTitle = [NSTextField labelWithString:@"近 30 天热力"];
-    heatmapTitle.frame = NSMakeRect(320, 100, 160, 18);
+    heatmapTitle.frame = NSMakeRect(320, 82, 160, 18);
     heatmapTitle.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     heatmapTitle.textColor = NSColor.secondaryLabelColor;
     [card addSubview:heatmapTitle];
@@ -984,7 +992,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     CGFloat cell = 14;
     CGFloat cellGap = 4;
     CGFloat originX = 320;
-    CGFloat originY = 28;
+    CGFloat originY = 12;
     for (NSInteger index = 0; index < 30; index++) {
         NSInteger row = index / 6;
         NSInteger column = index % 6;
@@ -1107,6 +1115,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSInteger weekStandSeconds = 0;
     NSInteger monthDone = 0;
     NSInteger monthActiveDays = 0;
+    NSInteger previousWeekDone = 0;
+    NSInteger monthSkipped = 0;
+    NSInteger monthSnoozed = 0;
     NSInteger maxDone = 1;
     NSMutableArray<NSNumber *> *dailyDone = [NSMutableArray arrayWithCapacity:dates.count];
 
@@ -1127,11 +1138,21 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     for (NSString *dateKey in monthDates) {
         NSDictionary *entry = history[dateKey];
         NSInteger done = [entry[@"eye"] integerValue] + [entry[@"stand"] integerValue];
+        NSInteger snoozed = [entry[@"snoozed"] integerValue];
+        NSInteger skipped = [entry[@"skipped"] integerValue];
         monthDone += done;
+        monthSnoozed += snoozed;
+        monthSkipped += skipped;
         maxDone = MAX(maxDone, done);
         if (done > 0) {
             monthActiveDays += 1;
         }
+    }
+
+    NSArray<NSString *> *twoWeekDates = ERRecentDateKeys(14);
+    for (NSInteger index = 0; index < twoWeekDates.count - 7; index++) {
+        NSDictionary *entry = history[twoWeekDates[index]];
+        previousWeekDone += [entry[@"eye"] integerValue] + [entry[@"stand"] integerValue];
     }
 
     NSInteger streak = 0;
@@ -1144,12 +1165,33 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     NSInteger friction = weekDone + weekSnoozed + weekSkipped;
     NSInteger skipRate = friction > 0 ? (NSInteger)llround((double)weekSkipped * 100.0 / (double)friction) : 0;
+    NSInteger monthFriction = monthDone + monthSnoozed + monthSkipped;
+    NSInteger monthSkipRate = monthFriction > 0 ? (NSInteger)llround((double)monthSkipped * 100.0 / (double)monthFriction) : 0;
+    NSInteger delta = weekDone - previousWeekDone;
 
     self.statsOverviewLabel.stringValue = [NSString stringWithFormat:@"今天完成 %ld 次休息，本周完成 %ld 次。稍后/跳过共 %ld 次。",
                                            (long)(self.appDelegate.todayEyeDone + self.appDelegate.todayStandDone),
                                            (long)weekDone,
                                            (long)(weekSnoozed + weekSkipped)];
-    self.statsMonthLabel.stringValue = [NSString stringWithFormat:@"近 30 天完成 %ld 次，活跃 %ld 天。", (long)monthDone, (long)monthActiveDays];
+    self.statsMonthLabel.stringValue = [NSString stringWithFormat:@"近 30 天完成 %ld 次，活跃 %ld 天，跳过率 %ld%%。",
+                                        (long)monthDone,
+                                        (long)monthActiveDays,
+                                        (long)monthSkipRate];
+    if (monthDone == 0) {
+        self.statsInsightLabel.stringValue = @"趋势：还没有足够数据。先完成几次休息，统计会开始有意义。";
+    } else if (delta >= 3) {
+        self.statsInsightLabel.stringValue = [NSString stringWithFormat:@"趋势：本周比上周多 %ld 次，节奏正在变稳。", (long)delta];
+    } else if (delta <= -3) {
+        self.statsInsightLabel.stringValue = [NSString stringWithFormat:@"趋势：本周比上周少 %ld 次，可以把提醒调轻一点，先恢复完成率。", (long)llabs(delta)];
+    } else if (skipRate >= 35) {
+        self.statsInsightLabel.stringValue = @"趋势：本周跳过偏多，建议把提醒间隔调长一点，降低打扰。";
+    } else if (weekStandSeconds < 10 * 60 && self.settings.standEnabled) {
+        self.statsInsightLabel.stringValue = @"趋势：站立时间偏少，下一步先把站立提醒做起来。";
+    } else if (streak >= 3) {
+        self.statsInsightLabel.stringValue = [NSString stringWithFormat:@"趋势：已经连续 %ld 天有休息记录，保持这个轻节奏。", (long)streak];
+    } else {
+        self.statsInsightLabel.stringValue = [NSString stringWithFormat:@"趋势：近 30 天平均每天 %.1f 次，先追求不断档。", (double)monthDone / 30.0];
+    }
     self.statsQualityLabel.stringValue = [NSString stringWithFormat:@"跳过率 %ld%%", (long)skipRate];
     self.statsStandLabel.stringValue = [NSString stringWithFormat:@"站立 %@", ERFormatShortMinutes(weekStandSeconds)];
     self.statsStreakLabel.stringValue = [NSString stringWithFormat:@"连续 %ld 天", (long)streak];
@@ -1161,7 +1203,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         CGFloat ratio = done <= 0 ? 0.12 : MAX(0.22, MIN(1.0, (CGFloat)done / (CGFloat)maxDone));
         CGFloat height = 16 + ratio * 56;
         NSRect frame = bar.frame;
-        frame.origin.y = 34;
+        frame.origin.y = 28;
         frame.size.height = height;
         bar.frame = frame;
         bar.layer.backgroundColor = [theme.accent colorWithAlphaComponent:done <= 0 ? 0.18 : 0.55].CGColor;
@@ -1290,6 +1332,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.summaryLabel.textColor = theme.secondary;
     self.statsOverviewLabel.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
     self.statsMonthLabel.textColor = theme.secondary;
+    self.statsInsightLabel.textColor = theme.secondary;
     self.statsQualityLabel.textColor = theme.secondary;
     self.statsStandLabel.textColor = theme.secondary;
     self.statsStreakLabel.textColor = theme.secondary;
