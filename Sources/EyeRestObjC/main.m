@@ -55,6 +55,10 @@ static NSString *const ERStatsStandDoneKey = @"statsStandDone";
 static NSString *const ERStatsStandSecondsKey = @"statsStandSeconds";
 static NSString *const ERStatsSnoozedKey = @"statsSnoozed";
 static NSString *const ERStatsSkippedKey = @"statsSkipped";
+static NSString *const ERStatsManualDoneKey = @"statsManualDone";
+static NSString *const ERStatsNotificationOnlyKey = @"statsNotificationOnly";
+static NSString *const ERStatsAutoPauseSessionsKey = @"statsAutoPauseSessions";
+static NSString *const ERStatsAutoPauseSecondsKey = @"statsAutoPauseSeconds";
 static NSString *const ERStatsHistoryKey = @"statsHistory";
 static NSString *const ERBrandName = @"松一下";
 static NSString *const ERRestOverlayWindowIdentifier = @"local.codex.eyerest.rest-overlay";
@@ -263,6 +267,15 @@ static NSString *ERFormatShortMinutes(NSInteger seconds) {
     return remaining > 0
         ? [NSString stringWithFormat:@"%ld 小时 %ld 分", (long)hours, (long)remaining]
         : [NSString stringWithFormat:@"%ld 小时", (long)hours];
+}
+
+static NSInteger ERStatsInteger(NSDictionary *entry, NSString *key) {
+    id value = entry[key];
+    return [value respondsToSelector:@selector(integerValue)] ? [value integerValue] : 0;
+}
+
+static NSInteger ERPercent(NSInteger part, NSInteger total) {
+    return total > 0 ? (NSInteger)llround((double)part * 100.0 / (double)total) : 0;
 }
 
 static NSString *ERLaunchAgentIdentifier(void) {
@@ -647,6 +660,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *summaryLabel;
 @property(nonatomic, strong) NSTextField *statsOverviewLabel;
 @property(nonatomic, strong) NSTextField *statsMonthLabel;
+@property(nonatomic, strong) NSTextField *statsStrategyLabel;
 @property(nonatomic, strong) NSTextField *statsInsightLabel;
 @property(nonatomic, strong) NSTextField *statsQualityLabel;
 @property(nonatomic, strong) NSTextField *statsStandLabel;
@@ -716,9 +730,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSInteger todayStandSeconds;
 @property(nonatomic) NSInteger todaySnoozed;
 @property(nonatomic) NSInteger todaySkipped;
+@property(nonatomic) NSInteger todayManualDone;
+@property(nonatomic) NSInteger todayNotificationOnly;
+@property(nonatomic) NSInteger todayAutoPauseSessions;
+@property(nonatomic) NSInteger todayAutoPauseSeconds;
+@property(nonatomic) BOOL autoPauseSessionActive;
 @property(nonatomic, strong) ERRestWindowController *restWindowController;
 @property(nonatomic, strong) ERSettingsWindowController *settingsWindowController;
 - (void)finishRestForKind:(ERReminderKind)kind;
+- (void)finishRestForKind:(ERReminderKind)kind manually:(BOOL)manually;
 - (void)extendRestForKind:(ERReminderKind)kind bySeconds:(NSTimeInterval)seconds;
 - (void)snoozeRestForKind:(ERReminderKind)kind bySeconds:(NSTimeInterval)seconds;
 - (void)skipRestForKind:(ERReminderKind)kind;
@@ -895,7 +915,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     sub.textColor = NSColor.secondaryLabelColor;
     [view addSubview:sub];
 
-    NSView *card = ERRoundedView(NSMakeRect(0, 0, 528, 216), NSColor.whiteColor, 16);
+    NSView *card = ERRoundedView(NSMakeRect(0, 0, 528, 236), NSColor.whiteColor, 16);
     card.layer.borderColor = ERColor(0.82, 0.84, 0.88, 0.7).CGColor;
     card.layer.borderWidth = 1;
     [view addSubview:card];
@@ -1119,31 +1139,37 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)buildStatsSectionInView:(NSView *)view {
     NSView *card = self.statsCard;
     self.statsOverviewLabel = [NSTextField wrappingLabelWithString:@""];
-    self.statsOverviewLabel.frame = NSMakeRect(24, 184, 300, 22);
+    self.statsOverviewLabel.frame = NSMakeRect(24, 204, 300, 22);
     self.statsOverviewLabel.font = [NSFont systemFontOfSize:14 weight:NSFontWeightMedium];
     self.statsOverviewLabel.textColor = NSColor.labelColor;
     [card addSubview:self.statsOverviewLabel];
 
     self.exportStatsButton = [NSButton buttonWithTitle:@"导出 CSV" target:self action:@selector(exportStatsCSV:)];
-    self.exportStatsButton.frame = NSMakeRect(330, 180, 84, 30);
+    self.exportStatsButton.frame = NSMakeRect(330, 200, 84, 30);
     self.exportStatsButton.bezelStyle = NSBezelStyleRounded;
     self.exportStatsButton.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
     [card addSubview:self.exportStatsButton];
 
     self.exportBackupButton = [NSButton buttonWithTitle:@"备份 JSON" target:self action:@selector(exportStatsJSON:)];
-    self.exportBackupButton.frame = NSMakeRect(420, 180, 92, 30);
+    self.exportBackupButton.frame = NSMakeRect(420, 200, 92, 30);
     self.exportBackupButton.bezelStyle = NSBezelStyleRounded;
     self.exportBackupButton.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
     [card addSubview:self.exportBackupButton];
 
     self.statsMonthLabel = [NSTextField labelWithString:@""];
-    self.statsMonthLabel.frame = NSMakeRect(24, 154, 480, 20);
+    self.statsMonthLabel.frame = NSMakeRect(24, 176, 480, 20);
     self.statsMonthLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.statsMonthLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.statsMonthLabel];
 
+    self.statsStrategyLabel = [NSTextField labelWithString:@""];
+    self.statsStrategyLabel.frame = NSMakeRect(24, 154, 480, 20);
+    self.statsStrategyLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
+    self.statsStrategyLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:self.statsStrategyLabel];
+
     self.statsInsightLabel = [NSTextField wrappingLabelWithString:@""];
-    self.statsInsightLabel.frame = NSMakeRect(24, 126, 480, 24);
+    self.statsInsightLabel.frame = NSMakeRect(24, 128, 480, 24);
     self.statsInsightLabel.font = [NSFont systemFontOfSize:11.5 weight:NSFontWeightMedium];
     self.statsInsightLabel.maximumNumberOfLines = 2;
     self.statsInsightLabel.textColor = NSColor.secondaryLabelColor;
@@ -1337,27 +1363,35 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSInteger bestDayDone = 0;
     NSString *bestDayTitle = @"--";
     NSInteger maxDone = 1;
+    NSInteger weekManualDone = 0;
+    NSInteger weekNotificationOnly = 0;
+    NSInteger weekAutoPauseSessions = 0;
+    NSInteger weekAutoPauseSeconds = 0;
     NSMutableArray<NSNumber *> *dailyDone = [NSMutableArray arrayWithCapacity:dates.count];
 
     for (NSString *dateKey in dates) {
         NSDictionary *entry = history[dateKey];
-        NSInteger done = [entry[@"eye"] integerValue] + [entry[@"stand"] integerValue];
-        NSInteger snoozed = [entry[@"snoozed"] integerValue];
-        NSInteger skipped = [entry[@"skipped"] integerValue];
-        NSInteger standSeconds = [entry[@"standSeconds"] integerValue];
+        NSInteger done = ERStatsInteger(entry, @"eye") + ERStatsInteger(entry, @"stand");
+        NSInteger snoozed = ERStatsInteger(entry, @"snoozed");
+        NSInteger skipped = ERStatsInteger(entry, @"skipped");
+        NSInteger standSeconds = ERStatsInteger(entry, @"standSeconds");
         weekDone += done;
         weekSnoozed += snoozed;
         weekSkipped += skipped;
         weekStandSeconds += standSeconds;
+        weekManualDone += ERStatsInteger(entry, @"manualDone");
+        weekNotificationOnly += ERStatsInteger(entry, @"notificationOnly");
+        weekAutoPauseSessions += ERStatsInteger(entry, @"autoPauseSessions");
+        weekAutoPauseSeconds += ERStatsInteger(entry, @"autoPauseSeconds");
         maxDone = MAX(maxDone, done);
         [dailyDone addObject:@(done)];
     }
 
     for (NSString *dateKey in monthDates) {
         NSDictionary *entry = history[dateKey];
-        NSInteger done = [entry[@"eye"] integerValue] + [entry[@"stand"] integerValue];
-        NSInteger snoozed = [entry[@"snoozed"] integerValue];
-        NSInteger skipped = [entry[@"skipped"] integerValue];
+        NSInteger done = ERStatsInteger(entry, @"eye") + ERStatsInteger(entry, @"stand");
+        NSInteger snoozed = ERStatsInteger(entry, @"snoozed");
+        NSInteger skipped = ERStatsInteger(entry, @"skipped");
         monthDone += done;
         monthSnoozed += snoozed;
         monthSkipped += skipped;
@@ -1374,24 +1408,28 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSArray<NSString *> *twoWeekDates = ERRecentDateKeys(14);
     for (NSInteger index = 0; index < twoWeekDates.count - 7; index++) {
         NSDictionary *entry = history[twoWeekDates[index]];
-        previousWeekDone += [entry[@"eye"] integerValue] + [entry[@"stand"] integerValue];
+        previousWeekDone += ERStatsInteger(entry, @"eye") + ERStatsInteger(entry, @"stand");
     }
 
     NSInteger streak = 0;
     for (NSString *dateKey in [ERRecentDateKeys(30) reverseObjectEnumerator]) {
         NSDictionary *entry = history[dateKey];
-        NSInteger done = [entry[@"eye"] integerValue] + [entry[@"stand"] integerValue];
+        NSInteger done = ERStatsInteger(entry, @"eye") + ERStatsInteger(entry, @"stand");
         if (done <= 0) break;
         streak += 1;
     }
 
     NSInteger friction = weekDone + weekSnoozed + weekSkipped;
-    NSInteger skipRate = friction > 0 ? (NSInteger)llround((double)weekSkipped * 100.0 / (double)friction) : 0;
+    NSInteger skipRate = ERPercent(weekSkipped, friction);
     NSInteger monthFriction = monthDone + monthSnoozed + monthSkipped;
-    NSInteger monthSkipRate = monthFriction > 0 ? (NSInteger)llround((double)monthSkipped * 100.0 / (double)monthFriction) : 0;
+    NSInteger monthSkipRate = ERPercent(monthSkipped, monthFriction);
     NSInteger delta = weekDone - previousWeekDone;
-    NSInteger activeRate = (NSInteger)llround((double)monthActiveDays * 100.0 / 30.0);
+    NSInteger activeRate = ERPercent(monthActiveDays, 30);
     double dailyAverage = (double)monthDone / 30.0;
+    NSInteger strategyEvents = weekManualDone + weekNotificationOnly + weekAutoPauseSessions;
+    NSInteger manualRate = ERPercent(weekManualDone, strategyEvents);
+    NSInteger notificationRate = ERPercent(weekNotificationOnly, strategyEvents);
+    NSInteger autoPauseRate = ERPercent(weekAutoPauseSessions, strategyEvents);
 
     self.statsOverviewLabel.stringValue = [NSString stringWithFormat:@"今天完成 %ld 次休息，本周完成 %ld 次。稍后/跳过共 %ld 次。",
                                            (long)(self.appDelegate.todayEyeDone + self.appDelegate.todayStandDone),
@@ -1401,6 +1439,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                                         (long)monthDone,
                                         (long)monthActiveDays,
                                         (long)monthSkipRate];
+    if (strategyEvents > 0) {
+        self.statsStrategyLabel.stringValue = [NSString stringWithFormat:@"本周策略：手动完成 %ld%% · 只发通知 %ld%% · 自动暂停 %ld%% / %@",
+                                               (long)manualRate,
+                                               (long)notificationRate,
+                                               (long)autoPauseRate,
+                                               ERFormatShortMinutes(weekAutoPauseSeconds)];
+    } else {
+        self.statsStrategyLabel.stringValue = @"本周策略：还没有足够的自动化统计。";
+    }
     self.statsMonthDetailLabel.stringValue = [NSString stringWithFormat:@"活跃率 %ld%% · 日均 %.1f 次 · 最佳 %@/%ld 次",
                                               (long)activeRate,
                                               dailyAverage,
@@ -1412,6 +1459,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         self.statsInsightLabel.stringValue = [NSString stringWithFormat:@"趋势：本周比上周多 %ld 次，节奏正在变稳。", (long)delta];
     } else if (delta <= -3) {
         self.statsInsightLabel.stringValue = [NSString stringWithFormat:@"趋势：本周比上周少 %ld 次，可以把提醒调轻一点，先恢复完成率。", (long)llabs(delta)];
+    } else if (weekAutoPauseSeconds >= 60 * 60) {
+        self.statsInsightLabel.stringValue = @"趋势：自动暂停时间偏长，可以检查视频/游戏白名单是否过宽。";
+    } else if (weekNotificationOnly >= weekDone && weekNotificationOnly >= 3) {
+        self.statsInsightLabel.stringValue = @"趋势：最近多是只发通知，会议或演示中打扰已经降下来了。";
     } else if (skipRate >= 35) {
         self.statsInsightLabel.stringValue = @"趋势：本周跳过偏多，建议把提醒间隔调长一点，降低打扰。";
     } else if (weekStandSeconds < 10 * 60 && self.settings.standEnabled) {
@@ -1441,33 +1492,45 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     for (NSInteger index = 0; index < self.heatmapCells.count && index < monthDates.count; index++) {
         NSDictionary *entry = history[monthDates[index]];
-        NSInteger done = [entry[@"eye"] integerValue] + [entry[@"stand"] integerValue];
+        NSInteger done = ERStatsInteger(entry, @"eye") + ERStatsInteger(entry, @"stand");
         CGFloat ratio = done <= 0 ? 0.0 : MIN(1.0, (CGFloat)done / (CGFloat)MAX(1, maxDone));
         CGFloat alpha = done <= 0 ? 0.14 : 0.28 + ratio * 0.55;
         NSView *cell = self.heatmapCells[index];
         cell.layer.backgroundColor = [theme.accent colorWithAlphaComponent:alpha].CGColor;
-        cell.toolTip = [NSString stringWithFormat:@"%@ · %ld 次", monthDates[index], (long)done];
+        cell.toolTip = [NSString stringWithFormat:@"%@ · 完成 %ld · 只发通知 %ld · 暂停 %@",
+                        monthDates[index],
+                        (long)done,
+                        (long)ERStatsInteger(entry, @"notificationOnly"),
+                        ERFormatShortMinutes(ERStatsInteger(entry, @"autoPauseSeconds"))];
     }
 }
 
 - (void)exportStatsCSV:(id)sender {
     NSDictionary *history = [self.appDelegate statsHistoryIncludingToday];
     NSArray<NSString *> *dates = ERRecentDateKeys(30);
-    NSMutableString *csv = [NSMutableString stringWithString:@"date,eye_done,stand_done,stand_minutes,snoozed,skipped,total_done\n"];
+    NSMutableString *csv = [NSMutableString stringWithString:@"date,eye_done,stand_done,stand_minutes,snoozed,skipped,manual_done,notification_only,auto_pause_sessions,auto_pause_minutes,total_done\n"];
     for (NSString *dateKey in dates) {
         NSDictionary *entry = history[dateKey];
-        NSInteger eye = [entry[@"eye"] integerValue];
-        NSInteger stand = [entry[@"stand"] integerValue];
-        NSInteger standMinutes = (NSInteger)llround((double)[entry[@"standSeconds"] integerValue] / 60.0);
-        NSInteger snoozed = [entry[@"snoozed"] integerValue];
-        NSInteger skipped = [entry[@"skipped"] integerValue];
-        [csv appendFormat:@"%@,%ld,%ld,%ld,%ld,%ld,%ld\n",
+        NSInteger eye = ERStatsInteger(entry, @"eye");
+        NSInteger stand = ERStatsInteger(entry, @"stand");
+        NSInteger standMinutes = (NSInteger)llround((double)ERStatsInteger(entry, @"standSeconds") / 60.0);
+        NSInteger snoozed = ERStatsInteger(entry, @"snoozed");
+        NSInteger skipped = ERStatsInteger(entry, @"skipped");
+        NSInteger manualDone = ERStatsInteger(entry, @"manualDone");
+        NSInteger notificationOnly = ERStatsInteger(entry, @"notificationOnly");
+        NSInteger autoPauseSessions = ERStatsInteger(entry, @"autoPauseSessions");
+        NSInteger autoPauseMinutes = (NSInteger)llround((double)ERStatsInteger(entry, @"autoPauseSeconds") / 60.0);
+        [csv appendFormat:@"%@,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\n",
          dateKey,
          (long)eye,
          (long)stand,
          (long)standMinutes,
          (long)snoozed,
          (long)skipped,
+         (long)manualDone,
+         (long)notificationOnly,
+         (long)autoPauseSessions,
+         (long)autoPauseMinutes,
          (long)(eye + stand)];
     }
 
@@ -1487,11 +1550,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMutableArray<NSDictionary *> *entries = [NSMutableArray arrayWithCapacity:dates.count];
     for (NSString *dateKey in dates) {
         NSDictionary *entry = history[dateKey] ?: @{};
-        NSInteger eye = [entry[@"eye"] integerValue];
-        NSInteger stand = [entry[@"stand"] integerValue];
-        NSInteger standSeconds = [entry[@"standSeconds"] integerValue];
-        NSInteger snoozed = [entry[@"snoozed"] integerValue];
-        NSInteger skipped = [entry[@"skipped"] integerValue];
+        NSInteger eye = ERStatsInteger(entry, @"eye");
+        NSInteger stand = ERStatsInteger(entry, @"stand");
+        NSInteger standSeconds = ERStatsInteger(entry, @"standSeconds");
+        NSInteger snoozed = ERStatsInteger(entry, @"snoozed");
+        NSInteger skipped = ERStatsInteger(entry, @"skipped");
+        NSInteger manualDone = ERStatsInteger(entry, @"manualDone");
+        NSInteger notificationOnly = ERStatsInteger(entry, @"notificationOnly");
+        NSInteger autoPauseSessions = ERStatsInteger(entry, @"autoPauseSessions");
+        NSInteger autoPauseSeconds = ERStatsInteger(entry, @"autoPauseSeconds");
         [entries addObject:@{
             @"date": dateKey,
             @"eyeDone": @(eye),
@@ -1499,6 +1566,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"standSeconds": @(standSeconds),
             @"snoozed": @(snoozed),
             @"skipped": @(skipped),
+            @"manualDone": @(manualDone),
+            @"notificationOnly": @(notificationOnly),
+            @"autoPauseSessions": @(autoPauseSessions),
+            @"autoPauseSeconds": @(autoPauseSeconds),
             @"totalDone": @(eye + stand)
         }];
     }
@@ -1570,6 +1641,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.focusAppHintLabel.textColor = theme.secondary;
     self.statsOverviewLabel.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
     self.statsMonthLabel.textColor = theme.secondary;
+    self.statsStrategyLabel.textColor = theme.secondary;
     self.statsInsightLabel.textColor = theme.secondary;
     self.statsQualityLabel.textColor = theme.secondary;
     self.statsStandLabel.textColor = theme.secondary;
@@ -2109,7 +2181,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)finish:(id)sender {
     [self close];
-    [self.appDelegate finishRestForKind:self.kind];
+    [self.appDelegate finishRestForKind:self.kind manually:YES];
 }
 
 - (void)extend:(id)sender {
@@ -2194,6 +2266,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         self.todayStandSeconds = 0;
         self.todaySnoozed = 0;
         self.todaySkipped = 0;
+        self.todayManualDone = 0;
+        self.todayNotificationOnly = 0;
+        self.todayAutoPauseSessions = 0;
+        self.todayAutoPauseSeconds = 0;
         [self saveTodayStats];
         return;
     }
@@ -2202,6 +2278,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.todayStandSeconds = [defaults integerForKey:ERStatsStandSecondsKey];
     self.todaySnoozed = [defaults integerForKey:ERStatsSnoozedKey];
     self.todaySkipped = [defaults integerForKey:ERStatsSkippedKey];
+    self.todayManualDone = [defaults integerForKey:ERStatsManualDoneKey];
+    self.todayNotificationOnly = [defaults integerForKey:ERStatsNotificationOnlyKey];
+    self.todayAutoPauseSessions = [defaults integerForKey:ERStatsAutoPauseSessionsKey];
+    self.todayAutoPauseSeconds = [defaults integerForKey:ERStatsAutoPauseSecondsKey];
 }
 
 - (void)saveTodayStats {
@@ -2212,6 +2292,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [defaults setInteger:self.todayStandSeconds forKey:ERStatsStandSecondsKey];
     [defaults setInteger:self.todaySnoozed forKey:ERStatsSnoozedKey];
     [defaults setInteger:self.todaySkipped forKey:ERStatsSkippedKey];
+    [defaults setInteger:self.todayManualDone forKey:ERStatsManualDoneKey];
+    [defaults setInteger:self.todayNotificationOnly forKey:ERStatsNotificationOnlyKey];
+    [defaults setInteger:self.todayAutoPauseSessions forKey:ERStatsAutoPauseSessionsKey];
+    [defaults setInteger:self.todayAutoPauseSeconds forKey:ERStatsAutoPauseSecondsKey];
 
     NSMutableDictionary *history = [[defaults dictionaryForKey:ERStatsHistoryKey] mutableCopy] ?: [NSMutableDictionary dictionary];
     NSString *today = ERTodayKey();
@@ -2220,7 +2304,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @"stand": @(self.todayStandDone),
         @"standSeconds": @(self.todayStandSeconds),
         @"snoozed": @(self.todaySnoozed),
-        @"skipped": @(self.todaySkipped)
+        @"skipped": @(self.todaySkipped),
+        @"manualDone": @(self.todayManualDone),
+        @"notificationOnly": @(self.todayNotificationOnly),
+        @"autoPauseSessions": @(self.todayAutoPauseSessions),
+        @"autoPauseSeconds": @(self.todayAutoPauseSeconds)
     };
 
     NSSet *recent = [NSSet setWithArray:ERRecentDateKeys(30)];
@@ -2235,6 +2323,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)resetTodayStatsIfNeeded {
     NSString *savedDate = [NSUserDefaults.standardUserDefaults stringForKey:ERStatsDateKey];
     if (![savedDate isEqualToString:ERTodayKey()]) {
+        self.autoPauseActive = NO;
+        self.autoPauseSessionActive = NO;
         [self loadTodayStats];
     }
 }
@@ -2246,7 +2336,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @"stand": @(self.todayStandDone),
         @"standSeconds": @(self.todayStandSeconds),
         @"snoozed": @(self.todaySnoozed),
-        @"skipped": @(self.todaySkipped)
+        @"skipped": @(self.todaySkipped),
+        @"manualDone": @(self.todayManualDone),
+        @"notificationOnly": @(self.todayNotificationOnly),
+        @"autoPauseSessions": @(self.todayAutoPauseSessions),
+        @"autoPauseSeconds": @(self.todayAutoPauseSeconds)
     };
     return history;
 }
@@ -2270,6 +2364,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             paused = ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.autoPauseAppTokens);
             focused = !paused && ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.focusAppTokens);
         }
+    }
+    if (paused && !self.paused && !self.autoPauseActive && !self.autoPauseSessionActive) {
+        self.todayAutoPauseSessions += 1;
+        self.autoPauseSessionActive = YES;
+        [self saveTodayStats];
+    } else if (!paused && self.autoPauseActive) {
+        self.autoPauseSessionActive = NO;
     }
     self.autoIgnoreActive = ignored;
     self.autoPauseActive = paused;
@@ -2498,6 +2599,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self repairRestStateIfNeeded];
     } else if (!self.paused && self.autoPauseActive) {
         [self shiftReminderDatesBySeconds:1];
+        self.todayAutoPauseSeconds += 1;
+        [self saveTodayStats];
         if (self.restWindowController) {
             [self.restWindowController close];
             self.restWindowController = nil;
@@ -2541,7 +2644,6 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     if (self.paused) return;
 
     [self closeOrphanRestWindows];
-    [self settleExpiredRests];
 
     if (self.autoPauseActive) {
         if (self.restWindowController) {
@@ -2550,6 +2652,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         }
         return;
     }
+
+    [self settleExpiredRests];
 
     if ([self isLightDistractionModeActive] && self.restWindowController) {
         [self.restWindowController close];
@@ -2679,16 +2783,25 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self.restWindowController configureForKind:kind settings:self.settings duration:duration];
         [self.restWindowController updateRemaining:duration];
         [self.restWindowController presentOverlay];
+    } else if ([self isLightDistractionModeActive]) {
+        self.todayNotificationOnly += 1;
+        [self saveTodayStats];
     }
 }
 
-- (void)finishRestForKind:(ERReminderKind)kind {
+- (void)finishRestForKind:(ERReminderKind)kind manually:(BOOL)manually {
+    BOOL countedDone = NO;
     if (kind == ERReminderKindEye && self.eyeResting) {
         self.todayEyeDone += 1;
+        countedDone = YES;
     }
     if (kind == ERReminderKindStand && self.standResting) {
         self.todayStandDone += 1;
         self.todayStandSeconds += self.settings.standDurationSeconds;
+        countedDone = YES;
+    }
+    if (manually && countedDone) {
+        self.todayManualDone += 1;
     }
     [self saveTodayStats];
 
@@ -2704,6 +2817,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
     [self.settingsWindowController refreshStats];
     [self publishState];
+}
+
+- (void)finishRestForKind:(ERReminderKind)kind {
+    [self finishRestForKind:kind manually:NO];
 }
 
 - (void)snoozeRestForKind:(ERReminderKind)kind bySeconds:(NSTimeInterval)seconds {
