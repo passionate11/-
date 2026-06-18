@@ -948,6 +948,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)configureForKind:(ERReminderKind)kind settings:(ERSettings *)settings duration:(NSTimeInterval)duration;
 - (void)updateRemaining:(NSTimeInterval)remaining;
 - (void)configureActionSuggestionsForKind:(ERReminderKind)kind settings:(ERSettings *)settings;
+- (void)refreshActionBindings;
+- (BOOL)hasHealthyActionBindings;
 - (void)updateActionSuggestionForRemaining:(NSTimeInterval)remaining;
 - (void)layoutRestContent;
 - (void)refitToCurrentScreen;
@@ -2485,14 +2487,52 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.extendButton.bezelStyle = NSBezelStyleRounded;
     self.extendButton.font = [NSFont systemFontOfSize:15 weight:NSFontWeightMedium];
     [self.focusCard addSubview:self.extendButton];
+    [self refreshActionBindings];
     [self layoutRestContent];
     return self;
+}
+
+- (void)refreshActionBindings {
+    self.window.ignoresMouseEvents = NO;
+    self.window.acceptsMouseMovedEvents = YES;
+    self.finishButton.target = self;
+    self.finishButton.action = @selector(finish:);
+    self.finishButton.keyEquivalent = @"\r";
+    self.snoozeButton.target = self;
+    self.snoozeButton.action = @selector(snooze:);
+    self.skipButton.target = self;
+    self.skipButton.action = @selector(skip:);
+    self.extendButton.target = self;
+    self.extendButton.action = @selector(extend:);
+    self.finishButton.enabled = YES;
+    self.snoozeButton.enabled = YES;
+    self.skipButton.enabled = YES;
+    self.extendButton.enabled = YES;
+}
+
+- (BOOL)hasHealthyActionBindings {
+    return self.appDelegate &&
+        self.window &&
+        !self.window.ignoresMouseEvents &&
+        self.finishButton.target == self &&
+        self.finishButton.action == @selector(finish:) &&
+        self.finishButton.enabled &&
+        self.snoozeButton.target == self &&
+        self.snoozeButton.action == @selector(snooze:) &&
+        self.snoozeButton.enabled &&
+        self.skipButton.target == self &&
+        self.skipButton.action == @selector(skip:) &&
+        self.skipButton.enabled &&
+        self.extendButton.target == self &&
+        self.extendButton.action == @selector(extend:) &&
+        self.extendButton.enabled;
 }
 
 - (void)configureForKind:(ERReminderKind)kind settings:(ERSettings *)settings duration:(NSTimeInterval)duration {
     self.kind = kind;
     self.totalDuration = MAX(1, duration);
     self.currentStyle = settings.restStyle;
+    [self refreshActionBindings];
     [self applyStyle:settings.restStyle];
 
     if (kind == ERReminderKindStand) {
@@ -2688,6 +2728,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)presentOverlay {
+    [self refreshActionBindings];
     [self refitToCurrentScreen];
     [self showWindow:nil];
     [self.window orderFrontRegardless];
@@ -2819,8 +2860,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)finish:(id)sender {
-    [self close];
-    [self.appDelegate finishRestForKind:self.kind manually:YES];
+    ERRestWindowController *controller = self;
+    [controller.appDelegate finishRestForKind:controller.kind manually:YES];
+    [controller close];
 }
 
 - (void)extend:(id)sender {
@@ -2828,17 +2870,21 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)snooze:(id)sender {
-    [self close];
-    [self.appDelegate snoozeRestForKind:self.kind bySeconds:5 * 60];
+    ERRestWindowController *controller = self;
+    [controller.appDelegate snoozeRestForKind:controller.kind bySeconds:5 * 60];
+    [controller close];
 }
 
 - (void)skip:(id)sender {
-    [self close];
-    [self.appDelegate skipRestForKind:self.kind];
+    ERRestWindowController *controller = self;
+    [controller.appDelegate skipRestForKind:controller.kind];
+    [controller close];
 }
 
 - (void)cancelOperation:(id)sender {
-    [self.appDelegate skipRestForKind:self.kind];
+    ERRestWindowController *controller = self;
+    [controller.appDelegate skipRestForKind:controller.kind];
+    [controller close];
 }
 
 @end
@@ -3592,6 +3638,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         return;
     }
 
+    if (self.restWindowController && ![self.restWindowController hasHealthyActionBindings]) {
+        [self.restWindowController close];
+        self.restWindowController = nil;
+        [self noteRecoveryEventTitle:@"窗口自检" detail:@"休息页按钮链路异常，已重建"];
+    }
+
     if (!self.restWindowController || self.restWindowController.kind != activeKind) {
         [self ensureRestWindowForKind:activeKind remaining:remaining];
         return;
@@ -3776,7 +3828,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self resetStandTimer];
     }
 
-    if (self.restWindowController.kind == kind) {
+    if (self.restWindowController && self.restWindowController.kind == kind) {
         [self.restWindowController close];
         self.restWindowController = nil;
     }
@@ -3801,7 +3853,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         self.standRestEndsAt = nil;
         self.standDueAt = [NSDate dateWithTimeIntervalSinceNow:seconds];
     }
-    if (self.restWindowController.kind == kind) {
+    if (self.restWindowController && self.restWindowController.kind == kind) {
         [self.restWindowController close];
         self.restWindowController = nil;
     }
@@ -3818,7 +3870,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     } else {
         [self resetStandTimer];
     }
-    if (self.restWindowController.kind == kind) {
+    if (self.restWindowController && self.restWindowController.kind == kind) {
         [self.restWindowController close];
         self.restWindowController = nil;
     }
