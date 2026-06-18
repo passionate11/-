@@ -477,11 +477,19 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSView *focusCard;
 @property(nonatomic, strong) NSTextField *brandLabel;
 @property(nonatomic, strong) NSTextField *styleHintLabel;
+@property(nonatomic, strong) NSView *actionSuggestionPill;
+@property(nonatomic, strong) NSImageView *actionSuggestionIcon;
+@property(nonatomic, strong) NSTextField *actionSuggestionLabel;
+@property(nonatomic, strong) NSArray<NSString *> *actionSuggestions;
+@property(nonatomic, strong) NSArray<NSString *> *actionSuggestionSymbols;
+@property(nonatomic) NSInteger activeSuggestionIndex;
 @property(nonatomic) NSTimeInterval totalDuration;
 @property(nonatomic) ERRestStyle currentStyle;
 - (instancetype)initWithAppDelegate:(ERAppDelegate *)appDelegate;
 - (void)configureForKind:(ERReminderKind)kind settings:(ERSettings *)settings duration:(NSTimeInterval)duration;
 - (void)updateRemaining:(NSTimeInterval)remaining;
+- (void)configureActionSuggestionsForKind:(ERReminderKind)kind settings:(ERSettings *)settings;
+- (void)updateActionSuggestionForRemaining:(NSTimeInterval)remaining;
 - (void)layoutRestContent;
 - (void)refitToCurrentScreen;
 - (void)presentOverlay;
@@ -1341,7 +1349,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.backgroundView = content;
 
     CGFloat cardWidth = MIN(760, MAX(420, frame.size.width - 160));
-    CGFloat cardHeight = MIN(480, MAX(420, frame.size.height - 140));
+    CGFloat cardHeight = MIN(520, MAX(460, frame.size.height - 120));
     self.focusCard = ERRoundedView(NSMakeRect(0, 0, cardWidth, cardHeight),
                                    [NSColor colorWithWhite:1 alpha:0.18],
                                    28);
@@ -1379,8 +1387,21 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.progressIndicator.doubleValue = 1;
     [self.focusCard addSubview:self.progressIndicator];
 
+    self.actionSuggestionPill = ERRoundedView(NSZeroRect, [NSColor colorWithWhite:1 alpha:0.16], 18);
+    self.actionSuggestionPill.layer.borderWidth = 1;
+    [self.focusCard addSubview:self.actionSuggestionPill];
+
+    self.actionSuggestionIcon = [[NSImageView alloc] initWithFrame:NSZeroRect];
+    self.actionSuggestionIcon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:17 weight:NSFontWeightSemibold];
+    [self.actionSuggestionPill addSubview:self.actionSuggestionIcon];
+
+    self.actionSuggestionLabel = [NSTextField wrappingLabelWithString:@""];
+    self.actionSuggestionLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
+    self.actionSuggestionLabel.maximumNumberOfLines = 2;
+    [self.actionSuggestionPill addSubview:self.actionSuggestionLabel];
+
     self.styleHintLabel = [NSTextField labelWithString:@""];
-    self.styleHintLabel.alignment = NSTextAlignmentCenter;
+    self.styleHintLabel.alignment = NSTextAlignmentRight;
     self.styleHintLabel.font = [NSFont systemFontOfSize:14 weight:NSFontWeightMedium];
     [self.focusCard addSubview:self.styleHintLabel];
 
@@ -1413,6 +1434,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.totalDuration = MAX(1, duration);
     self.currentStyle = settings.restStyle;
     [self applyStyle:settings.restStyle];
+    [self configureActionSuggestionsForKind:kind settings:settings];
 
     if (kind == ERReminderKindStand) {
         self.iconView.image = [NSImage imageWithSystemSymbolName:@"figure.stand" accessibilityDescription:@"Stand"];
@@ -1432,27 +1454,68 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
 }
 
+- (void)configureActionSuggestionsForKind:(ERReminderKind)kind settings:(ERSettings *)settings {
+    if (kind == ERReminderKindStand) {
+        self.actionSuggestions = @[
+            @"先离开椅子，双脚踩稳地面。",
+            @"肩膀向后绕 5 圈，把脖子放松。",
+            @"走到窗边或倒杯水，让身体醒过来。",
+            @"活动脚踝和小腿，给循环一点时间。",
+            @"回来前再深呼吸 4 次。"
+        ];
+        self.actionSuggestionSymbols = @[@"figure.stand", @"arrow.triangle.2.circlepath", @"drop.fill", @"figure.walk", @"wind"];
+    } else if (settings.eyeMode == EREyeModePomodoro) {
+        self.actionSuggestions = @[
+            @"先把手从键盘上拿开，离开屏幕。",
+            @"喝几口水，顺便看向远处。",
+            @"站起来走 20 步，让注意力重启。",
+            @"回来前只想好下一件小事。"
+        ];
+        self.actionSuggestionSymbols = @[@"timer", @"drop.fill", @"figure.walk", @"checkmark.circle"];
+    } else {
+        self.actionSuggestions = @[
+            @"把视线投到 6 米外，不盯屏幕边缘。",
+            @"慢慢眨眼 5 次，让眼球湿润一点。",
+            @"看向窗外或房间最远处，放松焦距。",
+            @"肩膀落下，顺便深呼吸。"
+        ];
+        self.actionSuggestionSymbols = @[@"eye", @"sparkles", @"rectangle.on.rectangle", @"wind"];
+    }
+    self.activeSuggestionIndex = -1;
+    [self updateActionSuggestionForRemaining:self.totalDuration];
+}
+
 - (void)layoutRestContent {
     NSRect bounds = self.backgroundView.bounds;
     CGFloat cardWidth = MIN(760, MAX(420, bounds.size.width - 160));
-    CGFloat cardHeight = MIN(480, MAX(420, bounds.size.height - 140));
+    CGFloat cardHeight = MIN(520, MAX(460, bounds.size.height - 120));
     CGFloat centerX = bounds.size.width / 2.0;
     CGFloat centerY = bounds.size.height / 2.0;
     self.focusCard.frame = NSMakeRect(centerX - cardWidth / 2.0, centerY - cardHeight / 2.0, cardWidth, cardHeight);
 
     CGFloat cardCenterX = cardWidth / 2.0;
-    CGFloat cardCenterY = cardHeight / 2.0;
+    CGFloat buttonY = MAX(14, cardHeight / 2.0 - 218);
+    CGFloat suggestionY = buttonY + 52;
+    CGFloat progressY = suggestionY + 48;
+    CGFloat timerY = progressY + 14;
+    CGFloat messageY = timerY + 92;
+    CGFloat titleY = messageY + 56;
+    CGFloat iconY = titleY + 68;
+    CGFloat pillWidth = MIN(560, cardWidth - 104);
     self.brandLabel.frame = NSMakeRect(28, cardHeight - 48, 160, 22);
-    self.iconView.frame = NSMakeRect(cardCenterX - 48, cardCenterY + 142, 96, 82);
-    self.titleLabel.frame = NSMakeRect(40, cardCenterY + 68, cardWidth - 80, 58);
-    self.messageLabel.frame = NSMakeRect(68, cardCenterY + 12, cardWidth - 136, 48);
-    self.timerLabel.frame = NSMakeRect(cardCenterX - 250, cardCenterY - 100, 500, 92);
-    self.progressIndicator.frame = NSMakeRect(cardCenterX - 230, cardCenterY - 126, 460, 10);
-    self.styleHintLabel.frame = NSMakeRect(60, cardCenterY - 158, cardWidth - 120, 22);
-    self.finishButton.frame = NSMakeRect(cardCenterX - 268, cardCenterY - 198, 96, 40);
-    self.snoozeButton.frame = NSMakeRect(cardCenterX - 150, cardCenterY - 198, 124, 40);
-    self.skipButton.frame = NSMakeRect(cardCenterX - 4, cardCenterY - 198, 108, 40);
-    self.extendButton.frame = NSMakeRect(cardCenterX + 126, cardCenterY - 198, 132, 40);
+    self.styleHintLabel.frame = NSMakeRect(200, cardHeight - 48, cardWidth - 228, 22);
+    self.iconView.frame = NSMakeRect(cardCenterX - 44, iconY, 88, 72);
+    self.titleLabel.frame = NSMakeRect(40, titleY, cardWidth - 80, 58);
+    self.messageLabel.frame = NSMakeRect(68, messageY, cardWidth - 136, 48);
+    self.timerLabel.frame = NSMakeRect(cardCenterX - 250, timerY, 500, 92);
+    self.progressIndicator.frame = NSMakeRect(cardCenterX - 230, progressY, 460, 10);
+    self.actionSuggestionPill.frame = NSMakeRect(cardCenterX - pillWidth / 2.0, suggestionY, pillWidth, 36);
+    self.actionSuggestionIcon.frame = NSMakeRect(16, 8, 20, 20);
+    self.actionSuggestionLabel.frame = NSMakeRect(46, 5, pillWidth - 62, 26);
+    self.finishButton.frame = NSMakeRect(cardCenterX - 268, buttonY, 96, 40);
+    self.snoozeButton.frame = NSMakeRect(cardCenterX - 150, buttonY, 124, 40);
+    self.skipButton.frame = NSMakeRect(cardCenterX - 4, buttonY, 108, 40);
+    self.extendButton.frame = NSMakeRect(cardCenterX + 126, buttonY, 132, 40);
 }
 
 - (void)refitToCurrentScreen {
@@ -1489,6 +1552,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.timerLabel.textColor = theme.foreground;
     self.styleHintLabel.stringValue = ERRestStyleHint(style);
     self.styleHintLabel.textColor = theme.secondary;
+    self.actionSuggestionPill.layer.backgroundColor = [theme.card colorWithAlphaComponent:(style == ERRestStyleNight ? 0.18 : 0.30)].CGColor;
+    self.actionSuggestionPill.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.78].CGColor;
+    self.actionSuggestionPill.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 18;
+    self.actionSuggestionIcon.contentTintColor = theme.accent;
+    self.actionSuggestionLabel.textColor = theme.foreground;
     self.finishButton.contentTintColor = theme.accent;
     self.snoozeButton.contentTintColor = theme.accent;
     self.skipButton.contentTintColor = theme.accent;
@@ -1562,6 +1630,27 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)updateRemaining:(NSTimeInterval)remaining {
     self.timerLabel.stringValue = ERFormatDuration(remaining);
     self.progressIndicator.doubleValue = MAX(0, MIN(1, remaining / MAX(1, self.totalDuration)));
+    [self updateActionSuggestionForRemaining:remaining];
+}
+
+- (void)updateActionSuggestionForRemaining:(NSTimeInterval)remaining {
+    NSInteger count = self.actionSuggestions.count;
+    if (count <= 0) return;
+
+    NSTimeInterval elapsed = MAX(0, self.totalDuration - MAX(0, remaining));
+    CGFloat ratio = MIN(0.999, MAX(0, elapsed / MAX(1, self.totalDuration)));
+    NSInteger index = MIN(count - 1, (NSInteger)floor(ratio * count));
+    if (index == self.activeSuggestionIndex) return;
+
+    self.activeSuggestionIndex = index;
+    NSString *suggestion = self.actionSuggestions[index];
+    self.actionSuggestionLabel.stringValue = [NSString stringWithFormat:@"建议 %ld/%ld · %@",
+                                              (long)index + 1,
+                                              (long)count,
+                                              suggestion];
+
+    NSString *symbolName = index < self.actionSuggestionSymbols.count ? self.actionSuggestionSymbols[index] : @"sparkles";
+    self.actionSuggestionIcon.image = [NSImage imageWithSystemSymbolName:symbolName accessibilityDescription:@"动作建议"];
 }
 
 - (void)finish:(id)sender {
