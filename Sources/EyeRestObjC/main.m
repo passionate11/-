@@ -116,6 +116,25 @@ static NSString *ERFormatMenuBarShortDuration(NSTimeInterval interval) {
         : [NSString stringWithFormat:@"%ldh", (long)hours];
 }
 
+static NSString *ERFormatClockTime(NSDate *date) {
+    if (!date) return @"--:--";
+    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+    formatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+    formatter.dateFormat = @"HH:mm:ss";
+    return [formatter stringFromDate:date];
+}
+
+static NSString *ERSystemEventTitle(NSString *name) {
+    if ([name isEqualToString:NSWorkspaceDidWakeNotification]) return @"唤醒";
+    if ([name isEqualToString:NSWorkspaceWillSleepNotification]) return @"睡眠";
+    if ([name isEqualToString:NSWorkspaceScreensDidWakeNotification]) return @"屏幕唤醒";
+    if ([name isEqualToString:NSWorkspaceScreensDidSleepNotification]) return @"屏幕睡眠";
+    if ([name isEqualToString:NSWorkspaceSessionDidBecomeActiveNotification]) return @"解锁";
+    if ([name isEqualToString:NSWorkspaceSessionDidResignActiveNotification]) return @"锁屏";
+    if ([name isEqualToString:NSApplicationDidChangeScreenParametersNotification]) return @"屏幕变化";
+    return @"系统事件";
+}
+
 static NSString *EREyeModeTitle(EREyeMode mode) {
     switch (mode) {
         case EREyeMode202020: return @"20-20-20";
@@ -891,6 +910,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) BOOL autoPauseSessionActive;
 @property(nonatomic, strong) NSDate *lastStandCompletedAt;
 @property(nonatomic, copy) NSString *lastStandCompletionText;
+@property(nonatomic, strong) NSDate *lastSystemEventAt;
+@property(nonatomic, copy) NSString *lastSystemEventTitle;
+@property(nonatomic, copy) NSString *lastRecoveryDetail;
 @property(nonatomic, strong) ERRestWindowController *restWindowController;
 @property(nonatomic, strong) ERSettingsWindowController *settingsWindowController;
 - (void)finishRestForKind:(ERReminderKind)kind;
@@ -901,10 +923,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)settingsDidChangeShouldReset:(BOOL)shouldReset;
 - (void)settleExpiredRests;
 - (void)repairRestOverlayAfterDisplayChange;
+- (void)repairRestOverlayAfterSystemEvent:(NSNotification *)notification;
 - (void)frontmostApplicationDidChange:(NSNotification *)notification;
 - (void)activeSpaceDidChange:(NSNotification *)notification;
 - (void)repairRestStateIfNeeded;
-- (void)closeOrphanRestWindows;
+- (NSInteger)closeOrphanRestWindows;
+- (void)noteRecoveryEventTitle:(NSString *)title detail:(NSString *)detail;
+- (NSString *)recoveryDiagnosticText;
 - (NSTimeInterval)configuredRestDurationForKind:(ERReminderKind)kind;
 - (NSDate *)restEndDateForKind:(ERReminderKind)kind;
 - (void)ensureRestWindowForKind:(ERReminderKind)kind remaining:(NSTimeInterval)remaining;
@@ -2846,10 +2871,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)workspaceDidWake:(NSNotification *)notification {
     [self refreshFocusModeState];
-    [self repairRestOverlayAfterDisplayChange];
+    [self repairRestOverlayAfterSystemEvent:notification];
 }
 
 - (void)workspaceWillSuspend:(NSNotification *)notification {
+    [self noteRecoveryEventTitle:ERSystemEventTitle(notification.name) detail:@"已隐藏休息窗口，等待恢复检查"];
     if (self.restWindowController) {
         [self.restWindowController.window orderOut:nil];
     }
@@ -2857,7 +2883,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)screenParametersChanged:(NSNotification *)notification {
-    [self repairRestOverlayAfterDisplayChange];
+    [self repairRestOverlayAfterSystemEvent:notification];
 }
 
 - (void)calendarStoreChanged:(NSNotification *)notification {
@@ -2879,8 +2905,37 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)repairRestOverlayAfterDisplayChange {
+    [self repairRestOverlayAfterSystemEvent:nil];
+}
+
+- (void)repairRestOverlayAfterSystemEvent:(NSNotification *)notification {
+    NSString *eventTitle = notification ? ERSystemEventTitle(notification.name) : @"显示恢复";
+    NSDate *now = NSDate.date;
+    NSMutableArray<NSString *> *details = [NSMutableArray array];
+    if (self.eyeResting && self.eyeRestEndsAt && [self.eyeRestEndsAt timeIntervalSinceDate:now] <= 0) {
+        [details addObject:@"结算眼睛休息"];
+    }
+    if (self.standResting && self.standRestEndsAt && [self.standRestEndsAt timeIntervalSinceDate:now] <= 0) {
+        [details addObject:@"结算站立休息"];
+    }
+
     [self settleExpiredRests];
     [self repairRestStateIfNeeded];
+    NSInteger orphaned = [self closeOrphanRestWindows];
+    if (orphaned > 0) {
+        [details addObject:[NSString stringWithFormat:@"关闭残留窗口 %ld 个", (long)orphaned]];
+    }
+    if (self.paused) {
+        [details addObject:@"暂停中，不显示休息页"];
+    } else if ([self isLightDistractionModeActive]) {
+        [details addObject:@"轻打扰中，不显示休息页"];
+    } else if (self.restWindowController) {
+        [details addObject:@"休息页已恢复"];
+    } else if (details.count == 0) {
+        [details addObject:@"状态正常"];
+    }
+    [self noteRecoveryEventTitle:eventTitle detail:[details componentsJoinedByString:@"，"]];
+
     if (!self.restWindowController) {
         [self publishState];
         return;
@@ -2890,6 +2945,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self repairRestStateIfNeeded];
         if (!self.restWindowController) return;
         [self.restWindowController presentOverlay];
+        [self noteRecoveryEventTitle:eventTitle detail:@"休息页已置前"];
         [self publishState];
     });
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
@@ -2897,6 +2953,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self repairRestStateIfNeeded];
         if (!self.restWindowController) return;
         [self.restWindowController presentOverlay];
+        [self noteRecoveryEventTitle:eventTitle detail:@"休息页二次校准完成"];
         [self publishState];
     });
 }
@@ -2931,6 +2988,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     todayStats.tag = 106;
     todayStats.enabled = NO;
     [self.menu addItem:todayStats];
+
+    NSMenuItem *recoveryStatus = [[NSMenuItem alloc] initWithTitle:@"" action:nil keyEquivalent:@""];
+    recoveryStatus.tag = 108;
+    recoveryStatus.enabled = NO;
+    [self.menu addItem:recoveryStatus];
 
     [self.menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *settings = [[NSMenuItem alloc] initWithTitle:@"打开设置..." action:@selector(openSettings:) keyEquivalent:@","];
@@ -3090,7 +3152,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)repairRestStateIfNeeded {
-    if (self.paused) return;
+    if (self.paused) {
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
+        [self closeOrphanRestWindows];
+        return;
+    }
 
     [self closeOrphanRestWindows];
 
@@ -3184,14 +3253,33 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self closeOrphanRestWindows];
 }
 
-- (void)closeOrphanRestWindows {
+- (NSInteger)closeOrphanRestWindows {
     NSWindow *activeWindow = self.restWindowController.window;
+    NSInteger closed = 0;
     for (NSWindow *window in [NSApp.windows copy]) {
         if (window == activeWindow) continue;
         if ([window.identifier isEqualToString:ERRestOverlayWindowIdentifier]) {
             [window close];
+            closed += 1;
         }
     }
+    return closed;
+}
+
+- (void)noteRecoveryEventTitle:(NSString *)title detail:(NSString *)detail {
+    self.lastSystemEventAt = NSDate.date;
+    self.lastSystemEventTitle = title.length > 0 ? title : @"系统事件";
+    self.lastRecoveryDetail = detail.length > 0 ? detail : @"状态正常";
+}
+
+- (NSString *)recoveryDiagnosticText {
+    if (!self.lastSystemEventAt) {
+        return @"最近恢复：暂无记录";
+    }
+    return [NSString stringWithFormat:@"最近恢复：%@ %@ · %@",
+            ERFormatClockTime(self.lastSystemEventAt),
+            self.lastSystemEventTitle ?: @"系统事件",
+            self.lastRecoveryDetail ?: @"状态正常"];
 }
 
 - (void)evaluateReminderKind:(ERReminderKind)kind {
@@ -3465,6 +3553,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                         (long)self.todayStandDone,
                         (long)self.todaySnoozed,
                         (long)self.todaySkipped];
+
+    NSMenuItem *recoveryStatus = [self.menu itemWithTag:108];
+    recoveryStatus.title = [self recoveryDiagnosticText];
 
     NSMenuItem *pause = [self.menu itemWithTag:103];
     pause.title = self.paused ? @"继续" : @"暂停";
