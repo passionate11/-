@@ -588,6 +588,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) BOOL eyeResting;
 @property(nonatomic) BOOL standResting;
 @property(nonatomic) BOOL paused;
+@property(nonatomic) BOOL focusModeEnabled;
 @property(nonatomic) NSInteger todayEyeDone;
 @property(nonatomic) NSInteger todayStandDone;
 @property(nonatomic) NSInteger todayStandSeconds;
@@ -2096,6 +2097,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     pause.tag = 103;
     [self.menu addItem:pause];
 
+    NSMenuItem *focusMode = [[NSMenuItem alloc] initWithTitle:@"工作模式：轻打扰" action:@selector(toggleFocusMode:) keyEquivalent:@"f"];
+    focusMode.target = self;
+    focusMode.tag = 107;
+    [self.menu addItem:focusMode];
+
     NSMenu *pauseMenu = [[NSMenu alloc] initWithTitle:@"暂停提醒"];
     NSArray<NSArray *> *pauseItems = @[
         @[@"暂停 30 分钟", @(30 * 60), @"pauseFor:"],
@@ -2218,7 +2224,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)ensureRestWindowForKind:(ERReminderKind)kind remaining:(NSTimeInterval)remaining {
-    if (!self.settings.showRestWindow || remaining <= 0) return;
+    if (!self.settings.showRestWindow || self.focusModeEnabled || remaining <= 0) return;
     [self.settingsWindowController close];
     [self.restWindowController close];
     self.restWindowController = [[ERRestWindowController alloc] initWithAppDelegate:self];
@@ -2234,6 +2240,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     [self closeOrphanRestWindows];
     [self settleExpiredRests];
+
+    if (self.focusModeEnabled && self.restWindowController) {
+        [self.restWindowController close];
+        self.restWindowController = nil;
+    }
 
     if (self.eyeResting && !self.settings.eyeEnabled) {
         self.eyeResting = NO;
@@ -2290,7 +2301,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         return;
     }
 
-    if (!self.settings.showRestWindow) {
+    if (!self.settings.showRestWindow || self.focusModeEnabled) {
         if (self.restWindowController) {
             [self.restWindowController close];
             self.restWindowController = nil;
@@ -2350,7 +2361,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
 
     [self showNotificationForKind:kind duration:duration];
-    if (self.settings.showRestWindow) {
+    if (self.settings.showRestWindow && !self.focusModeEnabled) {
         [self.settingsWindowController close];
         [self.restWindowController close];
         self.restWindowController = nil;
@@ -2473,6 +2484,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     if (self.paused) {
         title = self.settings.menuBarMode == ERMenuBarModeCompact ? @"" : @" 暂停";
+    } else if (self.focusModeEnabled && self.settings.menuBarMode == ERMenuBarModeCompact) {
+        title = @"";
     } else {
         switch (self.settings.menuBarMode) {
             case ERMenuBarModeBoth:
@@ -2512,6 +2525,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             }
         }
     }
+    if (self.focusModeEnabled && title.length > 0) {
+        title = [NSString stringWithFormat:@" 工作%@", title];
+    }
     self.statusItem.button.title = title;
 }
 
@@ -2521,8 +2537,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
         formatter.dateFormat = @"HH:mm";
         status.title = [NSString stringWithFormat:@"暂停到 %@", [formatter stringFromDate:self.pausedUntil]];
+    } else if (self.paused) {
+        status.title = @"已暂停";
     } else {
-        status.title = self.paused ? @"已暂停" : @"节奏运行中";
+        status.title = self.focusModeEnabled ? @"工作模式：轻打扰" : @"节奏运行中";
     }
 
     NSMenuItem *eyeStatus = [self.menu itemWithTag:101];
@@ -2544,6 +2562,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     NSMenuItem *pause = [self.menu itemWithTag:103];
     pause.title = self.paused ? @"继续" : @"暂停";
+
+    NSMenuItem *focusMode = [self.menu itemWithTag:107];
+    focusMode.state = self.focusModeEnabled ? NSControlStateValueOn : NSControlStateValueOff;
 
     NSMenuItem *notifications = [self.menu itemWithTag:104];
     notifications.state = self.settings.notificationsEnabled ? NSControlStateValueOn : NSControlStateValueOff;
@@ -2586,6 +2607,18 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     } else {
         self.pauseStartedAt = NSDate.date;
         self.paused = YES;
+    }
+    [self publishState];
+}
+
+- (void)toggleFocusMode:(id)sender {
+    self.focusModeEnabled = !self.focusModeEnabled;
+    if (self.focusModeEnabled && self.restWindowController) {
+        [self.restWindowController close];
+        self.restWindowController = nil;
+    }
+    if (!self.focusModeEnabled) {
+        [self repairRestStateIfNeeded];
     }
     [self publishState];
 }
