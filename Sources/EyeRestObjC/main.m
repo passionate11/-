@@ -56,6 +56,7 @@ static NSString *const ERSettingsStandIntervalSecondsKey = @"standIntervalSecond
 static NSString *const ERSettingsStandDurationSecondsKey = @"standDurationSeconds";
 static NSString *const ERSettingsStandRoutineKey = @"standRoutine";
 static NSString *const ERSettingsStandIntensityKey = @"standIntensity";
+static NSString *const ERSettingsStandCustomStagesKey = @"standCustomStages";
 static NSString *const ERSettingsShowRestWindowKey = @"showRestWindow";
 static NSString *const ERSettingsNotificationsKey = @"notificationsEnabled";
 static NSString *const ERSettingsRestStyleKey = @"restStyle";
@@ -295,6 +296,70 @@ static NSArray<NSString *> *ERDefaultCalendarAutoPauseTokens(void) {
         @"录制", @"直播", @"演讲", @"演示", @"presentation", @"面试",
         @"interview", @"讲座", @"webinar", @"路演", @"workshop"
     ];
+}
+
+static NSString *ERTrimmedString(NSString *text) {
+    return [(text ?: @"") stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+}
+
+static NSString *ERSanitizedStandCustomStagesTextFromObject(id object) {
+    NSMutableArray<NSString *> *rawLines = [NSMutableArray array];
+    if ([object isKindOfClass:NSString.class]) {
+        [rawLines addObjectsFromArray:[(NSString *)object componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]];
+    } else if ([object isKindOfClass:NSArray.class]) {
+        for (id item in (NSArray *)object) {
+            if ([item isKindOfClass:NSString.class]) {
+                [rawLines addObject:(NSString *)item];
+            }
+        }
+    }
+
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    for (NSString *rawLine in rawLines) {
+        NSString *line = ERTrimmedString(rawLine);
+        if (line.length == 0) continue;
+        if (line.length > 120) {
+            line = [line substringToIndex:120];
+        }
+        [lines addObject:line];
+        if (lines.count >= 8) break;
+    }
+    return [lines componentsJoinedByString:@"\n"];
+}
+
+static NSArray<NSDictionary<NSString *, NSString *> *> *ERStandCustomStageEntriesFromText(NSString *text) {
+    NSString *sanitized = ERSanitizedStandCustomStagesTextFromObject(text);
+    if (sanitized.length == 0) return @[];
+
+    NSMutableArray<NSDictionary<NSString *, NSString *> *> *entries = [NSMutableArray array];
+    NSCharacterSet *separatorSet = [NSCharacterSet characterSetWithCharactersInString:@":："];
+    NSArray<NSString *> *lines = [sanitized componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet];
+    for (NSString *line in lines) {
+        NSString *title = @"";
+        NSString *suggestion = ERTrimmedString(line);
+        NSRange separatorRange = [line rangeOfCharacterFromSet:separatorSet];
+        if (separatorRange.location != NSNotFound) {
+            title = ERTrimmedString([line substringToIndex:separatorRange.location]);
+            suggestion = ERTrimmedString([line substringFromIndex:NSMaxRange(separatorRange)]);
+        }
+        if (title.length == 0) {
+            title = [NSString stringWithFormat:@"阶段 %ld", (long)entries.count + 1];
+        }
+        if (suggestion.length == 0) {
+            suggestion = title;
+        }
+        [entries addObject:@{@"title": title, @"suggestion": suggestion}];
+    }
+    return entries;
+}
+
+static NSString *ERStandStageMessageWithIntensity(NSString *suggestion, ERStandIntensity intensity) {
+    NSString *trimmed = ERTrimmedString(suggestion);
+    if (trimmed.length == 0) return ERStandIntensitySuffix(intensity);
+    NSCharacterSet *terminalSet = [NSCharacterSet characterSetWithCharactersInString:@"。.!！？?"];
+    unichar lastCharacter = [trimmed characterAtIndex:trimmed.length - 1];
+    NSString *separator = [terminalSet characterIsMember:lastCharacter] ? @"" : @"。";
+    return [NSString stringWithFormat:@"%@%@%@", trimmed, separator, ERStandIntensitySuffix(intensity)];
 }
 
 static NSArray<NSString *> *ERSanitizedFocusAppTokensFromObject(id object) {
@@ -635,6 +700,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSInteger standDurationSeconds;
 @property(nonatomic) ERStandRoutine standRoutine;
 @property(nonatomic) ERStandIntensity standIntensity;
+@property(nonatomic, copy) NSString *standCustomStagesText;
 @property(nonatomic) BOOL showRestWindow;
 @property(nonatomic) BOOL notificationsEnabled;
 @property(nonatomic) ERRestStyle restStyle;
@@ -668,6 +734,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ERSettingsStandDurationSecondsKey: @(20 * 60),
         ERSettingsStandRoutineKey: @(ERStandRoutineBalanced),
         ERSettingsStandIntensityKey: @(ERStandIntensityStandard),
+        ERSettingsStandCustomStagesKey: @"",
         ERSettingsShowRestWindowKey: @YES,
         ERSettingsNotificationsKey: @YES,
         ERSettingsRestStyleKey: @(ERRestStyleBreath),
@@ -693,6 +760,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     settings.standDurationSeconds = [defaults integerForKey:ERSettingsStandDurationSecondsKey];
     settings.standRoutine = [defaults integerForKey:ERSettingsStandRoutineKey];
     settings.standIntensity = [defaults integerForKey:ERSettingsStandIntensityKey];
+    settings.standCustomStagesText = ERSanitizedStandCustomStagesTextFromObject([defaults objectForKey:ERSettingsStandCustomStagesKey]);
     settings.showRestWindow = [defaults boolForKey:ERSettingsShowRestWindowKey];
     settings.notificationsEnabled = [defaults boolForKey:ERSettingsNotificationsKey];
     settings.restStyle = [defaults integerForKey:ERSettingsRestStyleKey];
@@ -762,6 +830,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [defaults setInteger:self.standDurationSeconds forKey:ERSettingsStandDurationSecondsKey];
     [defaults setInteger:self.standRoutine forKey:ERSettingsStandRoutineKey];
     [defaults setInteger:self.standIntensity forKey:ERSettingsStandIntensityKey];
+    [defaults setObject:ERSanitizedStandCustomStagesTextFromObject(self.standCustomStagesText) forKey:ERSettingsStandCustomStagesKey];
     [defaults setBool:self.showRestWindow forKey:ERSettingsShowRestWindowKey];
     [defaults setBool:self.notificationsEnabled forKey:ERSettingsNotificationsKey];
     [defaults setInteger:self.restStyle forKey:ERSettingsRestStyleKey];
@@ -898,6 +967,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *standRoutineHintLabel;
 @property(nonatomic, strong) NSPopUpButton *standIntensityPopup;
 @property(nonatomic, strong) NSTextField *standIntensityHintLabel;
+@property(nonatomic, strong) NSButton *standCustomStagesButton;
+@property(nonatomic, strong) NSTextField *standCustomStagesSummaryLabel;
 @property(nonatomic, strong) NSButton *notificationSwitch;
 @property(nonatomic, strong) NSButton *restWindowSwitch;
 @property(nonatomic, strong) NSButton *launchAtLoginSwitch;
@@ -1268,6 +1339,17 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.standEnabledSwitch = [NSButton checkboxWithTitle:@"启用站立提醒" target:self action:@selector(toggleOnly:)];
     self.standEnabledSwitch.frame = NSMakeRect(24, 175, 160, 24);
     [card addSubview:self.standEnabledSwitch];
+
+    self.standCustomStagesSummaryLabel = [NSTextField labelWithString:@""];
+    self.standCustomStagesSummaryLabel.frame = NSMakeRect(210, 176, 132, 22);
+    self.standCustomStagesSummaryLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    self.standCustomStagesSummaryLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:self.standCustomStagesSummaryLabel];
+
+    self.standCustomStagesButton = [NSButton buttonWithTitle:@"编辑阶段..." target:self action:@selector(editStandCustomStages:)];
+    self.standCustomStagesButton.frame = NSMakeRect(360, 170, 132, 30);
+    self.standCustomStagesButton.bezelStyle = NSBezelStyleRounded;
+    [card addSubview:self.standCustomStagesButton];
 
     [card addSubview:[self fieldLabel:@"每隔：" frame:NSMakeRect(24, 133, 96, 22)]];
     self.standIntervalInput = [self addTimeFieldsToView:card x:140 y:129];
@@ -1680,6 +1762,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.standRoutineHintLabel.stringValue = ERStandRoutineSummary(self.settings.standRoutine);
     [self.standIntensityPopup selectItemAtIndex:self.settings.standIntensity];
     self.standIntensityHintLabel.stringValue = ERStandIntensityHint(self.settings.standIntensity);
+    NSInteger customStageCount = ERStandCustomStageEntriesFromText(self.settings.standCustomStagesText).count;
+    self.standCustomStagesSummaryLabel.stringValue = customStageCount > 0
+        ? [NSString stringWithFormat:@"自定义 %ld 个阶段", (long)customStageCount]
+        : @"使用内置动作";
     self.notificationSwitch.state = self.settings.notificationsEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     self.restWindowSwitch.state = self.settings.showRestWindow ? NSControlStateValueOn : NSControlStateValueOff;
     self.launchAtLoginSwitch.state = self.settings.launchAtLogin ? NSControlStateValueOn : NSControlStateValueOff;
@@ -1965,6 +2051,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"standDurationSeconds": @(self.settings.standDurationSeconds),
             @"standRoutine": ERStandRoutineTitle(self.settings.standRoutine),
             @"standIntensity": ERStandIntensityTitle(self.settings.standIntensity),
+            @"standCustomStages": ERSanitizedStandCustomStagesTextFromObject(self.settings.standCustomStagesText),
             @"showRestWindow": @(self.settings.showRestWindow),
             @"notificationsEnabled": @(self.settings.notificationsEnabled),
             @"restStyle": ERRestStyleTitle(self.settings.restStyle),
@@ -2025,6 +2112,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.focusAppHintLabel.textColor = theme.secondary;
     self.standRoutineHintLabel.textColor = theme.secondary;
     self.standIntensityHintLabel.textColor = theme.secondary;
+    self.standCustomStagesSummaryLabel.textColor = theme.secondary;
+    self.standCustomStagesButton.contentTintColor = theme.accent;
     self.statsOverviewLabel.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
     self.statsMonthLabel.textColor = theme.secondary;
     self.statsStrategyLabel.textColor = theme.secondary;
@@ -2196,6 +2285,39 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self applySettings:sender];
 }
 
+- (void)editStandCustomStages:(id)sender {
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = @"自定义站立阶段";
+    alert.informativeText = @"每行一个阶段，格式：阶段名：动作说明。留空就使用内置动作组合。";
+    [alert addButtonWithTitle:@"保存"];
+    [alert addButtonWithTitle:@"清空"];
+    [alert addButtonWithTitle:@"取消"];
+
+    NSScrollView *scrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 460, 150)];
+    scrollView.hasVerticalScroller = YES;
+    scrollView.borderType = NSBezelBorder;
+    NSTextView *textView = [[NSTextView alloc] initWithFrame:NSMakeRect(0, 0, 460, 150)];
+    textView.font = [NSFont systemFontOfSize:13];
+    textView.string = self.settings.standCustomStagesText.length > 0
+        ? self.settings.standCustomStagesText
+        : @"起身：双脚踩稳，离开椅背。\n肩颈：肩膀向后绕 5 圈。\n走动：走到窗边或房间另一侧。\n收尾：深呼吸 4 次，再回到桌前。";
+    scrollView.documentView = textView;
+    alert.accessoryView = scrollView;
+
+    [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse response) {
+        if (response == NSAlertFirstButtonReturn) {
+            self.settings.standCustomStagesText = ERSanitizedStandCustomStagesTextFromObject(textView.string);
+        } else if (response == NSAlertSecondButtonReturn) {
+            self.settings.standCustomStagesText = @"";
+        } else {
+            return;
+        }
+        [self.settings save];
+        [self refreshControls];
+        [self.appDelegate settingsDidChangeShouldReset:NO];
+    }];
+}
+
 - (void)eyeModeChanged:(id)sender {
     [self collectFieldsIntoSettings];
     [self.settings applyEyePreset:self.eyeModePopup.indexOfSelectedItem];
@@ -2217,6 +2339,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.standDurationSeconds = 20 * 60;
     self.settings.standRoutine = ERStandRoutineBalanced;
     self.settings.standIntensity = ERStandIntensityStandard;
+    self.settings.standCustomStagesText = @"";
     self.settings.notificationsEnabled = YES;
     self.settings.showRestWindow = YES;
     self.settings.launchAtLogin = NO;
@@ -2366,10 +2489,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     if (kind == ERReminderKindStand) {
         self.iconView.image = [NSImage imageWithSystemSymbolName:@"figure.stand" accessibilityDescription:@"Stand"];
+        BOOL hasCustomStages = ERStandCustomStageEntriesFromText(settings.standCustomStagesText).count > 0;
         self.titleLabel.stringValue = [NSString stringWithFormat:@"站立 · %@ · %@",
-                                       ERStandRoutineTitle(settings.standRoutine),
+                                       hasCustomStages ? @"自定义阶段" : ERStandRoutineTitle(settings.standRoutine),
                                        ERStandIntensityTitle(settings.standIntensity)];
-        self.messageLabel.stringValue = [NSString stringWithFormat:@"%@ %@", ERStandRoutineSummary(settings.standRoutine), ERStandIntensitySuffix(settings.standIntensity)];
+        self.messageLabel.stringValue = hasCustomStages
+            ? [NSString stringWithFormat:@"跟着你自己设置的阶段活动。%@", ERStandIntensitySuffix(settings.standIntensity)]
+            : [NSString stringWithFormat:@"%@ %@", ERStandRoutineSummary(settings.standRoutine), ERStandIntensitySuffix(settings.standIntensity)];
     } else if (settings.eyeMode == EREyeModePomodoro) {
         self.iconView.image = [NSImage imageWithSystemSymbolName:@"timer" accessibilityDescription:@"Pomodoro"];
         self.titleLabel.stringValue = @"番茄休息";
@@ -2384,80 +2510,102 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)configureActionSuggestionsForKind:(ERReminderKind)kind settings:(ERSettings *)settings {
     if (kind == ERReminderKindStand) {
-        switch (settings.standRoutine) {
-            case ERStandRoutineNeckShoulder:
-                self.actionStageTitles = @[@"抬胸", @"肩绕", @"颈侧", @"胸背", @"收尾"];
-                self.actionStageMessages = @[
-                    @"先站高一点，让胸口离开桌面姿势。",
-                    @"肩膀慢慢向后绕圈，动作小一点也可以。",
-                    @"头轻轻侧向一边，别压迫颈部。",
-                    @"双手向后打开，让上背从含胸里出来。",
-                    @"放松下巴和肩膀，再慢慢回到桌前。"
-                ];
-                self.actionSuggestions = @[
-                    @"双脚踩稳，胸口向上，肩膀自然落下。",
-                    @"肩膀向后绕 8 圈，再向前绕 5 圈。",
-                    @"左右侧颈各停 2 次，只做到舒服的位置。",
-                    @"双手在身后轻轻打开，深呼吸 4 次。",
-                    @"下巴微收，肩膀放低，确认脖子轻一点。"
-                ];
-                self.actionSuggestionSymbols = @[@"figure.stand", @"arrow.triangle.2.circlepath", @"person.crop.circle", @"figure.strengthtraining.traditional", @"checkmark.circle"];
-                break;
-            case ERStandRoutineWalk:
-                self.actionStageTitles = @[@"起身", @"走动", @"腿部", @"脚踝", @"回桌"];
-                self.actionStageMessages = @[
-                    @"从椅子上离开，别急着回到屏幕前。",
-                    @"走到房间另一侧，让腰背和腿真的动起来。",
-                    @"活动大腿和小腿，打断久坐的僵硬。",
-                    @"脚踝转一转，顺便让小腿放松。",
-                    @"回到桌前前，先把下一件事想清楚。"
-                ];
-                self.actionSuggestions = @[
-                    @"站起来，离开桌边至少几步。",
-                    @"走 20 到 40 步，经过窗边就看一眼远处。",
-                    @"轻轻提踵 10 次，膝盖保持放松。",
-                    @"左右脚踝各绕 8 圈，脚尖点地也行。",
-                    @"慢慢走回桌前，只带回下一件小事。"
-                ];
-                self.actionSuggestionSymbols = @[@"figure.stand", @"figure.walk", @"figure.walk.motion", @"figure.cooldown", @"checkmark.circle"];
-                break;
-            case ERStandRoutineReset:
-                self.actionStageTitles = @[@"站稳", @"呼吸", @"远眺", @"补水", @"收尾"];
-                self.actionStageMessages = @[
-                    @"这次不用强度，先让身体从座位里出来。",
-                    @"把呼吸放慢，肩膀跟着落下来。",
-                    @"看向远处，把注意力从屏幕里拿出来。",
-                    @"喝几口水，给自己一个轻量重启。",
-                    @"确认身体和注意力都松一点，再继续。"
-                ];
-                self.actionSuggestions = @[
-                    @"双脚踩稳，手离开键盘，停 3 秒。",
-                    @"吸气 4 拍，呼气 6 拍，重复 4 次。",
-                    @"看向 6 米外或窗外，不急着聚焦。",
-                    @"喝水，顺便放松手腕和下巴。",
-                    @"给下一段工作定一个很小的起点。"
-                ];
-                self.actionSuggestionSymbols = @[@"figure.stand", @"wind", @"eye", @"drop.fill", @"checkmark.circle"];
-                break;
-            case ERStandRoutineBalanced:
-            default:
-                self.actionStageTitles = @[@"起身", @"肩颈", @"走动", @"补水", @"收尾"];
-                self.actionStageMessages = @[
-                    @"先站稳，离开椅背，膝盖微松。",
-                    @"肩膀向后绕圈，脖子慢慢转动。",
-                    @"离开桌边走一小圈，让腰背换个姿势。",
-                    @"喝几口水，活动脚踝和小腿。",
-                    @"深呼吸，确认身体轻一点再回来。"
-                ];
-                self.actionSuggestions = @[
-                    @"双脚踩稳地面，离开椅背。",
-                    @"肩膀向后绕 5 圈，左右转头各 3 次。",
-                    @"走到窗边或房间另一侧，再走回来。",
-                    @"喝水，顺便活动脚踝和小腿。",
-                    @"深呼吸 4 次，慢慢回到桌前。"
-                ];
-                self.actionSuggestionSymbols = @[@"figure.stand", @"arrow.triangle.2.circlepath", @"figure.walk", @"drop.fill", @"wind"];
-                break;
+        NSArray<NSDictionary<NSString *, NSString *> *> *customStages = ERStandCustomStageEntriesFromText(settings.standCustomStagesText);
+        if (customStages.count > 0) {
+            NSMutableArray<NSString *> *titles = [NSMutableArray arrayWithCapacity:customStages.count];
+            NSMutableArray<NSString *> *messages = [NSMutableArray arrayWithCapacity:customStages.count];
+            NSMutableArray<NSString *> *suggestions = [NSMutableArray arrayWithCapacity:customStages.count];
+            NSMutableArray<NSString *> *symbols = [NSMutableArray arrayWithCapacity:customStages.count];
+            NSArray<NSString *> *symbolCycle = @[@"figure.stand", @"arrow.triangle.2.circlepath", @"figure.walk", @"wind", @"checkmark.circle"];
+            for (NSInteger index = 0; index < customStages.count; index++) {
+                NSDictionary<NSString *, NSString *> *entry = customStages[index];
+                NSString *title = entry[@"title"] ?: [NSString stringWithFormat:@"阶段 %ld", (long)index + 1];
+                NSString *suggestion = entry[@"suggestion"] ?: title;
+                [titles addObject:title];
+                [messages addObject:ERStandStageMessageWithIntensity(suggestion, settings.standIntensity)];
+                [suggestions addObject:suggestion];
+                [symbols addObject:symbolCycle[index % symbolCycle.count]];
+            }
+            self.actionStageTitles = titles;
+            self.actionStageMessages = messages;
+            self.actionSuggestions = suggestions;
+            self.actionSuggestionSymbols = symbols;
+        } else {
+            switch (settings.standRoutine) {
+                case ERStandRoutineNeckShoulder:
+                    self.actionStageTitles = @[@"抬胸", @"肩绕", @"颈侧", @"胸背", @"收尾"];
+                    self.actionStageMessages = @[
+                        @"先站高一点，让胸口离开桌面姿势。",
+                        @"肩膀慢慢向后绕圈，动作小一点也可以。",
+                        @"头轻轻侧向一边，别压迫颈部。",
+                        @"双手向后打开，让上背从含胸里出来。",
+                        @"放松下巴和肩膀，再慢慢回到桌前。"
+                    ];
+                    self.actionSuggestions = @[
+                        @"双脚踩稳，胸口向上，肩膀自然落下。",
+                        @"肩膀向后绕 8 圈，再向前绕 5 圈。",
+                        @"左右侧颈各停 2 次，只做到舒服的位置。",
+                        @"双手在身后轻轻打开，深呼吸 4 次。",
+                        @"下巴微收，肩膀放低，确认脖子轻一点。"
+                    ];
+                    self.actionSuggestionSymbols = @[@"figure.stand", @"arrow.triangle.2.circlepath", @"person.crop.circle", @"figure.strengthtraining.traditional", @"checkmark.circle"];
+                    break;
+                case ERStandRoutineWalk:
+                    self.actionStageTitles = @[@"起身", @"走动", @"腿部", @"脚踝", @"回桌"];
+                    self.actionStageMessages = @[
+                        @"从椅子上离开，别急着回到屏幕前。",
+                        @"走到房间另一侧，让腰背和腿真的动起来。",
+                        @"活动大腿和小腿，打断久坐的僵硬。",
+                        @"脚踝转一转，顺便让小腿放松。",
+                        @"回到桌前前，先把下一件事想清楚。"
+                    ];
+                    self.actionSuggestions = @[
+                        @"站起来，离开桌边至少几步。",
+                        @"走 20 到 40 步，经过窗边就看一眼远处。",
+                        @"轻轻提踵 10 次，膝盖保持放松。",
+                        @"左右脚踝各绕 8 圈，脚尖点地也行。",
+                        @"慢慢走回桌前，只带回下一件小事。"
+                    ];
+                    self.actionSuggestionSymbols = @[@"figure.stand", @"figure.walk", @"figure.walk.motion", @"figure.cooldown", @"checkmark.circle"];
+                    break;
+                case ERStandRoutineReset:
+                    self.actionStageTitles = @[@"站稳", @"呼吸", @"远眺", @"补水", @"收尾"];
+                    self.actionStageMessages = @[
+                        @"这次不用强度，先让身体从座位里出来。",
+                        @"把呼吸放慢，肩膀跟着落下来。",
+                        @"看向远处，把注意力从屏幕里拿出来。",
+                        @"喝几口水，给自己一个轻量重启。",
+                        @"确认身体和注意力都松一点，再继续。"
+                    ];
+                    self.actionSuggestions = @[
+                        @"双脚踩稳，手离开键盘，停 3 秒。",
+                        @"吸气 4 拍，呼气 6 拍，重复 4 次。",
+                        @"看向 6 米外或窗外，不急着聚焦。",
+                        @"喝水，顺便放松手腕和下巴。",
+                        @"给下一段工作定一个很小的起点。"
+                    ];
+                    self.actionSuggestionSymbols = @[@"figure.stand", @"wind", @"eye", @"drop.fill", @"checkmark.circle"];
+                    break;
+                case ERStandRoutineBalanced:
+                default:
+                    self.actionStageTitles = @[@"起身", @"肩颈", @"走动", @"补水", @"收尾"];
+                    self.actionStageMessages = @[
+                        @"先站稳，离开椅背，膝盖微松。",
+                        @"肩膀向后绕圈，脖子慢慢转动。",
+                        @"离开桌边走一小圈，让腰背换个姿势。",
+                        @"喝几口水，活动脚踝和小腿。",
+                        @"深呼吸，确认身体轻一点再回来。"
+                    ];
+                    self.actionSuggestions = @[
+                        @"双脚踩稳地面，离开椅背。",
+                        @"肩膀向后绕 5 圈，左右转头各 3 次。",
+                        @"走到窗边或房间另一侧，再走回来。",
+                        @"喝水，顺便活动脚踝和小腿。",
+                        @"深呼吸 4 次，慢慢回到桌前。"
+                    ];
+                    self.actionSuggestionSymbols = @[@"figure.stand", @"arrow.triangle.2.circlepath", @"figure.walk", @"drop.fill", @"wind"];
+                    break;
+            }
         }
         NSMutableArray<NSString *> *adjustedSuggestions = [NSMutableArray arrayWithCapacity:self.actionSuggestions.count];
         for (NSString *suggestion in self.actionSuggestions) {
@@ -3477,11 +3625,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         self.todayStandDone += 1;
         self.todayStandSeconds += self.settings.standDurationSeconds;
         self.lastStandCompletedAt = NSDate.date;
+        NSString *standCompletionName = ERStandCustomStageEntriesFromText(self.settings.standCustomStagesText).count > 0
+            ? @"自定义阶段"
+            : ERStandRoutineTitle(self.settings.standRoutine);
         self.lastStandCompletionText = [NSString stringWithFormat:@"%@ · %@ · %@",
-                                        ERStandRoutineTitle(self.settings.standRoutine),
+                                        standCompletionName,
                                         ERStandIntensityTitle(self.settings.standIntensity),
                                         ERFormatShortMinutes(self.settings.standDurationSeconds)];
-        self.lastStandCompletionAdvice = ERStandCompletionAdvice(self.settings.standRoutine, self.settings.standIntensity);
+        self.lastStandCompletionAdvice = [standCompletionName isEqualToString:@"自定义阶段"]
+            ? @"下一轮继续按自己的节奏微调动作。"
+            : ERStandCompletionAdvice(self.settings.standRoutine, self.settings.standIntensity);
         countedDone = YES;
     }
     if (manually && countedDone) {
