@@ -70,6 +70,9 @@ static NSString *const ERSettingsAutoPauseAppTokensKey = @"autoPauseAppTokens";
 static NSString *const ERSettingsIgnoreAppTokensKey = @"ignoreAppTokens";
 static NSString *const ERSettingsCalendarFocusTokensKey = @"calendarFocusTokens";
 static NSString *const ERSettingsCalendarAutoPauseTokensKey = @"calendarAutoPauseTokens";
+static NSString *const ERSettingsQuietHoursEnabledKey = @"quietHoursEnabled";
+static NSString *const ERSettingsQuietHoursStartKey = @"quietHoursStartMinute";
+static NSString *const ERSettingsQuietHoursEndKey = @"quietHoursEndMinute";
 static NSString *const ERStatsDateKey = @"statsDate";
 static NSString *const ERStatsEyeDoneKey = @"statsEyeDone";
 static NSString *const ERStatsStandDoneKey = @"statsStandDone";
@@ -488,6 +491,54 @@ static NSInteger ERClampInteger(NSInteger value, NSInteger minimum, NSInteger ma
     return MIN(maximum, MAX(minimum, value));
 }
 
+static NSInteger ERSanitizedMinuteOfDay(NSInteger minute) {
+    return ERClampInteger(minute, 0, 23 * 60 + 59);
+}
+
+static NSString *ERFormatClockMinute(NSInteger minute) {
+    minute = ERSanitizedMinuteOfDay(minute);
+    return [NSString stringWithFormat:@"%02ld:%02ld", (long)(minute / 60), (long)(minute % 60)];
+}
+
+static NSInteger ERMinuteOfDayFromClockString(NSString *text, NSInteger fallback) {
+    NSString *trimmed = ERTrimmedString([text stringByReplacingOccurrencesOfString:@"：" withString:@":"]);
+    if (trimmed.length == 0) return ERSanitizedMinuteOfDay(fallback);
+
+    NSInteger hour = -1;
+    NSInteger minute = -1;
+    NSArray<NSString *> *parts = [trimmed componentsSeparatedByString:@":"];
+    if (parts.count == 2) {
+        hour = ERTrimmedString(parts[0]).integerValue;
+        minute = ERTrimmedString(parts[1]).integerValue;
+    } else if (trimmed.length == 3 || trimmed.length == 4) {
+        NSString *hourText = [trimmed substringToIndex:trimmed.length - 2];
+        NSString *minuteText = [trimmed substringFromIndex:trimmed.length - 2];
+        hour = hourText.integerValue;
+        minute = minuteText.integerValue;
+    }
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+        return ERSanitizedMinuteOfDay(fallback);
+    }
+    return hour * 60 + minute;
+}
+
+static NSInteger ERCurrentMinuteOfDay(void) {
+    NSDateComponents *components = [NSCalendar.currentCalendar components:NSCalendarUnitHour | NSCalendarUnitMinute fromDate:NSDate.date];
+    return components.hour * 60 + components.minute;
+}
+
+static BOOL ERQuietHoursContainsMinute(BOOL enabled, NSInteger startMinute, NSInteger endMinute, NSInteger minute) {
+    if (!enabled) return NO;
+    startMinute = ERSanitizedMinuteOfDay(startMinute);
+    endMinute = ERSanitizedMinuteOfDay(endMinute);
+    minute = ERSanitizedMinuteOfDay(minute);
+    if (startMinute == endMinute) return NO;
+    if (startMinute < endMinute) {
+        return minute >= startMinute && minute < endMinute;
+    }
+    return minute >= startMinute || minute < endMinute;
+}
+
 static NSColor *ERColor(CGFloat red, CGFloat green, CGFloat blue, CGFloat alpha) {
     return [NSColor colorWithCalibratedRed:red green:green blue:blue alpha:alpha];
 }
@@ -710,6 +761,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) BOOL autoFocusModeEnabled;
 @property(nonatomic) BOOL calendarFocusModeEnabled;
 @property(nonatomic) BOOL presentationFocusModeEnabled;
+@property(nonatomic) BOOL quietHoursEnabled;
+@property(nonatomic) NSInteger quietHoursStartMinute;
+@property(nonatomic) NSInteger quietHoursEndMinute;
 @property(nonatomic, strong) NSArray<NSString *> *focusAppTokens;
 @property(nonatomic, strong) NSArray<NSString *> *autoPauseAppTokens;
 @property(nonatomic, strong) NSArray<NSString *> *ignoreAppTokens;
@@ -744,6 +798,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ERSettingsAutoFocusModeKey: @YES,
         ERSettingsCalendarFocusModeKey: @NO,
         ERSettingsPresentationFocusModeKey: @YES,
+        ERSettingsQuietHoursEnabledKey: @NO,
+        ERSettingsQuietHoursStartKey: @(22 * 60),
+        ERSettingsQuietHoursEndKey: @(7 * 60),
         ERSettingsFocusAppTokensKey: ERDefaultFocusAppTokens(),
         ERSettingsAutoPauseAppTokensKey: ERDefaultAutoPauseAppTokens(),
         ERSettingsIgnoreAppTokensKey: ERDefaultIgnoreAppTokens(),
@@ -770,6 +827,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     settings.autoFocusModeEnabled = [defaults boolForKey:ERSettingsAutoFocusModeKey];
     settings.calendarFocusModeEnabled = [defaults boolForKey:ERSettingsCalendarFocusModeKey];
     settings.presentationFocusModeEnabled = [defaults boolForKey:ERSettingsPresentationFocusModeKey];
+    settings.quietHoursEnabled = [defaults boolForKey:ERSettingsQuietHoursEnabledKey];
+    settings.quietHoursStartMinute = ERSanitizedMinuteOfDay([defaults integerForKey:ERSettingsQuietHoursStartKey]);
+    settings.quietHoursEndMinute = ERSanitizedMinuteOfDay([defaults integerForKey:ERSettingsQuietHoursEndKey]);
     BOOL hasFocusTokens = ERDefaultsHasPersistentValue(defaults, ERSettingsFocusAppTokensKey);
     id focusTokensObject = [defaults objectForKey:ERSettingsFocusAppTokensKey];
     settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject(focusTokensObject);
@@ -840,6 +900,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [defaults setBool:self.autoFocusModeEnabled forKey:ERSettingsAutoFocusModeKey];
     [defaults setBool:self.calendarFocusModeEnabled forKey:ERSettingsCalendarFocusModeKey];
     [defaults setBool:self.presentationFocusModeEnabled forKey:ERSettingsPresentationFocusModeKey];
+    [defaults setBool:self.quietHoursEnabled forKey:ERSettingsQuietHoursEnabledKey];
+    [defaults setInteger:ERSanitizedMinuteOfDay(self.quietHoursStartMinute) forKey:ERSettingsQuietHoursStartKey];
+    [defaults setInteger:ERSanitizedMinuteOfDay(self.quietHoursEndMinute) forKey:ERSettingsQuietHoursEndKey];
     [defaults setObject:ERSanitizedFocusAppTokensFromObject(self.focusAppTokens) forKey:ERSettingsFocusAppTokensKey];
     [defaults setObject:ERSanitizedFocusAppTokensFromObject(self.autoPauseAppTokens) forKey:ERSettingsAutoPauseAppTokensKey];
     [defaults setObject:ERSanitizedFocusAppTokensFromObject(self.ignoreAppTokens) forKey:ERSettingsIgnoreAppTokensKey];
@@ -978,6 +1041,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSButton *autoFocusSwitch;
 @property(nonatomic, strong) NSButton *calendarFocusSwitch;
 @property(nonatomic, strong) NSButton *presentationFocusSwitch;
+@property(nonatomic, strong) NSButton *quietHoursSwitch;
+@property(nonatomic, strong) NSTextField *quietHoursStartField;
+@property(nonatomic, strong) NSTextField *quietHoursEndField;
+@property(nonatomic, strong) NSTextField *quietHoursStatusLabel;
 @property(nonatomic, strong) NSTextField *focusAppTokensField;
 @property(nonatomic, strong) NSTextField *autoPauseAppTokensField;
 @property(nonatomic, strong) NSTextField *ignoreAppTokensField;
@@ -1059,6 +1126,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) BOOL calendarFocusActive;
 @property(nonatomic) BOOL calendarAutoPauseActive;
 @property(nonatomic) BOOL presentationFocusActive;
+@property(nonatomic) BOOL quietHoursActive;
 @property(nonatomic) BOOL calendarAccessRequested;
 @property(nonatomic, strong) EKEventStore *eventStore;
 @property(nonatomic, strong) NSDate *lastCalendarRefreshAt;
@@ -1121,6 +1189,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)refreshCalendarFocusStateIfNeeded:(BOOL)force;
 - (BOOL)isCurrentCalendarEvent:(EKEvent *)event now:(NSDate *)now;
 - (void)shiftReminderDatesBySeconds:(NSTimeInterval)seconds;
+- (BOOL)isQuietHoursActiveNow;
 - (BOOL)isLightDistractionModeActive;
 - (NSString *)focusModeStatusText;
 - (void)updateStatusItemAppearance;
@@ -1497,9 +1566,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [NSValue valueWithRect:NSMakeRect(14, 170, 500, 28)],
         [NSValue valueWithRect:NSMakeRect(14, 140, 500, 28)],
         [NSValue valueWithRect:NSMakeRect(14, 112, 500, 26)],
-        [NSValue valueWithRect:NSMakeRect(14, 82, 500, 28)],
-        [NSValue valueWithRect:NSMakeRect(14, 52, 500, 28)],
-        [NSValue valueWithRect:NSMakeRect(14, 22, 500, 28)],
+        [NSValue valueWithRect:NSMakeRect(14, 84, 500, 28)],
+        [NSValue valueWithRect:NSMakeRect(14, 56, 500, 28)],
+        [NSValue valueWithRect:NSMakeRect(14, 28, 500, 28)],
         [NSValue valueWithRect:NSMakeRect(14, 0, 500, 22)]
     ] dividerX:136 dividerWidth:354];
 
@@ -1508,7 +1577,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.autoFocusSwitch];
 
     self.focusAppMatchLabel = [NSTextField wrappingLabelWithString:@""];
-    self.focusAppMatchLabel.frame = NSMakeRect(156, 198, 338, 30);
+    self.focusAppMatchLabel.frame = NSMakeRect(156, 198, 338, 20);
     self.focusAppMatchLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.focusAppMatchLabel.maximumNumberOfLines = 2;
     self.focusAppMatchLabel.textColor = NSColor.secondaryLabelColor;
@@ -1529,8 +1598,42 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.calendarStatusLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.calendarStatusLabel];
 
-    [card addSubview:[self fieldLabel:@"应用通知：" frame:NSMakeRect(24, 144, 96, 22)]];
-    self.focusAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 141, 268, 24)];
+    self.quietHoursSwitch = [NSButton checkboxWithTitle:@"安静时段" target:self action:@selector(toggleOnly:)];
+    self.quietHoursSwitch.frame = NSMakeRect(24, 143, 108, 22);
+    [card addSubview:self.quietHoursSwitch];
+
+    self.quietHoursStartField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 140, 64, 24)];
+    self.quietHoursStartField.font = [NSFont monospacedDigitSystemFontOfSize:12 weight:NSFontWeightRegular];
+    self.quietHoursStartField.bezelStyle = NSTextFieldRoundedBezel;
+    self.quietHoursStartField.alignment = NSTextAlignmentCenter;
+    self.quietHoursStartField.placeholderString = @"22:00";
+    self.quietHoursStartField.target = self;
+    self.quietHoursStartField.action = @selector(applySettings:);
+    [card addSubview:self.quietHoursStartField];
+
+    NSTextField *quietHoursToLabel = [NSTextField labelWithString:@"到"];
+    quietHoursToLabel.frame = NSMakeRect(212, 143, 20, 18);
+    quietHoursToLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:quietHoursToLabel];
+
+    self.quietHoursEndField = [[NSTextField alloc] initWithFrame:NSMakeRect(238, 140, 64, 24)];
+    self.quietHoursEndField.font = [NSFont monospacedDigitSystemFontOfSize:12 weight:NSFontWeightRegular];
+    self.quietHoursEndField.bezelStyle = NSTextFieldRoundedBezel;
+    self.quietHoursEndField.alignment = NSTextAlignmentCenter;
+    self.quietHoursEndField.placeholderString = @"07:00";
+    self.quietHoursEndField.target = self;
+    self.quietHoursEndField.action = @selector(applySettings:);
+    [card addSubview:self.quietHoursEndField];
+
+    self.quietHoursStatusLabel = [NSTextField wrappingLabelWithString:@""];
+    self.quietHoursStatusLabel.frame = NSMakeRect(316, 137, 176, 30);
+    self.quietHoursStatusLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    self.quietHoursStatusLabel.maximumNumberOfLines = 2;
+    self.quietHoursStatusLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:self.quietHoursStatusLabel];
+
+    [card addSubview:[self fieldLabel:@"应用通知：" frame:NSMakeRect(24, 116, 96, 22)]];
+    self.focusAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 113, 268, 24)];
     self.focusAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.focusAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
     self.focusAppTokensField.placeholderString = @"命中应用：通知 + 计时";
@@ -1538,8 +1641,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.focusAppTokensField.action = @selector(applySettings:);
     [card addSubview:self.focusAppTokensField];
 
-    [card addSubview:[self fieldLabel:@"应用暂停：" frame:NSMakeRect(24, 85, 96, 22)]];
-    self.autoPauseAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 83, 350, 24)];
+    [card addSubview:[self fieldLabel:@"应用暂停：" frame:NSMakeRect(24, 61, 96, 22)]];
+    self.autoPauseAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 59, 350, 24)];
     self.autoPauseAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.autoPauseAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
     self.autoPauseAppTokensField.placeholderString = @"视频/游戏：计时暂缓";
@@ -1547,8 +1650,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.autoPauseAppTokensField.action = @selector(applySettings:);
     [card addSubview:self.autoPauseAppTokensField];
 
-    [card addSubview:[self fieldLabel:@"应用忽略：" frame:NSMakeRect(24, 55, 96, 22)]];
-    self.ignoreAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 53, 350, 24)];
+    [card addSubview:[self fieldLabel:@"应用忽略：" frame:NSMakeRect(24, 32, 96, 22)]];
+    self.ignoreAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 30, 350, 24)];
     self.ignoreAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.ignoreAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
     self.ignoreAppTokensField.placeholderString = @"误命中兜底：照常提醒";
@@ -1556,8 +1659,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.ignoreAppTokensField.action = @selector(applySettings:);
     [card addSubview:self.ignoreAppTokensField];
 
-    [card addSubview:[self fieldLabel:@"日程通知：" frame:NSMakeRect(24, 116, 96, 22)]];
-    self.calendarFocusTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 113, 350, 24)];
+    [card addSubview:[self fieldLabel:@"日程通知：" frame:NSMakeRect(24, 88, 96, 22)]];
+    self.calendarFocusTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 86, 350, 24)];
     self.calendarFocusTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.calendarFocusTokensField.bezelStyle = NSTextFieldRoundedBezel;
     self.calendarFocusTokensField.placeholderString = @"会议/站会：只发通知";
@@ -1565,8 +1668,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.calendarFocusTokensField.action = @selector(applySettings:);
     [card addSubview:self.calendarFocusTokensField];
 
-    [card addSubview:[self fieldLabel:@"日程暂停：" frame:NSMakeRect(24, 25, 96, 22)]];
-    self.calendarAutoPauseTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 23, 350, 24)];
+    [card addSubview:[self fieldLabel:@"日程暂停：" frame:NSMakeRect(24, 5, 96, 22)]];
+    self.calendarAutoPauseTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 3, 350, 24)];
     self.calendarAutoPauseTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.calendarAutoPauseTokensField.bezelStyle = NSTextFieldRoundedBezel;
     self.calendarAutoPauseTokensField.placeholderString = @"录制/直播/面试：暂停计时";
@@ -1575,12 +1678,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.calendarAutoPauseTokensField];
 
     self.focusAppResetButton = [NSButton buttonWithTitle:@"默认" target:self action:@selector(resetFocusApps:)];
-    self.focusAppResetButton.frame = NSMakeRect(418, 141, 72, 24);
+    self.focusAppResetButton.frame = NSMakeRect(418, 113, 72, 24);
     self.focusAppResetButton.bezelStyle = NSBezelStyleRounded;
     [card addSubview:self.focusAppResetButton];
 
-    self.focusAppHintLabel = [NSTextField wrappingLabelWithString:@"优先级：应用忽略 > 应用暂停 > 日程暂停 > 演示/日程通知 > 应用通知。多个关键词用逗号分隔。"];
-    self.focusAppHintLabel.frame = NSMakeRect(24, 1, 466, 20);
+    self.focusAppHintLabel = [NSTextField wrappingLabelWithString:@"自动策略按忽略、暂停、轻打扰顺序处理。"];
+    self.focusAppHintLabel.frame = NSMakeRect(156, 184, 60, 14);
+    self.focusAppHintLabel.hidden = YES;
     self.focusAppHintLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightRegular];
     self.focusAppHintLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.focusAppHintLabel];
@@ -1785,6 +1889,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.autoFocusSwitch.state = self.settings.autoFocusModeEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     self.calendarFocusSwitch.state = self.settings.calendarFocusModeEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     self.presentationFocusSwitch.state = self.settings.presentationFocusModeEnabled ? NSControlStateValueOn : NSControlStateValueOff;
+    self.quietHoursSwitch.state = self.settings.quietHoursEnabled ? NSControlStateValueOn : NSControlStateValueOff;
+    self.quietHoursStartField.stringValue = ERFormatClockMinute(self.settings.quietHoursStartMinute);
+    self.quietHoursEndField.stringValue = ERFormatClockMinute(self.settings.quietHoursEndMinute);
     self.focusAppTokensField.stringValue = [self.settings.focusAppTokens componentsJoinedByString:@", "];
     self.autoPauseAppTokensField.stringValue = [self.settings.autoPauseAppTokens componentsJoinedByString:@", "];
     self.ignoreAppTokensField.stringValue = [self.settings.ignoreAppTokens componentsJoinedByString:@", "];
@@ -1807,6 +1914,17 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)refreshAutomationStatus {
     if (!self.focusAppMatchLabel) return;
     self.focusAppMatchLabel.stringValue = [self.appDelegate focusModeStatusText];
+    if (self.appDelegate.quietHoursActive) {
+        self.quietHoursStatusLabel.stringValue = [NSString stringWithFormat:@"%@-%@ · 只发通知",
+                                                   ERFormatClockMinute(self.settings.quietHoursStartMinute),
+                                                   ERFormatClockMinute(self.settings.quietHoursEndMinute)];
+    } else if (self.settings.quietHoursEnabled) {
+        self.quietHoursStatusLabel.stringValue = [NSString stringWithFormat:@"%@-%@ · 未命中",
+                                                   ERFormatClockMinute(self.settings.quietHoursStartMinute),
+                                                   ERFormatClockMinute(self.settings.quietHoursEndMinute)];
+    } else {
+        self.quietHoursStatusLabel.stringValue = @"关闭后不按时间降打扰。";
+    }
     NSString *calendarStatus = ERCalendarAccessStatusText();
     if (self.appDelegate.calendarAutoPauseActive) {
         NSString *title = self.appDelegate.currentCalendarEventTitle.length > 0 ? self.appDelegate.currentCalendarEventTitle : @"当前日程";
@@ -2073,6 +2191,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"autoFocusModeEnabled": @(self.settings.autoFocusModeEnabled),
             @"calendarFocusModeEnabled": @(self.settings.calendarFocusModeEnabled),
             @"presentationFocusModeEnabled": @(self.settings.presentationFocusModeEnabled),
+            @"quietHoursEnabled": @(self.settings.quietHoursEnabled),
+            @"quietHoursStart": ERFormatClockMinute(self.settings.quietHoursStartMinute),
+            @"quietHoursEnd": ERFormatClockMinute(self.settings.quietHoursEndMinute),
             @"focusAppTokens": self.settings.focusAppTokens ?: @[],
             @"autoPauseAppTokens": self.settings.autoPauseAppTokens ?: @[],
             @"ignoreAppTokens": self.settings.ignoreAppTokens ?: @[],
@@ -2122,6 +2243,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.summaryLabel.textColor = theme.secondary;
     self.focusAppMatchLabel.textColor = theme.secondary;
     self.calendarStatusLabel.textColor = theme.secondary;
+    self.quietHoursStatusLabel.textColor = theme.secondary;
     self.focusAppHintLabel.textColor = theme.secondary;
     self.standRoutineHintLabel.textColor = theme.secondary;
     self.standIntensityHintLabel.textColor = theme.secondary;
@@ -2263,6 +2385,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.autoFocusModeEnabled = self.autoFocusSwitch.state == NSControlStateValueOn;
     self.settings.calendarFocusModeEnabled = self.calendarFocusSwitch.state == NSControlStateValueOn;
     self.settings.presentationFocusModeEnabled = self.presentationFocusSwitch.state == NSControlStateValueOn;
+    self.settings.quietHoursEnabled = self.quietHoursSwitch.state == NSControlStateValueOn;
+    self.settings.quietHoursStartMinute = ERMinuteOfDayFromClockString(self.quietHoursStartField.stringValue, self.settings.quietHoursStartMinute);
+    self.settings.quietHoursEndMinute = ERMinuteOfDayFromClockString(self.quietHoursEndField.stringValue, self.settings.quietHoursEndMinute);
     self.settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject(self.focusAppTokensField.stringValue);
     self.settings.autoPauseAppTokens = ERSanitizedFocusAppTokensFromObject(self.autoPauseAppTokensField.stringValue);
     self.settings.ignoreAppTokens = ERSanitizedFocusAppTokensFromObject(self.ignoreAppTokensField.stringValue);
@@ -2359,6 +2484,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.autoFocusModeEnabled = YES;
     self.settings.calendarFocusModeEnabled = NO;
     self.settings.presentationFocusModeEnabled = YES;
+    self.settings.quietHoursEnabled = NO;
+    self.settings.quietHoursStartMinute = 22 * 60;
+    self.settings.quietHoursEndMinute = 7 * 60;
     self.settings.focusAppTokens = ERDefaultFocusAppTokens();
     self.settings.autoPauseAppTokens = ERDefaultAutoPauseAppTokens();
     self.settings.ignoreAppTokens = ERDefaultIgnoreAppTokens();
@@ -2375,6 +2503,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.autoFocusModeEnabled = YES;
     self.settings.calendarFocusModeEnabled = NO;
     self.settings.presentationFocusModeEnabled = YES;
+    self.settings.quietHoursEnabled = NO;
+    self.settings.quietHoursStartMinute = 22 * 60;
+    self.settings.quietHoursEndMinute = 7 * 60;
     self.settings.focusAppTokens = ERDefaultFocusAppTokens();
     self.settings.autoPauseAppTokens = ERDefaultAutoPauseAppTokens();
     self.settings.ignoreAppTokens = ERDefaultIgnoreAppTokens();
@@ -3184,12 +3315,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     BOOL appPaused = NO;
     BOOL paused = NO;
     BOOL focused = NO;
+    BOOL quietHours = NO;
     if (self.settings.autoFocusModeEnabled) {
         ignored = ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.ignoreAppTokens);
         if (!ignored) {
             appPaused = ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.autoPauseAppTokens);
             paused = appPaused || self.calendarAutoPauseActive;
-            focused = !paused && (self.presentationFocusActive || self.calendarFocusActive || ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.focusAppTokens));
+            quietHours = [self isQuietHoursActiveNow];
+            focused = !paused && (quietHours || self.presentationFocusActive || self.calendarFocusActive || ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.focusAppTokens));
         }
     }
     if (paused && !self.paused && !self.autoPauseActive && !self.autoPauseSessionActive) {
@@ -3201,11 +3334,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
     self.autoIgnoreActive = ignored;
     self.appAutoPauseActive = appPaused;
+    self.quietHoursActive = quietHours;
     self.autoPauseActive = paused;
     if (ignored || !self.settings.autoFocusModeEnabled) {
         self.presentationFocusActive = NO;
         self.calendarFocusActive = NO;
         self.calendarAutoPauseActive = NO;
+        self.quietHoursActive = NO;
     }
     self.autoFocusActive = focused;
     [self.settingsWindowController refreshAutomationStatus];
@@ -3216,6 +3351,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         NSDate *date = [self valueForKey:key];
         if (date) [self setValue:[date dateByAddingTimeInterval:seconds] forKey:key];
     }
+}
+
+- (BOOL)isQuietHoursActiveNow {
+    return ERQuietHoursContainsMinute(self.settings.quietHoursEnabled,
+                                      self.settings.quietHoursStartMinute,
+                                      self.settings.quietHoursEndMinute,
+                                      ERCurrentMinuteOfDay());
 }
 
 - (BOOL)isLightDistractionModeActive {
@@ -3240,6 +3382,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
     if (self.presentationFocusActive) {
         return @"全屏/演示：只发通知";
+    }
+    if (self.quietHoursActive) {
+        return [NSString stringWithFormat:@"安静时段：%@-%@ · 只发通知",
+                ERFormatClockMinute(self.settings.quietHoursStartMinute),
+                ERFormatClockMinute(self.settings.quietHoursEndMinute)];
     }
     if (self.calendarFocusActive) {
         NSString *eventTitle = self.currentCalendarEventTitle.length > 0 ? self.currentCalendarEventTitle : @"当前会议";
@@ -3787,11 +3934,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"休息页：%@ · 窗口数 %ld",
                       self.restWindowController ? (self.restWindowController.window.visible ? @"可见" : @"存在但不可见") : @"无",
                       (long)NSApp.windows.count]];
-    [lines addObject:[NSString stringWithFormat:@"暂停/轻打扰：paused=%@ autoPause=%@ focus=%@ presentation=%@ calendar=%@",
+    [lines addObject:[NSString stringWithFormat:@"暂停/轻打扰：paused=%@ autoPause=%@ focus=%@ presentation=%@ quiet=%@ calendar=%@",
                       self.paused ? @"YES" : @"NO",
                       self.autoPauseActive ? @"YES" : @"NO",
                       (self.focusModeEnabled || self.autoFocusActive) ? @"YES" : @"NO",
                       self.presentationFocusActive ? @"YES" : @"NO",
+                      self.quietHoursActive ? @"YES" : @"NO",
                       self.calendarFocusActive ? @"YES" : @"NO"]];
     [lines addObject:[NSString stringWithFormat:@"前台应用：%@ · %@",
                       self.frontmostAppName.length > 0 ? self.frontmostAppName : @"未知",
@@ -4020,7 +4168,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         }
     }
     if ([self isLightDistractionModeActive] && title.length > 0) {
-        NSString *prefix = self.focusModeEnabled ? @" 工作" : (self.presentationFocusActive ? @" 演示" : (self.calendarFocusActive ? @" 会议" : @" 自动"));
+        NSString *prefix = self.focusModeEnabled ? @" 工作" : (self.quietHoursActive ? @" 安静" : (self.presentationFocusActive ? @" 演示" : (self.calendarFocusActive ? @" 会议" : @" 自动")));
         title = [NSString stringWithFormat:@"%@%@", prefix, title];
     }
     self.statusItem.button.title = title;
@@ -4046,6 +4194,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         status.title = @"工作模式：轻打扰";
     } else if (self.presentationFocusActive) {
         status.title = @"全屏/演示：轻打扰";
+    } else if (self.quietHoursActive) {
+        status.title = [NSString stringWithFormat:@"安静时段：%@-%@",
+                        ERFormatClockMinute(self.settings.quietHoursStartMinute),
+                        ERFormatClockMinute(self.settings.quietHoursEndMinute)];
     } else if (self.calendarFocusActive) {
         NSString *eventTitle = self.currentCalendarEventTitle.length > 0 ? self.currentCalendarEventTitle : @"当前会议";
         status.title = [NSString stringWithFormat:@"日历会议：%@", eventTitle];
