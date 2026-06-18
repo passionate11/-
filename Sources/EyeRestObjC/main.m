@@ -34,6 +34,13 @@ typedef NS_ENUM(NSInteger, ERMenuBarMode) {
     ERMenuBarModeSmart = 4
 };
 
+typedef NS_ENUM(NSInteger, ERStandRoutine) {
+    ERStandRoutineBalanced = 0,
+    ERStandRoutineNeckShoulder = 1,
+    ERStandRoutineWalk = 2,
+    ERStandRoutineReset = 3
+};
+
 static NSString *const ERSettingsEyeEnabledKey = @"eyeEnabled";
 static NSString *const ERSettingsEyeModeKey = @"eyeMode";
 static NSString *const ERSettingsEyeFocusSecondsKey = @"eyeFocusSeconds";
@@ -41,6 +48,7 @@ static NSString *const ERSettingsEyeRestSecondsKey = @"eyeRestSeconds";
 static NSString *const ERSettingsStandEnabledKey = @"standEnabled";
 static NSString *const ERSettingsStandIntervalSecondsKey = @"standIntervalSeconds";
 static NSString *const ERSettingsStandDurationSecondsKey = @"standDurationSeconds";
+static NSString *const ERSettingsStandRoutineKey = @"standRoutine";
 static NSString *const ERSettingsShowRestWindowKey = @"showRestWindow";
 static NSString *const ERSettingsNotificationsKey = @"notificationsEnabled";
 static NSString *const ERSettingsRestStyleKey = @"restStyle";
@@ -133,6 +141,24 @@ static NSString *ERMenuBarModeTitle(ERMenuBarMode mode) {
         case ERMenuBarModeStand: return @"只显示站立";
         case ERMenuBarModeCompact: return @"极简图标";
         case ERMenuBarModeSmart: return @"智能轮换";
+    }
+}
+
+static NSString *ERStandRoutineTitle(ERStandRoutine routine) {
+    switch (routine) {
+        case ERStandRoutineBalanced: return @"均衡活动";
+        case ERStandRoutineNeckShoulder: return @"肩颈舒展";
+        case ERStandRoutineWalk: return @"走动循环";
+        case ERStandRoutineReset: return @"恢复放松";
+    }
+}
+
+static NSString *ERStandRoutineSummary(ERStandRoutine routine) {
+    switch (routine) {
+        case ERStandRoutineBalanced: return @"起身、肩颈、走动、补水和收尾都照顾到。";
+        case ERStandRoutineNeckShoulder: return @"更偏向久坐后的肩颈和上背舒展。";
+        case ERStandRoutineWalk: return @"用走动和腿部活动把身体重新唤醒。";
+        case ERStandRoutineReset: return @"轻量恢复，适合会议间隙或低打扰休息。";
     }
 }
 
@@ -334,7 +360,11 @@ static NSString *ERShortDateTitle(NSString *dateKey) {
 }
 
 static NSString *ERFormatShortMinutes(NSInteger seconds) {
-    NSInteger minutes = MAX(0, (NSInteger)llround((double)seconds / 60.0));
+    seconds = MAX(0, seconds);
+    if (seconds < 60) {
+        return [NSString stringWithFormat:@"%ld 秒", (long)seconds];
+    }
+    NSInteger minutes = (NSInteger)llround((double)seconds / 60.0);
     if (minutes < 60) {
         return [NSString stringWithFormat:@"%ld 分钟", (long)minutes];
     }
@@ -509,6 +539,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) BOOL standEnabled;
 @property(nonatomic) NSInteger standIntervalSeconds;
 @property(nonatomic) NSInteger standDurationSeconds;
+@property(nonatomic) ERStandRoutine standRoutine;
 @property(nonatomic) BOOL showRestWindow;
 @property(nonatomic) BOOL notificationsEnabled;
 @property(nonatomic) ERRestStyle restStyle;
@@ -540,6 +571,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ERSettingsStandEnabledKey: @YES,
         ERSettingsStandIntervalSecondsKey: @(2 * 60 * 60),
         ERSettingsStandDurationSecondsKey: @(20 * 60),
+        ERSettingsStandRoutineKey: @(ERStandRoutineBalanced),
         ERSettingsShowRestWindowKey: @YES,
         ERSettingsNotificationsKey: @YES,
         ERSettingsRestStyleKey: @(ERRestStyleBreath),
@@ -563,6 +595,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     settings.standEnabled = [defaults boolForKey:ERSettingsStandEnabledKey];
     settings.standIntervalSeconds = [defaults integerForKey:ERSettingsStandIntervalSecondsKey];
     settings.standDurationSeconds = [defaults integerForKey:ERSettingsStandDurationSecondsKey];
+    settings.standRoutine = [defaults integerForKey:ERSettingsStandRoutineKey];
     settings.showRestWindow = [defaults boolForKey:ERSettingsShowRestWindowKey];
     settings.notificationsEnabled = [defaults boolForKey:ERSettingsNotificationsKey];
     settings.restStyle = [defaults integerForKey:ERSettingsRestStyleKey];
@@ -614,6 +647,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     settings.eyeRestSeconds = ERClampInteger(settings.eyeRestSeconds, 10, 60 * 60);
     settings.standIntervalSeconds = ERClampInteger(settings.standIntervalSeconds, 10, 8 * 60 * 60);
     settings.standDurationSeconds = ERClampInteger(settings.standDurationSeconds, 10, 2 * 60 * 60);
+    settings.standRoutine = ERClampInteger(settings.standRoutine, ERStandRoutineBalanced, ERStandRoutineReset);
     settings.restStyle = ERClampInteger(settings.restStyle, ERRestStyleBreath, ERRestStyleNight);
     settings.menuBarMode = ERClampInteger(settings.menuBarMode, ERMenuBarModeBoth, ERMenuBarModeSmart);
     return settings;
@@ -628,6 +662,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [defaults setBool:self.standEnabled forKey:ERSettingsStandEnabledKey];
     [defaults setInteger:self.standIntervalSeconds forKey:ERSettingsStandIntervalSecondsKey];
     [defaults setInteger:self.standDurationSeconds forKey:ERSettingsStandDurationSecondsKey];
+    [defaults setInteger:self.standRoutine forKey:ERSettingsStandRoutineKey];
     [defaults setBool:self.showRestWindow forKey:ERSettingsShowRestWindowKey];
     [defaults setBool:self.notificationsEnabled forKey:ERSettingsNotificationsKey];
     [defaults setInteger:self.restStyle forKey:ERSettingsRestStyleKey];
@@ -749,6 +784,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSButton *standEnabledSwitch;
 @property(nonatomic, strong) ERTimeInput *standIntervalInput;
 @property(nonatomic, strong) ERTimeInput *standDurationInput;
+@property(nonatomic, strong) NSPopUpButton *standRoutinePopup;
+@property(nonatomic, strong) NSTextField *standRoutineHintLabel;
 @property(nonatomic, strong) NSButton *notificationSwitch;
 @property(nonatomic, strong) NSButton *restWindowSwitch;
 @property(nonatomic, strong) NSButton *launchAtLoginSwitch;
@@ -852,6 +889,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSInteger todayAutoPauseSessions;
 @property(nonatomic) NSInteger todayAutoPauseSeconds;
 @property(nonatomic) BOOL autoPauseSessionActive;
+@property(nonatomic, strong) NSDate *lastStandCompletedAt;
+@property(nonatomic, copy) NSString *lastStandCompletionText;
 @property(nonatomic, strong) ERRestWindowController *restWindowController;
 @property(nonatomic, strong) ERSettingsWindowController *settingsWindowController;
 - (void)finishRestForKind:(ERReminderKind)kind;
@@ -1101,7 +1140,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self addSettingRowsToCard:card frames:@[
         [NSValue valueWithRect:NSMakeRect(14, 148, 500, 50)],
         [NSValue valueWithRect:NSMakeRect(14, 104, 500, 42)],
-        [NSValue valueWithRect:NSMakeRect(14, 62, 500, 42)]
+        [NSValue valueWithRect:NSMakeRect(14, 62, 500, 42)],
+        [NSValue valueWithRect:NSMakeRect(14, 20, 500, 42)]
     ] dividerX:136 dividerWidth:354];
 
     self.standEnabledSwitch = [NSButton checkboxWithTitle:@"启用站立提醒" target:self action:@selector(toggleOnly:)];
@@ -1113,6 +1153,25 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     [card addSubview:[self fieldLabel:@"站立：" frame:NSMakeRect(24, 72, 96, 22)]];
     self.standDurationInput = [self addTimeFieldsToView:card x:140 y:68];
+
+    [card addSubview:[self fieldLabel:@"动作组合：" frame:NSMakeRect(24, 30, 96, 22)]];
+    self.standRoutinePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(140, 26, 184, 30) pullsDown:NO];
+    [self.standRoutinePopup addItemsWithTitles:@[
+        ERStandRoutineTitle(ERStandRoutineBalanced),
+        ERStandRoutineTitle(ERStandRoutineNeckShoulder),
+        ERStandRoutineTitle(ERStandRoutineWalk),
+        ERStandRoutineTitle(ERStandRoutineReset),
+    ]];
+    self.standRoutinePopup.target = self;
+    self.standRoutinePopup.action = @selector(toggleOnly:);
+    [card addSubview:self.standRoutinePopup];
+
+    self.standRoutineHintLabel = [NSTextField wrappingLabelWithString:@""];
+    self.standRoutineHintLabel.frame = NSMakeRect(340, 24, 160, 34);
+    self.standRoutineHintLabel.font = [NSFont systemFontOfSize:10.5 weight:NSFontWeightMedium];
+    self.standRoutineHintLabel.maximumNumberOfLines = 2;
+    self.standRoutineHintLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:self.standRoutineHintLabel];
 }
 
 - (void)buildAlertSectionInView:(NSView *)view {
@@ -1478,6 +1537,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.standEnabledSwitch.state = self.settings.standEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     [self.standIntervalInput setSeconds:self.settings.standIntervalSeconds];
     [self.standDurationInput setSeconds:self.settings.standDurationSeconds];
+    [self.standRoutinePopup selectItemAtIndex:self.settings.standRoutine];
+    self.standRoutineHintLabel.stringValue = ERStandRoutineSummary(self.settings.standRoutine);
     self.notificationSwitch.state = self.settings.notificationsEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     self.restWindowSwitch.state = self.settings.showRestWindow ? NSControlStateValueOn : NSControlStateValueOff;
     self.launchAtLoginSwitch.state = self.settings.launchAtLogin ? NSControlStateValueOn : NSControlStateValueOff;
@@ -1761,6 +1822,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"standEnabled": @(self.settings.standEnabled),
             @"standIntervalSeconds": @(self.settings.standIntervalSeconds),
             @"standDurationSeconds": @(self.settings.standDurationSeconds),
+            @"standRoutine": ERStandRoutineTitle(self.settings.standRoutine),
             @"showRestWindow": @(self.settings.showRestWindow),
             @"notificationsEnabled": @(self.settings.notificationsEnabled),
             @"restStyle": ERRestStyleTitle(self.settings.restStyle),
@@ -1819,6 +1881,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.focusAppMatchLabel.textColor = theme.secondary;
     self.calendarStatusLabel.textColor = theme.secondary;
     self.focusAppHintLabel.textColor = theme.secondary;
+    self.standRoutineHintLabel.textColor = theme.secondary;
     self.statsOverviewLabel.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
     self.statsMonthLabel.textColor = theme.secondary;
     self.statsStrategyLabel.textColor = theme.secondary;
@@ -1947,6 +2010,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.standEnabled = self.standEnabledSwitch.state == NSControlStateValueOn;
     self.settings.standIntervalSeconds = [self.standIntervalInput secondsWithMinimum:10 maximum:8 * 60 * 60];
     self.settings.standDurationSeconds = [self.standDurationInput secondsWithMinimum:10 maximum:2 * 60 * 60];
+    self.settings.standRoutine = ERClampInteger(self.standRoutinePopup.indexOfSelectedItem, ERStandRoutineBalanced, ERStandRoutineReset);
     self.settings.notificationsEnabled = self.notificationSwitch.state == NSControlStateValueOn;
     self.settings.showRestWindow = self.restWindowSwitch.state == NSControlStateValueOn;
     self.settings.launchAtLogin = self.launchAtLoginSwitch.state == NSControlStateValueOn;
@@ -2007,6 +2071,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.standEnabled = YES;
     self.settings.standIntervalSeconds = 2 * 60 * 60;
     self.settings.standDurationSeconds = 20 * 60;
+    self.settings.standRoutine = ERStandRoutineBalanced;
     self.settings.notificationsEnabled = YES;
     self.settings.showRestWindow = YES;
     self.settings.launchAtLogin = NO;
@@ -2156,8 +2221,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     if (kind == ERReminderKindStand) {
         self.iconView.image = [NSImage imageWithSystemSymbolName:@"figure.stand" accessibilityDescription:@"Stand"];
-        self.titleLabel.stringValue = @"站立活动流程";
-        self.messageLabel.stringValue = @"离开椅子，跟着几个小阶段走一遍。让肩颈、腰背和注意力都换个姿势。";
+        self.titleLabel.stringValue = [NSString stringWithFormat:@"站立 · %@", ERStandRoutineTitle(settings.standRoutine)];
+        self.messageLabel.stringValue = ERStandRoutineSummary(settings.standRoutine);
     } else if (settings.eyeMode == EREyeModePomodoro) {
         self.iconView.image = [NSImage imageWithSystemSymbolName:@"timer" accessibilityDescription:@"Pomodoro"];
         self.titleLabel.stringValue = @"番茄休息";
@@ -2172,22 +2237,81 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)configureActionSuggestionsForKind:(ERReminderKind)kind settings:(ERSettings *)settings {
     if (kind == ERReminderKindStand) {
-        self.actionStageTitles = @[@"起身", @"肩颈", @"走动", @"补水", @"收尾"];
-        self.actionStageMessages = @[
-            @"先站稳，离开椅背，膝盖微松。",
-            @"肩膀向后绕圈，脖子慢慢转动。",
-            @"离开桌边走一小圈，让腰背换个姿势。",
-            @"喝几口水，活动脚踝和小腿。",
-            @"深呼吸，确认身体轻一点再回来。"
-        ];
-        self.actionSuggestions = @[
-            @"双脚踩稳地面，离开椅背。",
-            @"肩膀向后绕 5 圈，左右转头各 3 次。",
-            @"走到窗边或房间另一侧，再走回来。",
-            @"喝水，顺便活动脚踝和小腿。",
-            @"深呼吸 4 次，慢慢回到桌前。"
-        ];
-        self.actionSuggestionSymbols = @[@"figure.stand", @"arrow.triangle.2.circlepath", @"figure.walk", @"drop.fill", @"wind"];
+        switch (settings.standRoutine) {
+            case ERStandRoutineNeckShoulder:
+                self.actionStageTitles = @[@"抬胸", @"肩绕", @"颈侧", @"胸背", @"收尾"];
+                self.actionStageMessages = @[
+                    @"先站高一点，让胸口离开桌面姿势。",
+                    @"肩膀慢慢向后绕圈，动作小一点也可以。",
+                    @"头轻轻侧向一边，别压迫颈部。",
+                    @"双手向后打开，让上背从含胸里出来。",
+                    @"放松下巴和肩膀，再慢慢回到桌前。"
+                ];
+                self.actionSuggestions = @[
+                    @"双脚踩稳，胸口向上，肩膀自然落下。",
+                    @"肩膀向后绕 8 圈，再向前绕 5 圈。",
+                    @"左右侧颈各停 2 次，只做到舒服的位置。",
+                    @"双手在身后轻轻打开，深呼吸 4 次。",
+                    @"下巴微收，肩膀放低，确认脖子轻一点。"
+                ];
+                self.actionSuggestionSymbols = @[@"figure.stand", @"arrow.triangle.2.circlepath", @"person.crop.circle", @"figure.strengthtraining.traditional", @"checkmark.circle"];
+                break;
+            case ERStandRoutineWalk:
+                self.actionStageTitles = @[@"起身", @"走动", @"腿部", @"脚踝", @"回桌"];
+                self.actionStageMessages = @[
+                    @"从椅子上离开，别急着回到屏幕前。",
+                    @"走到房间另一侧，让腰背和腿真的动起来。",
+                    @"活动大腿和小腿，打断久坐的僵硬。",
+                    @"脚踝转一转，顺便让小腿放松。",
+                    @"回到桌前前，先把下一件事想清楚。"
+                ];
+                self.actionSuggestions = @[
+                    @"站起来，离开桌边至少几步。",
+                    @"走 20 到 40 步，经过窗边就看一眼远处。",
+                    @"轻轻提踵 10 次，膝盖保持放松。",
+                    @"左右脚踝各绕 8 圈，脚尖点地也行。",
+                    @"慢慢走回桌前，只带回下一件小事。"
+                ];
+                self.actionSuggestionSymbols = @[@"figure.stand", @"figure.walk", @"figure.walk.motion", @"figure.cooldown", @"checkmark.circle"];
+                break;
+            case ERStandRoutineReset:
+                self.actionStageTitles = @[@"站稳", @"呼吸", @"远眺", @"补水", @"收尾"];
+                self.actionStageMessages = @[
+                    @"这次不用强度，先让身体从座位里出来。",
+                    @"把呼吸放慢，肩膀跟着落下来。",
+                    @"看向远处，把注意力从屏幕里拿出来。",
+                    @"喝几口水，给自己一个轻量重启。",
+                    @"确认身体和注意力都松一点，再继续。"
+                ];
+                self.actionSuggestions = @[
+                    @"双脚踩稳，手离开键盘，停 3 秒。",
+                    @"吸气 4 拍，呼气 6 拍，重复 4 次。",
+                    @"看向 6 米外或窗外，不急着聚焦。",
+                    @"喝水，顺便放松手腕和下巴。",
+                    @"给下一段工作定一个很小的起点。"
+                ];
+                self.actionSuggestionSymbols = @[@"figure.stand", @"wind", @"eye", @"drop.fill", @"checkmark.circle"];
+                break;
+            case ERStandRoutineBalanced:
+            default:
+                self.actionStageTitles = @[@"起身", @"肩颈", @"走动", @"补水", @"收尾"];
+                self.actionStageMessages = @[
+                    @"先站稳，离开椅背，膝盖微松。",
+                    @"肩膀向后绕圈，脖子慢慢转动。",
+                    @"离开桌边走一小圈，让腰背换个姿势。",
+                    @"喝几口水，活动脚踝和小腿。",
+                    @"深呼吸，确认身体轻一点再回来。"
+                ];
+                self.actionSuggestions = @[
+                    @"双脚踩稳地面，离开椅背。",
+                    @"肩膀向后绕 5 圈，左右转头各 3 次。",
+                    @"走到窗边或房间另一侧，再走回来。",
+                    @"喝水，顺便活动脚踝和小腿。",
+                    @"深呼吸 4 次，慢慢回到桌前。"
+                ];
+                self.actionSuggestionSymbols = @[@"figure.stand", @"arrow.triangle.2.circlepath", @"figure.walk", @"drop.fill", @"wind"];
+                break;
+        }
     } else if (settings.eyeMode == EREyeModePomodoro) {
         self.actionStageTitles = @[@"离屏", @"补水", @"走动", @"收尾"];
         self.actionStageMessages = @[];
@@ -3123,6 +3247,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     if (kind == ERReminderKindStand && self.standResting) {
         self.todayStandDone += 1;
         self.todayStandSeconds += self.settings.standDurationSeconds;
+        self.lastStandCompletedAt = NSDate.date;
+        self.lastStandCompletionText = [NSString stringWithFormat:@"%@ · %@",
+                                        ERStandRoutineTitle(self.settings.standRoutine),
+                                        ERFormatShortMinutes(self.settings.standDurationSeconds)];
         countedDone = YES;
     }
     if (manually && countedDone) {
@@ -3322,9 +3450,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         : @"眼睛：已关闭";
 
     NSMenuItem *standStatus = [self.menu itemWithTag:102];
-    standStatus.title = self.settings.standEnabled
-        ? [NSString stringWithFormat:@"站立：%@ %@", self.standResting ? @"站立中" : @"下次提醒", ERFormatDuration([self remainingUntil:(self.standResting ? self.standRestEndsAt : self.standDueAt)])]
-        : @"站立：已关闭";
+    if (!self.settings.standEnabled) {
+        standStatus.title = @"站立：已关闭";
+    } else if (self.lastStandCompletedAt && [NSDate.date timeIntervalSinceDate:self.lastStandCompletedAt] < 90) {
+        NSString *feedback = self.lastStandCompletionText.length > 0 ? self.lastStandCompletionText : ERStandRoutineTitle(self.settings.standRoutine);
+        standStatus.title = [NSString stringWithFormat:@"站立：刚完成 %@", feedback];
+    } else {
+        standStatus.title = [NSString stringWithFormat:@"站立：%@ %@", self.standResting ? @"站立中" : @"下次提醒", ERFormatDuration([self remainingUntil:(self.standResting ? self.standRestEndsAt : self.standDueAt)])];
+    }
 
     NSMenuItem *todayStats = [self.menu itemWithTag:106];
     todayStats.title = [NSString stringWithFormat:@"今天：眼睛 %ld 次 · 站立 %ld 次 · 稍后 %ld · 跳过 %ld",
