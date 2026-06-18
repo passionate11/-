@@ -536,6 +536,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *statsStandLabel;
 @property(nonatomic, strong) NSTextField *statsStreakLabel;
 @property(nonatomic, strong) NSButton *exportStatsButton;
+@property(nonatomic, strong) NSButton *exportBackupButton;
 @property(nonatomic, strong) NSArray<NSView *> *statsBars;
 @property(nonatomic, strong) NSArray<NSTextField *> *statsBarLabels;
 @property(nonatomic, strong) NSArray<NSView *> *heatmapCells;
@@ -568,6 +569,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)refreshControls;
 - (void)refreshStats;
 - (void)exportStatsCSV:(id)sender;
+- (void)exportStatsJSON:(id)sender;
 @end
 
 @interface ERAppDelegate : NSObject <NSApplicationDelegate, UNUserNotificationCenterDelegate, NSMenuDelegate>
@@ -918,16 +920,22 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)buildStatsSectionInView:(NSView *)view {
     NSView *card = self.statsCard;
     self.statsOverviewLabel = [NSTextField wrappingLabelWithString:@""];
-    self.statsOverviewLabel.frame = NSMakeRect(24, 184, 348, 22);
+    self.statsOverviewLabel.frame = NSMakeRect(24, 184, 300, 22);
     self.statsOverviewLabel.font = [NSFont systemFontOfSize:14 weight:NSFontWeightMedium];
     self.statsOverviewLabel.textColor = NSColor.labelColor;
     [card addSubview:self.statsOverviewLabel];
 
     self.exportStatsButton = [NSButton buttonWithTitle:@"导出 CSV" target:self action:@selector(exportStatsCSV:)];
-    self.exportStatsButton.frame = NSMakeRect(396, 180, 104, 30);
+    self.exportStatsButton.frame = NSMakeRect(330, 180, 84, 30);
     self.exportStatsButton.bezelStyle = NSBezelStyleRounded;
     self.exportStatsButton.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
     [card addSubview:self.exportStatsButton];
+
+    self.exportBackupButton = [NSButton buttonWithTitle:@"备份 JSON" target:self action:@selector(exportStatsJSON:)];
+    self.exportBackupButton.frame = NSMakeRect(420, 180, 92, 30);
+    self.exportBackupButton.bezelStyle = NSBezelStyleRounded;
+    self.exportBackupButton.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
+    [card addSubview:self.exportBackupButton];
 
     self.statsMonthLabel = [NSTextField labelWithString:@""];
     self.statsMonthLabel.frame = NSMakeRect(24, 156, 480, 20);
@@ -1202,6 +1210,65 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }];
 }
 
+- (void)exportStatsJSON:(id)sender {
+    NSDictionary *history = [self.appDelegate statsHistoryIncludingToday];
+    NSArray<NSString *> *dates = ERRecentDateKeys(30);
+    NSMutableArray<NSDictionary *> *entries = [NSMutableArray arrayWithCapacity:dates.count];
+    for (NSString *dateKey in dates) {
+        NSDictionary *entry = history[dateKey] ?: @{};
+        NSInteger eye = [entry[@"eye"] integerValue];
+        NSInteger stand = [entry[@"stand"] integerValue];
+        NSInteger standSeconds = [entry[@"standSeconds"] integerValue];
+        NSInteger snoozed = [entry[@"snoozed"] integerValue];
+        NSInteger skipped = [entry[@"skipped"] integerValue];
+        [entries addObject:@{
+            @"date": dateKey,
+            @"eyeDone": @(eye),
+            @"standDone": @(stand),
+            @"standSeconds": @(standSeconds),
+            @"snoozed": @(snoozed),
+            @"skipped": @(skipped),
+            @"totalDone": @(eye + stand)
+        }];
+    }
+
+    NSDictionary *payload = @{
+        @"app": ERBrandName,
+        @"schemaVersion": @1,
+        @"exportedAt": [[NSISO8601DateFormatter new] stringFromDate:NSDate.date],
+        @"settings": @{
+            @"eyeEnabled": @(self.settings.eyeEnabled),
+            @"eyeMode": EREyeModeTitle(self.settings.eyeMode),
+            @"eyeFocusSeconds": @(self.settings.eyeFocusSeconds),
+            @"eyeRestSeconds": @(self.settings.eyeRestSeconds),
+            @"standEnabled": @(self.settings.standEnabled),
+            @"standIntervalSeconds": @(self.settings.standIntervalSeconds),
+            @"standDurationSeconds": @(self.settings.standDurationSeconds),
+            @"showRestWindow": @(self.settings.showRestWindow),
+            @"notificationsEnabled": @(self.settings.notificationsEnabled),
+            @"restStyle": ERRestStyleTitle(self.settings.restStyle),
+            @"menuBarMode": ERMenuBarModeTitle(self.settings.menuBarMode),
+            @"launchAtLogin": @(self.settings.launchAtLogin)
+        },
+        @"stats": @{
+            @"rangeDays": @30,
+            @"entries": entries
+        }
+    };
+
+    NSData *data = [NSJSONSerialization dataWithJSONObject:payload options:NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys error:nil];
+    if (!data) return;
+
+    NSSavePanel *panel = [NSSavePanel savePanel];
+    panel.title = @"备份休息数据";
+    panel.nameFieldStringValue = [NSString stringWithFormat:@"songyixia-backup-%@.json", ERTodayKey()];
+    panel.allowedContentTypes = @[[UTType typeWithFilenameExtension:@"json"]];
+    [panel beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse result) {
+        if (result != NSModalResponseOK) return;
+        [data writeToURL:panel.URL atomically:YES];
+    }];
+}
+
 - (void)applySettingsTheme {
     ERTheme theme = ERThemeForStyle(self.settings.restStyle);
     self.contentView.layer.backgroundColor = theme.settingsBackground.CGColor;
@@ -1227,6 +1294,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.statsStandLabel.textColor = theme.secondary;
     self.statsStreakLabel.textColor = theme.secondary;
     self.exportStatsButton.contentTintColor = theme.accent;
+    self.exportBackupButton.contentTintColor = theme.accent;
     for (NSTextField *label in self.pageTitleLabels) {
         label.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
     }
