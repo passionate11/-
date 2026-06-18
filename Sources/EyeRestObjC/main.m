@@ -47,6 +47,8 @@ static NSString *const ERSettingsMenuBarModeKey = @"menuBarMode";
 static NSString *const ERSettingsLaunchAtLoginKey = @"launchAtLogin";
 static NSString *const ERSettingsAutoFocusModeKey = @"autoFocusModeEnabled";
 static NSString *const ERSettingsFocusAppTokensKey = @"focusAppTokens";
+static NSString *const ERSettingsAutoPauseAppTokensKey = @"autoPauseAppTokens";
+static NSString *const ERSettingsIgnoreAppTokensKey = @"ignoreAppTokens";
 static NSString *const ERStatsDateKey = @"statsDate";
 static NSString *const ERStatsEyeDoneKey = @"statsEyeDone";
 static NSString *const ERStatsStandDoneKey = @"statsStandDone";
@@ -134,13 +136,22 @@ static NSArray<NSString *> *ERDefaultFocusAppTokens(void) {
         @"com.alibaba.dingtalkmac", @"dingtalk", @"钉钉",
         @"com.apple.iwork.keynote", @"keynote",
         @"com.microsoft.powerpoint", @"powerpoint",
+        @"com.obsproject.obs-studio", @"obs",
+        @"com.apple.facetime", @"facetime"
+    ];
+}
+
+static NSArray<NSString *> *ERDefaultAutoPauseAppTokens(void) {
+    return @[
         @"com.apple.quicktimeplayerx", @"quicktime",
         @"com.colliderli.iina", @"iina",
         @"org.videolan.vlc", @"vlc",
-        @"com.obsproject.obs-studio", @"obs",
-        @"com.apple.facetime", @"facetime",
         @"steam", @"epic games"
     ];
+}
+
+static NSArray<NSString *> *ERDefaultIgnoreAppTokens(void) {
+    return @[];
 }
 
 static NSArray<NSString *> *ERSanitizedFocusAppTokensFromObject(id object) {
@@ -256,6 +267,12 @@ static NSString *ERFormatShortMinutes(NSInteger seconds) {
 
 static NSString *ERLaunchAgentIdentifier(void) {
     return @"local.codex.eyerest";
+}
+
+static BOOL ERDefaultsHasPersistentValue(NSUserDefaults *defaults, NSString *key) {
+    NSString *bundleIdentifier = NSBundle.mainBundle.bundleIdentifier ?: ERLaunchAgentIdentifier();
+    NSDictionary *domain = [defaults persistentDomainForName:bundleIdentifier];
+    return domain[key] != nil;
 }
 
 static NSString *ERLaunchAgentPath(void) {
@@ -410,6 +427,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) BOOL launchAtLogin;
 @property(nonatomic) BOOL autoFocusModeEnabled;
 @property(nonatomic, strong) NSArray<NSString *> *focusAppTokens;
+@property(nonatomic, strong) NSArray<NSString *> *autoPauseAppTokens;
+@property(nonatomic, strong) NSArray<NSString *> *ignoreAppTokens;
 + (instancetype)load;
 - (void)save;
 - (void)applyEyePreset:(EREyeMode)mode;
@@ -434,7 +453,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ERSettingsMenuBarModeKey: @(ERMenuBarModeBoth),
         ERSettingsLaunchAtLoginKey: @NO,
         ERSettingsAutoFocusModeKey: @YES,
-        ERSettingsFocusAppTokensKey: ERDefaultFocusAppTokens()
+        ERSettingsFocusAppTokensKey: ERDefaultFocusAppTokens(),
+        ERSettingsAutoPauseAppTokensKey: ERDefaultAutoPauseAppTokens(),
+        ERSettingsIgnoreAppTokensKey: ERDefaultIgnoreAppTokens()
     };
     [defaults registerDefaults:registered];
 
@@ -451,9 +472,23 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     settings.menuBarMode = [defaults integerForKey:ERSettingsMenuBarModeKey];
     settings.launchAtLogin = [defaults boolForKey:ERSettingsLaunchAtLoginKey];
     settings.autoFocusModeEnabled = [defaults boolForKey:ERSettingsAutoFocusModeKey];
-    settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject([defaults objectForKey:ERSettingsFocusAppTokensKey]);
-    if (settings.focusAppTokens.count == 0) {
+    BOOL hasFocusTokens = ERDefaultsHasPersistentValue(defaults, ERSettingsFocusAppTokensKey);
+    id focusTokensObject = [defaults objectForKey:ERSettingsFocusAppTokensKey];
+    settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject(focusTokensObject);
+    if (!hasFocusTokens) {
         settings.focusAppTokens = ERDefaultFocusAppTokens();
+    }
+    BOOL hasAutoPauseTokens = ERDefaultsHasPersistentValue(defaults, ERSettingsAutoPauseAppTokensKey);
+    id autoPauseTokensObject = [defaults objectForKey:ERSettingsAutoPauseAppTokensKey];
+    settings.autoPauseAppTokens = ERSanitizedFocusAppTokensFromObject(autoPauseTokensObject);
+    if (!hasAutoPauseTokens) {
+        settings.autoPauseAppTokens = ERDefaultAutoPauseAppTokens();
+    }
+    BOOL hasIgnoreTokens = ERDefaultsHasPersistentValue(defaults, ERSettingsIgnoreAppTokensKey);
+    id ignoreTokensObject = [defaults objectForKey:ERSettingsIgnoreAppTokensKey];
+    settings.ignoreAppTokens = ERSanitizedFocusAppTokensFromObject(ignoreTokensObject);
+    if (!hasIgnoreTokens) {
+        settings.ignoreAppTokens = ERDefaultIgnoreAppTokens();
     }
 
     if (settings.eyeFocusSeconds <= 0) {
@@ -489,6 +524,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [defaults setBool:self.launchAtLogin forKey:ERSettingsLaunchAtLoginKey];
     [defaults setBool:self.autoFocusModeEnabled forKey:ERSettingsAutoFocusModeKey];
     [defaults setObject:ERSanitizedFocusAppTokensFromObject(self.focusAppTokens) forKey:ERSettingsFocusAppTokensKey];
+    [defaults setObject:ERSanitizedFocusAppTokensFromObject(self.autoPauseAppTokens) forKey:ERSettingsAutoPauseAppTokensKey];
+    [defaults setObject:ERSanitizedFocusAppTokensFromObject(self.ignoreAppTokens) forKey:ERSettingsIgnoreAppTokensKey];
 }
 
 - (void)applyEyePreset:(EREyeMode)mode {
@@ -600,6 +637,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSButton *launchAtLoginSwitch;
 @property(nonatomic, strong) NSButton *autoFocusSwitch;
 @property(nonatomic, strong) NSTextField *focusAppTokensField;
+@property(nonatomic, strong) NSTextField *autoPauseAppTokensField;
+@property(nonatomic, strong) NSTextField *ignoreAppTokensField;
 @property(nonatomic, strong) NSTextField *focusAppMatchLabel;
 @property(nonatomic, strong) NSTextField *focusAppHintLabel;
 @property(nonatomic, strong) NSButton *focusAppResetButton;
@@ -668,6 +707,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) BOOL paused;
 @property(nonatomic) BOOL focusModeEnabled;
 @property(nonatomic) BOOL autoFocusActive;
+@property(nonatomic) BOOL autoPauseActive;
+@property(nonatomic) BOOL autoIgnoreActive;
 @property(nonatomic, copy) NSString *frontmostAppName;
 @property(nonatomic, copy) NSString *frontmostAppBundleIdentifier;
 @property(nonatomic) NSInteger todayEyeDone;
@@ -695,6 +736,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)resetTodayStatsIfNeeded;
 - (void)applyPreferenceSideEffects;
 - (void)refreshFocusModeState;
+- (void)shiftReminderDatesBySeconds:(NSTimeInterval)seconds;
 - (BOOL)isLightDistractionModeActive;
 - (NSString *)focusModeStatusText;
 - (void)updateStatusItemAppearance;
@@ -1017,38 +1059,58 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)buildAutomationSectionInView:(NSView *)view {
     NSView *card = self.automationCard;
     [self addSettingRowsToCard:card frames:@[
-        [NSValue valueWithRect:NSMakeRect(14, 150, 500, 50)],
-        [NSValue valueWithRect:NSMakeRect(14, 104, 500, 42)],
-        [NSValue valueWithRect:NSMakeRect(14, 20, 500, 82)]
+        [NSValue valueWithRect:NSMakeRect(14, 172, 500, 36)],
+        [NSValue valueWithRect:NSMakeRect(14, 130, 500, 40)],
+        [NSValue valueWithRect:NSMakeRect(14, 88, 500, 40)],
+        [NSValue valueWithRect:NSMakeRect(14, 46, 500, 40)],
+        [NSValue valueWithRect:NSMakeRect(14, 8, 500, 36)]
     ] dividerX:136 dividerWidth:354];
 
-    self.autoFocusSwitch = [NSButton checkboxWithTitle:@"自动轻打扰" target:self action:@selector(toggleOnly:)];
-    self.autoFocusSwitch.frame = NSMakeRect(24, 162, 160, 24);
+    self.autoFocusSwitch = [NSButton checkboxWithTitle:@"自动策略" target:self action:@selector(toggleOnly:)];
+    self.autoFocusSwitch.frame = NSMakeRect(24, 178, 160, 24);
     [card addSubview:self.autoFocusSwitch];
 
     self.focusAppMatchLabel = [NSTextField wrappingLabelWithString:@""];
-    self.focusAppMatchLabel.frame = NSMakeRect(190, 154, 300, 36);
+    self.focusAppMatchLabel.frame = NSMakeRect(156, 174, 338, 32);
     self.focusAppMatchLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.focusAppMatchLabel.maximumNumberOfLines = 2;
     self.focusAppMatchLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.focusAppMatchLabel];
 
-    [card addSubview:[self fieldLabel:@"白名单：" frame:NSMakeRect(24, 114, 96, 22)]];
-    self.focusAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 108, 268, 28)];
+    [card addSubview:[self fieldLabel:@"只发通知：" frame:NSMakeRect(24, 138, 96, 22)]];
+    self.focusAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 132, 268, 28)];
     self.focusAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.focusAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
-    self.focusAppTokensField.placeholderString = @"bundle id / 应用名，用逗号分隔";
+    self.focusAppTokensField.placeholderString = @"会议/演示：通知 + 计时";
     self.focusAppTokensField.target = self;
     self.focusAppTokensField.action = @selector(applySettings:);
     [card addSubview:self.focusAppTokensField];
 
+    [card addSubview:[self fieldLabel:@"自动暂停：" frame:NSMakeRect(24, 96, 96, 22)]];
+    self.autoPauseAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 90, 350, 28)];
+    self.autoPauseAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
+    self.autoPauseAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
+    self.autoPauseAppTokensField.placeholderString = @"视频/游戏：计时暂缓";
+    self.autoPauseAppTokensField.target = self;
+    self.autoPauseAppTokensField.action = @selector(applySettings:);
+    [card addSubview:self.autoPauseAppTokensField];
+
+    [card addSubview:[self fieldLabel:@"不处理：" frame:NSMakeRect(24, 54, 96, 22)]];
+    self.ignoreAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 48, 350, 28)];
+    self.ignoreAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
+    self.ignoreAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
+    self.ignoreAppTokensField.placeholderString = @"误命中兜底：照常提醒";
+    self.ignoreAppTokensField.target = self;
+    self.ignoreAppTokensField.action = @selector(applySettings:);
+    [card addSubview:self.ignoreAppTokensField];
+
     self.focusAppResetButton = [NSButton buttonWithTitle:@"默认" target:self action:@selector(resetFocusApps:)];
-    self.focusAppResetButton.frame = NSMakeRect(418, 108, 72, 28);
+    self.focusAppResetButton.frame = NSMakeRect(418, 132, 72, 28);
     self.focusAppResetButton.bezelStyle = NSBezelStyleRounded;
     [card addSubview:self.focusAppResetButton];
 
-    self.focusAppHintLabel = [NSTextField wrappingLabelWithString:@"命中前台应用时，休息仍会开始并记录统计，但只发系统通知，不弹出全屏休息页。适合会议、演示、视频播放和游戏。"];
-    self.focusAppHintLabel.frame = NSMakeRect(24, 34, 466, 48);
+    self.focusAppHintLabel = [NSTextField wrappingLabelWithString:@"优先级：不处理 > 自动暂停 > 只发通知。多个关键词用逗号分隔，支持应用名或 bundle id。"];
+    self.focusAppHintLabel.frame = NSMakeRect(24, 15, 466, 22);
     self.focusAppHintLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightRegular];
     self.focusAppHintLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.focusAppHintLabel];
@@ -1238,6 +1300,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.launchAtLoginSwitch.state = self.settings.launchAtLogin ? NSControlStateValueOn : NSControlStateValueOff;
     self.autoFocusSwitch.state = self.settings.autoFocusModeEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     self.focusAppTokensField.stringValue = [self.settings.focusAppTokens componentsJoinedByString:@", "];
+    self.autoPauseAppTokensField.stringValue = [self.settings.autoPauseAppTokens componentsJoinedByString:@", "];
+    self.ignoreAppTokensField.stringValue = [self.settings.ignoreAppTokens componentsJoinedByString:@", "];
     [self.menuBarModePopup selectItemAtIndex:self.settings.menuBarMode];
     [self.restStylePopup selectItemAtIndex:self.settings.restStyle];
     [self.appDelegate refreshFocusModeState];
@@ -1457,7 +1521,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"menuBarMode": ERMenuBarModeTitle(self.settings.menuBarMode),
             @"launchAtLogin": @(self.settings.launchAtLogin),
             @"autoFocusModeEnabled": @(self.settings.autoFocusModeEnabled),
-            @"focusAppTokens": self.settings.focusAppTokens ?: @[]
+            @"focusAppTokens": self.settings.focusAppTokens ?: @[],
+            @"autoPauseAppTokens": self.settings.autoPauseAppTokens ?: @[],
+            @"ignoreAppTokens": self.settings.ignoreAppTokens ?: @[]
         },
         @"stats": @{
             @"rangeDays": @30,
@@ -1634,9 +1700,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.launchAtLogin = self.launchAtLoginSwitch.state == NSControlStateValueOn;
     self.settings.autoFocusModeEnabled = self.autoFocusSwitch.state == NSControlStateValueOn;
     self.settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject(self.focusAppTokensField.stringValue);
-    if (self.settings.focusAppTokens.count == 0) {
-        self.settings.focusAppTokens = ERDefaultFocusAppTokens();
-    }
+    self.settings.autoPauseAppTokens = ERSanitizedFocusAppTokensFromObject(self.autoPauseAppTokensField.stringValue);
+    self.settings.ignoreAppTokens = ERSanitizedFocusAppTokensFromObject(self.ignoreAppTokensField.stringValue);
     self.settings.menuBarMode = self.menuBarModePopup.indexOfSelectedItem;
     self.settings.restStyle = self.restStylePopup.indexOfSelectedItem;
 
@@ -1690,6 +1755,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.launchAtLogin = NO;
     self.settings.autoFocusModeEnabled = YES;
     self.settings.focusAppTokens = ERDefaultFocusAppTokens();
+    self.settings.autoPauseAppTokens = ERDefaultAutoPauseAppTokens();
+    self.settings.ignoreAppTokens = ERDefaultIgnoreAppTokens();
     self.settings.menuBarMode = ERMenuBarModeBoth;
     self.settings.restStyle = ERRestStyleBreath;
     [self.settings save];
@@ -1700,6 +1767,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)resetFocusApps:(id)sender {
     self.settings.autoFocusModeEnabled = YES;
     self.settings.focusAppTokens = ERDefaultFocusAppTokens();
+    self.settings.autoPauseAppTokens = ERDefaultAutoPauseAppTokens();
+    self.settings.ignoreAppTokens = ERDefaultIgnoreAppTokens();
     [self.settings save];
     [self refreshControls];
     [self.appDelegate settingsDidChangeShouldReset:NO];
@@ -2192,12 +2261,27 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.frontmostAppBundleIdentifier = frontmost.bundleIdentifier;
     self.frontmostAppName = frontmost.localizedName;
 
-    BOOL matched = NO;
+    BOOL ignored = NO;
+    BOOL paused = NO;
+    BOOL focused = NO;
     if (self.settings.autoFocusModeEnabled) {
-        matched = ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.focusAppTokens);
+        ignored = ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.ignoreAppTokens);
+        if (!ignored) {
+            paused = ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.autoPauseAppTokens);
+            focused = !paused && ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.focusAppTokens);
+        }
     }
-    self.autoFocusActive = matched;
+    self.autoIgnoreActive = ignored;
+    self.autoPauseActive = paused;
+    self.autoFocusActive = focused;
     [self.settingsWindowController refreshAutomationStatus];
+}
+
+- (void)shiftReminderDatesBySeconds:(NSTimeInterval)seconds {
+    for (NSString *key in @[@"eyeDueAt", @"eyeRestEndsAt", @"standDueAt", @"standRestEndsAt"]) {
+        NSDate *date = [self valueForKey:key];
+        if (date) [self setValue:[date dateByAddingTimeInterval:seconds] forKey:key];
+    }
 }
 
 - (BOOL)isLightDistractionModeActive {
@@ -2210,9 +2294,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
     NSString *name = self.frontmostAppName.length > 0 ? self.frontmostAppName : @"当前应用";
     NSString *bundle = self.frontmostAppBundleIdentifier.length > 0 ? self.frontmostAppBundleIdentifier : @"未识别 bundle id";
-    return self.autoFocusActive
-        ? [NSString stringWithFormat:@"命中：%@ · %@", name, bundle]
-        : [NSString stringWithFormat:@"当前：%@ · %@", name, bundle];
+    if (self.autoIgnoreActive) {
+        return [NSString stringWithFormat:@"不处理：%@ · %@", name, bundle];
+    }
+    if (self.autoPauseActive) {
+        return [NSString stringWithFormat:@"自动暂停：%@ · %@", name, bundle];
+    }
+    if (self.autoFocusActive) {
+        return [NSString stringWithFormat:@"只发通知：%@ · %@", name, bundle];
+    }
+    return [NSString stringWithFormat:@"当前：%@ · %@", name, bundle];
 }
 
 - (void)workspaceDidWake:(NSNotification *)notification {
@@ -2401,10 +2492,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     if (self.pausedUntil && [self.pausedUntil timeIntervalSinceNow] <= 0) {
         [self resumeFromPause];
     }
-    if (!self.paused) {
+    if (!self.paused && !self.autoPauseActive) {
         [self evaluateReminderKind:ERReminderKindEye];
         [self evaluateReminderKind:ERReminderKindStand];
         [self repairRestStateIfNeeded];
+    } else if (!self.paused && self.autoPauseActive) {
+        [self shiftReminderDatesBySeconds:1];
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
     }
     [self publishState];
 }
@@ -2445,6 +2542,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     [self closeOrphanRestWindows];
     [self settleExpiredRests];
+
+    if (self.autoPauseActive) {
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
+        return;
+    }
 
     if ([self isLightDistractionModeActive] && self.restWindowController) {
         [self.restWindowController close];
@@ -2689,6 +2794,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     if (self.paused) {
         title = self.settings.menuBarMode == ERMenuBarModeCompact ? @"" : @" 暂停";
+    } else if (self.autoPauseActive) {
+        title = self.settings.menuBarMode == ERMenuBarModeCompact ? @"" : @" 自动暂停";
     } else if ([self isLightDistractionModeActive] && self.settings.menuBarMode == ERMenuBarModeCompact) {
         title = @"";
     } else {
@@ -2744,6 +2851,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         status.title = [NSString stringWithFormat:@"暂停到 %@", [formatter stringFromDate:self.pausedUntil]];
     } else if (self.paused) {
         status.title = @"已暂停";
+    } else if (self.autoPauseActive) {
+        NSString *name = self.frontmostAppName.length > 0 ? self.frontmostAppName : @"前台应用";
+        status.title = [NSString stringWithFormat:@"自动暂停：%@", name];
     } else if (self.focusModeEnabled) {
         status.title = @"工作模式：轻打扰";
     } else if (self.autoFocusActive) {
