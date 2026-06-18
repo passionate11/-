@@ -536,6 +536,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *statsQualityLabel;
 @property(nonatomic, strong) NSTextField *statsStandLabel;
 @property(nonatomic, strong) NSTextField *statsStreakLabel;
+@property(nonatomic, strong) NSTextField *statsMonthDetailLabel;
 @property(nonatomic, strong) NSButton *exportStatsButton;
 @property(nonatomic, strong) NSButton *exportBackupButton;
 @property(nonatomic, strong) NSArray<NSView *> *statsBars;
@@ -988,6 +989,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     heatmapTitle.textColor = NSColor.secondaryLabelColor;
     [card addSubview:heatmapTitle];
 
+    self.statsMonthDetailLabel = [NSTextField wrappingLabelWithString:@""];
+    self.statsMonthDetailLabel.frame = NSMakeRect(320, 58, 188, 22);
+    self.statsMonthDetailLabel.font = [NSFont systemFontOfSize:10.5 weight:NSFontWeightMedium];
+    self.statsMonthDetailLabel.maximumNumberOfLines = 2;
+    self.statsMonthDetailLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:self.statsMonthDetailLabel];
+
     NSMutableArray *cells = [NSMutableArray array];
     CGFloat cell = 14;
     CGFloat cellGap = 4;
@@ -1006,7 +1014,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [cells addObject:day];
     }
     self.heatmapCells = cells;
-    self.heatmapLabels = @[heatmapTitle];
+    self.heatmapLabels = @[heatmapTitle, self.statsMonthDetailLabel];
 }
 
 - (NSTextField *)metricLabelWithFrame:(NSRect)frame {
@@ -1118,6 +1126,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSInteger previousWeekDone = 0;
     NSInteger monthSkipped = 0;
     NSInteger monthSnoozed = 0;
+    NSInteger bestDayDone = 0;
+    NSString *bestDayTitle = @"--";
     NSInteger maxDone = 1;
     NSMutableArray<NSNumber *> *dailyDone = [NSMutableArray arrayWithCapacity:dates.count];
 
@@ -1144,6 +1154,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         monthSnoozed += snoozed;
         monthSkipped += skipped;
         maxDone = MAX(maxDone, done);
+        if (done > bestDayDone) {
+            bestDayDone = done;
+            bestDayTitle = ERShortDateTitle(dateKey);
+        }
         if (done > 0) {
             monthActiveDays += 1;
         }
@@ -1168,6 +1182,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSInteger monthFriction = monthDone + monthSnoozed + monthSkipped;
     NSInteger monthSkipRate = monthFriction > 0 ? (NSInteger)llround((double)monthSkipped * 100.0 / (double)monthFriction) : 0;
     NSInteger delta = weekDone - previousWeekDone;
+    NSInteger activeRate = (NSInteger)llround((double)monthActiveDays * 100.0 / 30.0);
+    double dailyAverage = (double)monthDone / 30.0;
 
     self.statsOverviewLabel.stringValue = [NSString stringWithFormat:@"今天完成 %ld 次休息，本周完成 %ld 次。稍后/跳过共 %ld 次。",
                                            (long)(self.appDelegate.todayEyeDone + self.appDelegate.todayStandDone),
@@ -1177,6 +1193,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                                         (long)monthDone,
                                         (long)monthActiveDays,
                                         (long)monthSkipRate];
+    self.statsMonthDetailLabel.stringValue = [NSString stringWithFormat:@"活跃率 %ld%% · 日均 %.1f 次 · 最佳 %@/%ld 次",
+                                              (long)activeRate,
+                                              dailyAverage,
+                                              bestDayTitle,
+                                              (long)bestDayDone];
     if (monthDone == 0) {
         self.statsInsightLabel.stringValue = @"趋势：还没有足够数据。先完成几次休息，统计会开始有意义。";
     } else if (delta >= 3) {
