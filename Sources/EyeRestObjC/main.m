@@ -1096,6 +1096,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSInteger)closeOrphanRestWindows;
 - (void)noteRecoveryEventTitle:(NSString *)title detail:(NSString *)detail;
 - (NSString *)recoveryDiagnosticText;
+- (NSString *)detailedRecoveryDiagnosticText;
+- (void)copyRecoveryDiagnostic:(id)sender;
 - (NSTimeInterval)configuredRestDurationForKind:(ERReminderKind)kind;
 - (NSDate *)restEndDateForKind:(ERReminderKind)kind;
 - (void)ensureRestWindowForKind:(ERReminderKind)kind remaining:(NSTimeInterval)remaining;
@@ -3279,6 +3281,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     recoveryStatus.enabled = NO;
     [self.menu addItem:recoveryStatus];
 
+    NSMenuItem *copyRecovery = [[NSMenuItem alloc] initWithTitle:@"复制恢复诊断" action:@selector(copyRecoveryDiagnostic:) keyEquivalent:@""];
+    copyRecovery.target = self;
+    [self.menu addItem:copyRecovery];
+
     [self.menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *settings = [[NSMenuItem alloc] initWithTitle:@"打开设置..." action:@selector(openSettings:) keyEquivalent:@","];
     settings.target = self;
@@ -3569,6 +3575,32 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             ERFormatClockTime(self.lastSystemEventAt),
             self.lastSystemEventTitle ?: @"系统事件",
             self.lastRecoveryDetail ?: @"状态正常"];
+}
+
+- (NSString *)detailedRecoveryDiagnosticText {
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    [lines addObject:[NSString stringWithFormat:@"%@ 恢复诊断", ERBrandName]];
+    [lines addObject:[NSString stringWithFormat:@"生成时间：%@", ERFormatClockTime(NSDate.date)]];
+    [lines addObject:[self recoveryDiagnosticText]];
+    [lines addObject:[NSString stringWithFormat:@"眼睛：%@ · 下次/结束 %@",
+                      self.eyeResting ? @"休息中" : (self.settings.eyeEnabled ? @"计时中" : @"已关闭"),
+                      ERFormatDuration([self remainingUntil:(self.eyeResting ? self.eyeRestEndsAt : self.eyeDueAt)])]];
+    [lines addObject:[NSString stringWithFormat:@"站立：%@ · 下次/结束 %@",
+                      self.standResting ? @"站立中" : (self.settings.standEnabled ? @"计时中" : @"已关闭"),
+                      ERFormatDuration([self remainingUntil:(self.standResting ? self.standRestEndsAt : self.standDueAt)])]];
+    [lines addObject:[NSString stringWithFormat:@"休息页：%@ · 窗口数 %ld",
+                      self.restWindowController ? (self.restWindowController.window.visible ? @"可见" : @"存在但不可见") : @"无",
+                      (long)NSApp.windows.count]];
+    [lines addObject:[NSString stringWithFormat:@"暂停/轻打扰：paused=%@ autoPause=%@ focus=%@ presentation=%@ calendar=%@",
+                      self.paused ? @"YES" : @"NO",
+                      self.autoPauseActive ? @"YES" : @"NO",
+                      (self.focusModeEnabled || self.autoFocusActive) ? @"YES" : @"NO",
+                      self.presentationFocusActive ? @"YES" : @"NO",
+                      self.calendarFocusActive ? @"YES" : @"NO"]];
+    [lines addObject:[NSString stringWithFormat:@"前台应用：%@ · %@",
+                      self.frontmostAppName.length > 0 ? self.frontmostAppName : @"未知",
+                      self.frontmostAppBundleIdentifier.length > 0 ? self.frontmostAppBundleIdentifier : @"未知 bundle"]];
+    return [lines componentsJoinedByString:@"\n"];
 }
 
 - (void)evaluateReminderKind:(ERReminderKind)kind {
@@ -3986,6 +4018,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self resetAllTimers];
     [self noteRecoveryEventTitle:@"手动应急" detail:[NSString stringWithFormat:@"已关闭休息页%@",
                                                  orphaned > 0 ? [NSString stringWithFormat:@"，清理残留 %ld 个", (long)orphaned] : @""]];
+    [self publishState];
+}
+
+- (void)copyRecoveryDiagnostic:(id)sender {
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:[self detailedRecoveryDiagnosticText] forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"诊断" detail:@"已复制恢复诊断"];
     [self publishState];
 }
 
