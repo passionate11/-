@@ -811,6 +811,17 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     return YES;
 }
 
+- (void)keyDown:(NSEvent *)event {
+    if (event.keyCode == 53 || [event.charactersIgnoringModifiers isEqualToString:@"\x1b"]) {
+        id controller = self.windowController;
+        if ([controller respondsToSelector:@selector(cancelOperation:)]) {
+            [controller cancelOperation:self];
+            return;
+        }
+    }
+    [super keyDown:event];
+}
+
 @end
 
 @interface ERTimeInput : NSObject
@@ -1003,6 +1014,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)extendRestForKind:(ERReminderKind)kind bySeconds:(NSTimeInterval)seconds;
 - (void)snoozeRestForKind:(ERReminderKind)kind bySeconds:(NSTimeInterval)seconds;
 - (void)skipRestForKind:(ERReminderKind)kind;
+- (void)emergencyCloseRestOverlay:(id)sender;
 - (void)settingsDidChangeShouldReset:(BOOL)shouldReset;
 - (void)settleExpiredRests;
 - (void)repairRestOverlayAfterDisplayChange;
@@ -2669,6 +2681,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self.appDelegate skipRestForKind:self.kind];
 }
 
+- (void)cancelOperation:(id)sender {
+    [self.appDelegate skipRestForKind:self.kind];
+}
+
 @end
 
 @implementation ERAppDelegate
@@ -3174,6 +3190,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMenuItem *reset = [[NSMenuItem alloc] initWithTitle:@"重新开始全部计时" action:@selector(resetAllAction:) keyEquivalent:@"n"];
     reset.target = self;
     [self.menu addItem:reset];
+
+    NSMenuItem *emergencyClose = [[NSMenuItem alloc] initWithTitle:@"应急关闭休息页" action:@selector(emergencyCloseRestOverlay:) keyEquivalent:@"\x1b"];
+    emergencyClose.target = self;
+    [self.menu addItem:emergencyClose];
 
     [self.menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *notifications = [[NSMenuItem alloc] initWithTitle:@"系统通知" action:@selector(toggleNotifications:) keyEquivalent:@""];
@@ -3797,6 +3817,23 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)resetAllAction:(id)sender {
     [self resetAllTimers];
+}
+
+- (void)emergencyCloseRestOverlay:(id)sender {
+    BOOL hasActiveRest = self.eyeResting || self.standResting;
+    if (self.restWindowController) {
+        [self.restWindowController close];
+        self.restWindowController = nil;
+    }
+    NSInteger orphaned = [self closeOrphanRestWindows];
+    if (hasActiveRest) {
+        self.todaySkipped += 1;
+        [self saveTodayStats];
+    }
+    [self resetAllTimers];
+    [self noteRecoveryEventTitle:@"手动应急" detail:[NSString stringWithFormat:@"已关闭休息页%@",
+                                                 orphaned > 0 ? [NSString stringWithFormat:@"，清理残留 %ld 个", (long)orphaned] : @""]];
+    [self publishState];
 }
 
 - (void)openSettings:(id)sender {
