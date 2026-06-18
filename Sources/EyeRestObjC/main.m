@@ -29,7 +29,8 @@ typedef NS_ENUM(NSInteger, ERMenuBarMode) {
     ERMenuBarModeBoth = 0,
     ERMenuBarModeEye = 1,
     ERMenuBarModeStand = 2,
-    ERMenuBarModeCompact = 3
+    ERMenuBarModeCompact = 3,
+    ERMenuBarModeSmart = 4
 };
 
 static NSString *const ERSettingsEyeEnabledKey = @"eyeEnabled";
@@ -77,6 +78,22 @@ static NSString *ERFormatDuration(NSTimeInterval interval) {
     return [NSString stringWithFormat:@"%02ld:%02ld", (long)minutes, (long)remainingSeconds];
 }
 
+static NSString *ERFormatMenuBarShortDuration(NSTimeInterval interval) {
+    NSInteger seconds = MAX(0, (NSInteger)ceil(interval));
+    if (seconds < 60) {
+        return [NSString stringWithFormat:@"%lds", (long)seconds];
+    }
+    NSInteger minutes = (NSInteger)ceil((double)seconds / 60.0);
+    if (minutes < 60) {
+        return [NSString stringWithFormat:@"%ldm", (long)minutes];
+    }
+    NSInteger hours = minutes / 60;
+    NSInteger remainingMinutes = minutes % 60;
+    return remainingMinutes > 0
+        ? [NSString stringWithFormat:@"%ldh%02ldm", (long)hours, (long)remainingMinutes]
+        : [NSString stringWithFormat:@"%ldh", (long)hours];
+}
+
 static NSString *EREyeModeTitle(EREyeMode mode) {
     switch (mode) {
         case EREyeMode202020: return @"20-20-20";
@@ -101,6 +118,7 @@ static NSString *ERMenuBarModeTitle(ERMenuBarMode mode) {
         case ERMenuBarModeEye: return @"只显示眼睛";
         case ERMenuBarModeStand: return @"只显示站立";
         case ERMenuBarModeCompact: return @"极简图标";
+        case ERMenuBarModeSmart: return @"智能轮换";
     }
 }
 
@@ -381,7 +399,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     settings.standIntervalSeconds = ERClampInteger(settings.standIntervalSeconds, 10, 8 * 60 * 60);
     settings.standDurationSeconds = ERClampInteger(settings.standDurationSeconds, 10, 2 * 60 * 60);
     settings.restStyle = ERClampInteger(settings.restStyle, ERRestStyleBreath, ERRestStyleNight);
-    settings.menuBarMode = ERClampInteger(settings.menuBarMode, ERMenuBarModeBoth, ERMenuBarModeCompact);
+    settings.menuBarMode = ERClampInteger(settings.menuBarMode, ERMenuBarModeBoth, ERMenuBarModeSmart);
     return settings;
 }
 
@@ -791,6 +809,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ERMenuBarModeTitle(ERMenuBarModeEye),
         ERMenuBarModeTitle(ERMenuBarModeStand),
         ERMenuBarModeTitle(ERMenuBarModeCompact),
+        ERMenuBarModeTitle(ERMenuBarModeSmart),
     ]];
     self.menuBarModePopup.target = self;
     self.menuBarModePopup.action = @selector(toggleOnly:);
@@ -2131,8 +2150,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)updateStatusItemAppearance {
-    NSString *eyeText = self.settings.eyeEnabled ? ERFormatDuration([self remainingUntil:(self.eyeResting ? self.eyeRestEndsAt : self.eyeDueAt)]) : @"关";
-    NSString *standText = self.settings.standEnabled ? ERFormatDuration([self remainingUntil:(self.standResting ? self.standRestEndsAt : self.standDueAt)]) : @"关";
+    NSTimeInterval eyeRemaining = [self remainingUntil:(self.eyeResting ? self.eyeRestEndsAt : self.eyeDueAt)];
+    NSTimeInterval standRemaining = [self remainingUntil:(self.standResting ? self.standRestEndsAt : self.standDueAt)];
+    NSString *eyeText = self.settings.eyeEnabled ? ERFormatDuration(eyeRemaining) : @"关";
+    NSString *standText = self.settings.standEnabled ? ERFormatDuration(standRemaining) : @"关";
     NSString *title = @"";
 
     if (self.paused) {
@@ -2151,6 +2172,29 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             case ERMenuBarModeCompact:
                 title = @"";
                 break;
+            case ERMenuBarModeSmart: {
+                if (self.eyeResting && self.settings.eyeEnabled) {
+                    title = [NSString stringWithFormat:@" 眼休 %@", ERFormatMenuBarShortDuration(eyeRemaining)];
+                } else if (self.standResting && self.settings.standEnabled) {
+                    title = [NSString stringWithFormat:@" 站立 %@", ERFormatMenuBarShortDuration(standRemaining)];
+                } else if (self.settings.eyeEnabled && eyeRemaining <= 5 * 60) {
+                    title = [NSString stringWithFormat:@" 眼 %@", ERFormatMenuBarShortDuration(eyeRemaining)];
+                } else if (self.settings.standEnabled && standRemaining <= 5 * 60) {
+                    title = [NSString stringWithFormat:@" 站 %@", ERFormatMenuBarShortDuration(standRemaining)];
+                } else if (self.settings.eyeEnabled && self.settings.standEnabled) {
+                    NSInteger phase = ((NSInteger)[NSDate.date timeIntervalSince1970] / 20) % 2;
+                    title = phase == 0
+                        ? [NSString stringWithFormat:@" 眼 %@", ERFormatMenuBarShortDuration(eyeRemaining)]
+                        : [NSString stringWithFormat:@" 站 %@", ERFormatMenuBarShortDuration(standRemaining)];
+                } else if (self.settings.eyeEnabled) {
+                    title = [NSString stringWithFormat:@" 眼 %@", ERFormatMenuBarShortDuration(eyeRemaining)];
+                } else if (self.settings.standEnabled) {
+                    title = [NSString stringWithFormat:@" 站 %@", ERFormatMenuBarShortDuration(standRemaining)];
+                } else {
+                    title = @" 关";
+                }
+                break;
+            }
         }
     }
     self.statusItem.button.title = title;
