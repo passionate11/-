@@ -1082,6 +1082,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, copy) NSString *lastSystemEventTitle;
 @property(nonatomic, copy) NSString *lastRecoveryDetail;
 @property(nonatomic, strong) NSMutableArray<NSDictionary<NSString *, id> *> *recoveryEventHistory;
+@property(nonatomic) NSUInteger recoveryFollowUpGeneration;
 @property(nonatomic, strong) ERRestWindowController *restWindowController;
 @property(nonatomic, strong) ERSettingsWindowController *settingsWindowController;
 - (void)finishRestForKind:(ERReminderKind)kind;
@@ -1094,6 +1095,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)settleExpiredRests;
 - (void)repairRestOverlayAfterDisplayChange;
 - (void)repairRestOverlayAfterSystemEvent:(NSNotification *)notification;
+- (void)scheduleRecoveryFollowUpChecksWithTitle:(NSString *)eventTitle;
+- (void)runRecoveryFollowUpCheckWithTitle:(NSString *)eventTitle pass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)frontmostApplicationDidChange:(NSNotification *)notification;
 - (void)activeSpaceDidChange:(NSNotification *)notification;
 - (void)repairRestStateIfNeeded;
@@ -3254,6 +3257,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)workspaceWillSuspend:(NSNotification *)notification {
+    self.recoveryFollowUpGeneration += 1;
     [self noteRecoveryEventTitle:ERSystemEventTitle(notification.name) detail:@"已隐藏休息窗口，等待恢复检查"];
     if (self.restWindowController) {
         [self.restWindowController.window orderOut:nil];
@@ -3314,6 +3318,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [details addObject:@"状态正常"];
     }
     [self noteRecoveryEventTitle:eventTitle detail:[details componentsJoinedByString:@"，"]];
+    if (notification) {
+        [self scheduleRecoveryFollowUpChecksWithTitle:eventTitle];
+    }
 
     if (!self.restWindowController) {
         [self publishState];
@@ -3335,6 +3342,47 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self noteRecoveryEventTitle:eventTitle detail:@"休息页二次校准完成"];
         [self publishState];
     });
+}
+
+- (void)scheduleRecoveryFollowUpChecksWithTitle:(NSString *)eventTitle {
+    self.recoveryFollowUpGeneration += 1;
+    NSUInteger generation = self.recoveryFollowUpGeneration;
+    NSArray<NSNumber *> *delays = @[@1.0, @3.0, @8.0];
+    NSInteger total = delays.count;
+    NSString *title = eventTitle.length > 0 ? eventTitle : @"系统恢复";
+
+    for (NSInteger index = 0; index < total; index++) {
+        NSTimeInterval delay = delays[index].doubleValue;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self runRecoveryFollowUpCheckWithTitle:title pass:index + 1 total:total generation:generation];
+        });
+    }
+}
+
+- (void)runRecoveryFollowUpCheckWithTitle:(NSString *)eventTitle pass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation {
+    if (generation != self.recoveryFollowUpGeneration) return;
+
+    [self refreshFocusModeState];
+    [self settleExpiredRests];
+    [self repairRestStateIfNeeded];
+    NSInteger orphaned = [self closeOrphanRestWindows];
+    NSMutableArray<NSString *> *details = [NSMutableArray arrayWithObject:[NSString stringWithFormat:@"第 %ld/%ld 次复查", (long)pass, (long)total]];
+    if (orphaned > 0) {
+        [details addObject:[NSString stringWithFormat:@"关闭残留窗口 %ld 个", (long)orphaned]];
+    }
+    if (self.paused) {
+        [details addObject:@"暂停中"];
+    } else if ([self isLightDistractionModeActive]) {
+        [details addObject:@"轻打扰中"];
+    } else if (self.restWindowController) {
+        [self.restWindowController presentOverlay];
+        [details addObject:@"休息页已校准"];
+    } else {
+        [details addObject:@"状态正常"];
+    }
+
+    [self noteRecoveryEventTitle:eventTitle detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender {
