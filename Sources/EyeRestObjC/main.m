@@ -1,5 +1,6 @@
 #import <Cocoa/Cocoa.h>
 #import <UserNotifications/UserNotifications.h>
+#import <EventKit/EventKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <fcntl.h>
@@ -46,6 +47,7 @@ static NSString *const ERSettingsRestStyleKey = @"restStyle";
 static NSString *const ERSettingsMenuBarModeKey = @"menuBarMode";
 static NSString *const ERSettingsLaunchAtLoginKey = @"launchAtLogin";
 static NSString *const ERSettingsAutoFocusModeKey = @"autoFocusModeEnabled";
+static NSString *const ERSettingsCalendarFocusModeKey = @"calendarFocusModeEnabled";
 static NSString *const ERSettingsFocusAppTokensKey = @"focusAppTokens";
 static NSString *const ERSettingsAutoPauseAppTokensKey = @"autoPauseAppTokens";
 static NSString *const ERSettingsIgnoreAppTokensKey = @"ignoreAppTokens";
@@ -196,6 +198,27 @@ static BOOL ERApplicationMatchesFocusTokens(NSString *bundleIdentifier, NSString
         if ([nameText isEqualToString:needle] || [nameText containsString:needle]) return YES;
     }
     return NO;
+}
+
+static BOOL ERCalendarAccessGranted(void) {
+    EKAuthorizationStatus status = [EKEventStore authorizationStatusForEntityType:EKEntityTypeEvent];
+    if (@available(macOS 14.0, *)) {
+        return status == EKAuthorizationStatusFullAccess;
+    }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    return status == EKAuthorizationStatusAuthorized;
+#pragma clang diagnostic pop
+}
+
+static NSString *ERCalendarAccessStatusText(void) {
+    EKAuthorizationStatus status = [EKEventStore authorizationStatusForEntityType:EKEntityTypeEvent];
+    switch (status) {
+        case EKAuthorizationStatusNotDetermined: return @"未授权";
+        case EKAuthorizationStatusRestricted: return @"受限制";
+        case EKAuthorizationStatusDenied: return @"已拒绝";
+        default: return ERCalendarAccessGranted() ? @"已授权" : @"不可用";
+    }
 }
 
 static NSString *ERRestStyleHint(ERRestStyle style) {
@@ -439,6 +462,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) ERMenuBarMode menuBarMode;
 @property(nonatomic) BOOL launchAtLogin;
 @property(nonatomic) BOOL autoFocusModeEnabled;
+@property(nonatomic) BOOL calendarFocusModeEnabled;
 @property(nonatomic, strong) NSArray<NSString *> *focusAppTokens;
 @property(nonatomic, strong) NSArray<NSString *> *autoPauseAppTokens;
 @property(nonatomic, strong) NSArray<NSString *> *ignoreAppTokens;
@@ -466,6 +490,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ERSettingsMenuBarModeKey: @(ERMenuBarModeBoth),
         ERSettingsLaunchAtLoginKey: @NO,
         ERSettingsAutoFocusModeKey: @YES,
+        ERSettingsCalendarFocusModeKey: @NO,
         ERSettingsFocusAppTokensKey: ERDefaultFocusAppTokens(),
         ERSettingsAutoPauseAppTokensKey: ERDefaultAutoPauseAppTokens(),
         ERSettingsIgnoreAppTokensKey: ERDefaultIgnoreAppTokens()
@@ -485,6 +510,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     settings.menuBarMode = [defaults integerForKey:ERSettingsMenuBarModeKey];
     settings.launchAtLogin = [defaults boolForKey:ERSettingsLaunchAtLoginKey];
     settings.autoFocusModeEnabled = [defaults boolForKey:ERSettingsAutoFocusModeKey];
+    settings.calendarFocusModeEnabled = [defaults boolForKey:ERSettingsCalendarFocusModeKey];
     BOOL hasFocusTokens = ERDefaultsHasPersistentValue(defaults, ERSettingsFocusAppTokensKey);
     id focusTokensObject = [defaults objectForKey:ERSettingsFocusAppTokensKey];
     settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject(focusTokensObject);
@@ -536,6 +562,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [defaults setInteger:self.menuBarMode forKey:ERSettingsMenuBarModeKey];
     [defaults setBool:self.launchAtLogin forKey:ERSettingsLaunchAtLoginKey];
     [defaults setBool:self.autoFocusModeEnabled forKey:ERSettingsAutoFocusModeKey];
+    [defaults setBool:self.calendarFocusModeEnabled forKey:ERSettingsCalendarFocusModeKey];
     [defaults setObject:ERSanitizedFocusAppTokensFromObject(self.focusAppTokens) forKey:ERSettingsFocusAppTokensKey];
     [defaults setObject:ERSanitizedFocusAppTokensFromObject(self.autoPauseAppTokens) forKey:ERSettingsAutoPauseAppTokensKey];
     [defaults setObject:ERSanitizedFocusAppTokensFromObject(self.ignoreAppTokens) forKey:ERSettingsIgnoreAppTokensKey];
@@ -649,10 +676,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSButton *restWindowSwitch;
 @property(nonatomic, strong) NSButton *launchAtLoginSwitch;
 @property(nonatomic, strong) NSButton *autoFocusSwitch;
+@property(nonatomic, strong) NSButton *calendarFocusSwitch;
 @property(nonatomic, strong) NSTextField *focusAppTokensField;
 @property(nonatomic, strong) NSTextField *autoPauseAppTokensField;
 @property(nonatomic, strong) NSTextField *ignoreAppTokensField;
 @property(nonatomic, strong) NSTextField *focusAppMatchLabel;
+@property(nonatomic, strong) NSTextField *calendarStatusLabel;
 @property(nonatomic, strong) NSTextField *focusAppHintLabel;
 @property(nonatomic, strong) NSButton *focusAppResetButton;
 @property(nonatomic, strong) NSPopUpButton *menuBarModePopup;
@@ -723,6 +752,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) BOOL autoFocusActive;
 @property(nonatomic) BOOL autoPauseActive;
 @property(nonatomic) BOOL autoIgnoreActive;
+@property(nonatomic) BOOL calendarFocusActive;
+@property(nonatomic) BOOL calendarAccessRequested;
+@property(nonatomic, strong) EKEventStore *eventStore;
+@property(nonatomic, strong) NSDate *lastCalendarRefreshAt;
+@property(nonatomic, copy) NSString *currentCalendarEventTitle;
 @property(nonatomic, copy) NSString *frontmostAppName;
 @property(nonatomic, copy) NSString *frontmostAppBundleIdentifier;
 @property(nonatomic) NSInteger todayEyeDone;
@@ -756,6 +790,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)resetTodayStatsIfNeeded;
 - (void)applyPreferenceSideEffects;
 - (void)refreshFocusModeState;
+- (void)requestCalendarAccessIfNeeded;
+- (void)refreshCalendarFocusStateIfNeeded:(BOOL)force;
+- (BOOL)isCurrentCalendarEvent:(EKEvent *)event now:(NSDate *)now;
 - (void)shiftReminderDatesBySeconds:(NSTimeInterval)seconds;
 - (BOOL)isLightDistractionModeActive;
 - (NSString *)focusModeStatusText;
@@ -1079,26 +1116,38 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)buildAutomationSectionInView:(NSView *)view {
     NSView *card = self.automationCard;
     [self addSettingRowsToCard:card frames:@[
-        [NSValue valueWithRect:NSMakeRect(14, 172, 500, 36)],
-        [NSValue valueWithRect:NSMakeRect(14, 130, 500, 40)],
-        [NSValue valueWithRect:NSMakeRect(14, 88, 500, 40)],
-        [NSValue valueWithRect:NSMakeRect(14, 46, 500, 40)],
-        [NSValue valueWithRect:NSMakeRect(14, 8, 500, 36)]
+        [NSValue valueWithRect:NSMakeRect(14, 192, 500, 34)],
+        [NSValue valueWithRect:NSMakeRect(14, 156, 500, 34)],
+        [NSValue valueWithRect:NSMakeRect(14, 116, 500, 38)],
+        [NSValue valueWithRect:NSMakeRect(14, 76, 500, 38)],
+        [NSValue valueWithRect:NSMakeRect(14, 36, 500, 38)],
+        [NSValue valueWithRect:NSMakeRect(14, 6, 500, 28)]
     ] dividerX:136 dividerWidth:354];
 
     self.autoFocusSwitch = [NSButton checkboxWithTitle:@"自动策略" target:self action:@selector(toggleOnly:)];
-    self.autoFocusSwitch.frame = NSMakeRect(24, 178, 160, 24);
+    self.autoFocusSwitch.frame = NSMakeRect(24, 198, 160, 24);
     [card addSubview:self.autoFocusSwitch];
 
     self.focusAppMatchLabel = [NSTextField wrappingLabelWithString:@""];
-    self.focusAppMatchLabel.frame = NSMakeRect(156, 174, 338, 32);
+    self.focusAppMatchLabel.frame = NSMakeRect(156, 194, 338, 30);
     self.focusAppMatchLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.focusAppMatchLabel.maximumNumberOfLines = 2;
     self.focusAppMatchLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.focusAppMatchLabel];
 
-    [card addSubview:[self fieldLabel:@"只发通知：" frame:NSMakeRect(24, 138, 96, 22)]];
-    self.focusAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 132, 268, 28)];
+    self.calendarFocusSwitch = [NSButton checkboxWithTitle:@"日历会议" target:self action:@selector(toggleOnly:)];
+    self.calendarFocusSwitch.frame = NSMakeRect(24, 162, 120, 24);
+    [card addSubview:self.calendarFocusSwitch];
+
+    self.calendarStatusLabel = [NSTextField wrappingLabelWithString:@""];
+    self.calendarStatusLabel.frame = NSMakeRect(156, 158, 338, 30);
+    self.calendarStatusLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
+    self.calendarStatusLabel.maximumNumberOfLines = 2;
+    self.calendarStatusLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:self.calendarStatusLabel];
+
+    [card addSubview:[self fieldLabel:@"只发通知：" frame:NSMakeRect(24, 124, 96, 22)]];
+    self.focusAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 120, 268, 28)];
     self.focusAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.focusAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
     self.focusAppTokensField.placeholderString = @"会议/演示：通知 + 计时";
@@ -1106,8 +1155,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.focusAppTokensField.action = @selector(applySettings:);
     [card addSubview:self.focusAppTokensField];
 
-    [card addSubview:[self fieldLabel:@"自动暂停：" frame:NSMakeRect(24, 96, 96, 22)]];
-    self.autoPauseAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 90, 350, 28)];
+    [card addSubview:[self fieldLabel:@"自动暂停：" frame:NSMakeRect(24, 84, 96, 22)]];
+    self.autoPauseAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 80, 350, 28)];
     self.autoPauseAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.autoPauseAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
     self.autoPauseAppTokensField.placeholderString = @"视频/游戏：计时暂缓";
@@ -1115,8 +1164,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.autoPauseAppTokensField.action = @selector(applySettings:);
     [card addSubview:self.autoPauseAppTokensField];
 
-    [card addSubview:[self fieldLabel:@"不处理：" frame:NSMakeRect(24, 54, 96, 22)]];
-    self.ignoreAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 48, 350, 28)];
+    [card addSubview:[self fieldLabel:@"不处理：" frame:NSMakeRect(24, 44, 96, 22)]];
+    self.ignoreAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 40, 350, 28)];
     self.ignoreAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.ignoreAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
     self.ignoreAppTokensField.placeholderString = @"误命中兜底：照常提醒";
@@ -1125,12 +1174,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.ignoreAppTokensField];
 
     self.focusAppResetButton = [NSButton buttonWithTitle:@"默认" target:self action:@selector(resetFocusApps:)];
-    self.focusAppResetButton.frame = NSMakeRect(418, 132, 72, 28);
+    self.focusAppResetButton.frame = NSMakeRect(418, 120, 72, 28);
     self.focusAppResetButton.bezelStyle = NSBezelStyleRounded;
     [card addSubview:self.focusAppResetButton];
 
-    self.focusAppHintLabel = [NSTextField wrappingLabelWithString:@"优先级：不处理 > 自动暂停 > 只发通知。多个关键词用逗号分隔，支持应用名或 bundle id。"];
-    self.focusAppHintLabel.frame = NSMakeRect(24, 15, 466, 22);
+    self.focusAppHintLabel = [NSTextField wrappingLabelWithString:@"优先级：不处理 > 自动暂停 > 日历会议/只发通知。多个关键词用逗号分隔。"];
+    self.focusAppHintLabel.frame = NSMakeRect(24, 10, 466, 20);
     self.focusAppHintLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightRegular];
     self.focusAppHintLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.focusAppHintLabel];
@@ -1325,6 +1374,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.restWindowSwitch.state = self.settings.showRestWindow ? NSControlStateValueOn : NSControlStateValueOff;
     self.launchAtLoginSwitch.state = self.settings.launchAtLogin ? NSControlStateValueOn : NSControlStateValueOff;
     self.autoFocusSwitch.state = self.settings.autoFocusModeEnabled ? NSControlStateValueOn : NSControlStateValueOff;
+    self.calendarFocusSwitch.state = self.settings.calendarFocusModeEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     self.focusAppTokensField.stringValue = [self.settings.focusAppTokens componentsJoinedByString:@", "];
     self.autoPauseAppTokensField.stringValue = [self.settings.autoPauseAppTokens componentsJoinedByString:@", "];
     self.ignoreAppTokensField.stringValue = [self.settings.ignoreAppTokens componentsJoinedByString:@", "];
@@ -1345,6 +1395,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)refreshAutomationStatus {
     if (!self.focusAppMatchLabel) return;
     self.focusAppMatchLabel.stringValue = [self.appDelegate focusModeStatusText];
+    NSString *calendarStatus = ERCalendarAccessStatusText();
+    if (self.appDelegate.calendarFocusActive) {
+        NSString *title = self.appDelegate.currentCalendarEventTitle.length > 0 ? self.appDelegate.currentCalendarEventTitle : @"当前会议";
+        self.calendarStatusLabel.stringValue = [NSString stringWithFormat:@"会议中：%@ · 只发通知", title];
+    } else if (self.settings.calendarFocusModeEnabled) {
+        self.calendarStatusLabel.stringValue = [NSString stringWithFormat:@"日历权限：%@ · 当前无会议", calendarStatus];
+    } else {
+        self.calendarStatusLabel.stringValue = @"关闭后不会读取日历。";
+    }
 }
 
 - (void)refreshStats {
@@ -1592,6 +1651,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"menuBarMode": ERMenuBarModeTitle(self.settings.menuBarMode),
             @"launchAtLogin": @(self.settings.launchAtLogin),
             @"autoFocusModeEnabled": @(self.settings.autoFocusModeEnabled),
+            @"calendarFocusModeEnabled": @(self.settings.calendarFocusModeEnabled),
             @"focusAppTokens": self.settings.focusAppTokens ?: @[],
             @"autoPauseAppTokens": self.settings.autoPauseAppTokens ?: @[],
             @"ignoreAppTokens": self.settings.ignoreAppTokens ?: @[]
@@ -1638,6 +1698,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.titleLabel.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
     self.summaryLabel.textColor = theme.secondary;
     self.focusAppMatchLabel.textColor = theme.secondary;
+    self.calendarStatusLabel.textColor = theme.secondary;
     self.focusAppHintLabel.textColor = theme.secondary;
     self.statsOverviewLabel.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
     self.statsMonthLabel.textColor = theme.secondary;
@@ -1771,6 +1832,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.showRestWindow = self.restWindowSwitch.state == NSControlStateValueOn;
     self.settings.launchAtLogin = self.launchAtLoginSwitch.state == NSControlStateValueOn;
     self.settings.autoFocusModeEnabled = self.autoFocusSwitch.state == NSControlStateValueOn;
+    self.settings.calendarFocusModeEnabled = self.calendarFocusSwitch.state == NSControlStateValueOn;
     self.settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject(self.focusAppTokensField.stringValue);
     self.settings.autoPauseAppTokens = ERSanitizedFocusAppTokensFromObject(self.autoPauseAppTokensField.stringValue);
     self.settings.ignoreAppTokens = ERSanitizedFocusAppTokensFromObject(self.ignoreAppTokensField.stringValue);
@@ -1795,6 +1857,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         self.settings.standDurationSeconds != [self.standDurationInput secondsWithMinimum:10 maximum:2 * 60 * 60];
     [self collectFieldsIntoSettings];
     [self.settings save];
+    [self.appDelegate requestCalendarAccessIfNeeded];
     [self refreshControls];
     [self.appDelegate settingsDidChangeShouldReset:timingChanged];
 }
@@ -1826,6 +1889,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.showRestWindow = YES;
     self.settings.launchAtLogin = NO;
     self.settings.autoFocusModeEnabled = YES;
+    self.settings.calendarFocusModeEnabled = NO;
     self.settings.focusAppTokens = ERDefaultFocusAppTokens();
     self.settings.autoPauseAppTokens = ERDefaultAutoPauseAppTokens();
     self.settings.ignoreAppTokens = ERDefaultIgnoreAppTokens();
@@ -1838,6 +1902,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)resetFocusApps:(id)sender {
     self.settings.autoFocusModeEnabled = YES;
+    self.settings.calendarFocusModeEnabled = NO;
     self.settings.focusAppTokens = ERDefaultFocusAppTokens();
     self.settings.autoPauseAppTokens = ERDefaultAutoPauseAppTokens();
     self.settings.ignoreAppTokens = ERDefaultIgnoreAppTokens();
@@ -2254,6 +2319,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                                            selector:@selector(screenParametersChanged:)
                                                name:NSApplicationDidChangeScreenParametersNotification
                                              object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self
+                                           selector:@selector(calendarStoreChanged:)
+                                               name:EKEventStoreChangedNotification
+                                             object:nil];
 }
 
 - (void)loadTodayStats {
@@ -2347,13 +2416,80 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)applyPreferenceSideEffects {
     ERApplyLaunchAtLogin(self.settings.launchAtLogin);
+    [self requestCalendarAccessIfNeeded];
     [self updateStatusItemAppearance];
+}
+
+- (void)requestCalendarAccessIfNeeded {
+    if (!self.settings.autoFocusModeEnabled || !self.settings.calendarFocusModeEnabled || self.calendarAccessRequested || ERCalendarAccessGranted()) return;
+    EKAuthorizationStatus status = [EKEventStore authorizationStatusForEntityType:EKEntityTypeEvent];
+    if (status != EKAuthorizationStatusNotDetermined) {
+        [self refreshCalendarFocusStateIfNeeded:YES];
+        return;
+    }
+    self.calendarAccessRequested = YES;
+    if (!self.eventStore) {
+        self.eventStore = [[EKEventStore alloc] init];
+    }
+    void (^completion)(BOOL, NSError *) = ^(BOOL granted, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.calendarAccessRequested = NO;
+            [self refreshCalendarFocusStateIfNeeded:YES];
+            [self.settingsWindowController refreshAutomationStatus];
+            [self publishState];
+        });
+    };
+    if (@available(macOS 14.0, *)) {
+        [self.eventStore requestFullAccessToEventsWithCompletion:completion];
+    } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        [self.eventStore requestAccessToEntityType:EKEntityTypeEvent completion:completion];
+#pragma clang diagnostic pop
+    }
+}
+
+- (BOOL)isCurrentCalendarEvent:(EKEvent *)event now:(NSDate *)now {
+    if (!event || event.isAllDay || event.status == EKEventStatusCanceled) return NO;
+    if (!event.startDate || !event.endDate) return NO;
+    if ([event.startDate timeIntervalSinceDate:now] > 0 || [event.endDate timeIntervalSinceDate:now] <= 0) return NO;
+    return YES;
+}
+
+- (void)refreshCalendarFocusStateIfNeeded:(BOOL)force {
+    if (!self.settings.autoFocusModeEnabled || !self.settings.calendarFocusModeEnabled || !ERCalendarAccessGranted()) {
+        self.calendarFocusActive = NO;
+        self.currentCalendarEventTitle = nil;
+        self.lastCalendarRefreshAt = nil;
+        return;
+    }
+    NSDate *now = NSDate.date;
+    if (!force && self.lastCalendarRefreshAt && [now timeIntervalSinceDate:self.lastCalendarRefreshAt] < 60) {
+        return;
+    }
+    self.lastCalendarRefreshAt = now;
+    if (!self.eventStore) {
+        self.eventStore = [[EKEventStore alloc] init];
+    }
+    NSDate *start = [now dateByAddingTimeInterval:-60];
+    NSDate *end = [now dateByAddingTimeInterval:60];
+    NSPredicate *predicate = [self.eventStore predicateForEventsWithStartDate:start endDate:end calendars:nil];
+    NSArray<EKEvent *> *events = [self.eventStore eventsMatchingPredicate:predicate];
+    EKEvent *activeEvent = nil;
+    for (EKEvent *event in events) {
+        if (![self isCurrentCalendarEvent:event now:now]) continue;
+        activeEvent = event;
+        break;
+    }
+    self.calendarFocusActive = activeEvent != nil;
+    self.currentCalendarEventTitle = activeEvent.title;
 }
 
 - (void)refreshFocusModeState {
     NSRunningApplication *frontmost = NSWorkspace.sharedWorkspace.frontmostApplication;
     self.frontmostAppBundleIdentifier = frontmost.bundleIdentifier;
     self.frontmostAppName = frontmost.localizedName;
+    [self refreshCalendarFocusStateIfNeeded:NO];
 
     BOOL ignored = NO;
     BOOL paused = NO;
@@ -2362,7 +2498,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ignored = ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.ignoreAppTokens);
         if (!ignored) {
             paused = ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.autoPauseAppTokens);
-            focused = !paused && ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.focusAppTokens);
+            focused = !paused && (self.calendarFocusActive || ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.focusAppTokens));
         }
     }
     if (paused && !self.paused && !self.autoPauseActive && !self.autoPauseSessionActive) {
@@ -2401,6 +2537,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     if (self.autoPauseActive) {
         return [NSString stringWithFormat:@"自动暂停：%@ · %@", name, bundle];
     }
+    if (self.calendarFocusActive) {
+        NSString *eventTitle = self.currentCalendarEventTitle.length > 0 ? self.currentCalendarEventTitle : @"当前会议";
+        return [NSString stringWithFormat:@"日历会议：%@ · 只发通知", eventTitle];
+    }
     if (self.autoFocusActive) {
         return [NSString stringWithFormat:@"只发通知：%@ · %@", name, bundle];
     }
@@ -2421,6 +2561,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)screenParametersChanged:(NSNotification *)notification {
     [self repairRestOverlayAfterDisplayChange];
+}
+
+- (void)calendarStoreChanged:(NSNotification *)notification {
+    [self refreshCalendarFocusStateIfNeeded:YES];
+    [self repairRestStateIfNeeded];
+    [self publishState];
 }
 
 - (void)frontmostApplicationDidChange:(NSNotification *)notification {
@@ -2955,7 +3101,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         }
     }
     if ([self isLightDistractionModeActive] && title.length > 0) {
-        title = [NSString stringWithFormat:@"%@%@", self.autoFocusActive ? @" 自动" : @" 工作", title];
+        NSString *prefix = self.focusModeEnabled ? @" 工作" : (self.calendarFocusActive ? @" 会议" : @" 自动");
+        title = [NSString stringWithFormat:@"%@%@", prefix, title];
     }
     self.statusItem.button.title = title;
 }
@@ -2973,6 +3120,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         status.title = [NSString stringWithFormat:@"自动暂停：%@", name];
     } else if (self.focusModeEnabled) {
         status.title = @"工作模式：轻打扰";
+    } else if (self.calendarFocusActive) {
+        NSString *eventTitle = self.currentCalendarEventTitle.length > 0 ? self.currentCalendarEventTitle : @"当前会议";
+        status.title = [NSString stringWithFormat:@"日历会议：%@", eventTitle];
     } else if (self.autoFocusActive) {
         NSString *name = self.frontmostAppName.length > 0 ? self.frontmostAppName : @"前台应用";
         status.title = [NSString stringWithFormat:@"自动轻打扰：%@", name];

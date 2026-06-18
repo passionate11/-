@@ -13,6 +13,7 @@ mkdir -p "$ROOT_DIR/.build"
 clang -fobjc-arc \
   -mmacosx-version-min=13.0 \
   -framework Cocoa \
+  -framework EventKit \
   -framework QuartzCore \
   -framework UserNotifications \
   -framework UniformTypeIdentifiers \
@@ -48,6 +49,10 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
   <true/>
   <key>NSUserNotificationAlertStyle</key>
   <string>alert</string>
+  <key>NSCalendarsUsageDescription</key>
+  <string>松一下会读取当前日历事件，用于会议期间自动降低休息提醒打扰。</string>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>松一下会读取当前日历事件，用于会议期间自动降低休息提醒打扰。</string>
 </dict>
 </plist>
 PLIST
