@@ -81,6 +81,7 @@ static NSString *const ERStatsNotificationOnlyKey = @"statsNotificationOnly";
 static NSString *const ERStatsAutoPauseSessionsKey = @"statsAutoPauseSessions";
 static NSString *const ERStatsAutoPauseSecondsKey = @"statsAutoPauseSeconds";
 static NSString *const ERStatsHistoryKey = @"statsHistory";
+static NSString *const ERRecoveryHistoryKey = @"recoveryHistory";
 static NSString *const ERBrandName = @"松一下";
 static NSString *const ERRestOverlayWindowIdentifier = @"local.codex.eyerest.rest-overlay";
 static int ERSingleInstanceLockFD = -1;
@@ -1107,6 +1108,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)loadTodayStats;
 - (void)saveTodayStats;
 - (void)resetTodayStatsIfNeeded;
+- (void)loadRecoveryHistory;
+- (void)saveRecoveryHistory;
 - (void)applyPreferenceSideEffects;
 - (void)refreshFocusModeState;
 - (void)requestCalendarAccessIfNeeded;
@@ -2855,6 +2858,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.statusItem.button.imagePosition = NSImageLeft;
 
     [self loadTodayStats];
+    [self loadRecoveryHistory];
     [self rebuildMenu];
     [self resetAllTimers];
     [self applyPreferenceSideEffects];
@@ -2966,6 +2970,51 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         }
     }
     [defaults setObject:history forKey:ERStatsHistoryKey];
+}
+
+- (void)loadRecoveryHistory {
+    NSArray *savedHistory = [NSUserDefaults.standardUserDefaults arrayForKey:ERRecoveryHistoryKey];
+    NSMutableArray<NSDictionary<NSString *, id> *> *history = [NSMutableArray array];
+
+    for (id item in savedHistory) {
+        if (![item isKindOfClass:NSDictionary.class]) continue;
+        NSDictionary *entry = (NSDictionary *)item;
+        NSDate *time = [entry[@"time"] isKindOfClass:NSDate.class] ? entry[@"time"] : nil;
+        if (!time) continue;
+        NSString *title = [entry[@"title"] isKindOfClass:NSString.class] ? entry[@"title"] : @"系统事件";
+        NSString *detail = [entry[@"detail"] isKindOfClass:NSString.class] ? entry[@"detail"] : @"状态正常";
+        [history addObject:@{
+            @"time": time,
+            @"title": title,
+            @"detail": detail
+        }];
+        if (history.count >= 8) break;
+    }
+
+    self.recoveryEventHistory = history;
+    NSDictionary<NSString *, id> *latest = history.firstObject;
+    if (latest) {
+        self.lastSystemEventAt = [latest[@"time"] isKindOfClass:NSDate.class] ? latest[@"time"] : nil;
+        self.lastSystemEventTitle = [latest[@"title"] isKindOfClass:NSString.class] ? latest[@"title"] : @"系统事件";
+        self.lastRecoveryDetail = [latest[@"detail"] isKindOfClass:NSString.class] ? latest[@"detail"] : @"状态正常";
+    }
+}
+
+- (void)saveRecoveryHistory {
+    NSMutableArray<NSDictionary<NSString *, id> *> *history = [NSMutableArray array];
+    for (NSDictionary<NSString *, id> *entry in self.recoveryEventHistory) {
+        NSDate *time = [entry[@"time"] isKindOfClass:NSDate.class] ? entry[@"time"] : nil;
+        if (!time) continue;
+        NSString *title = [entry[@"title"] isKindOfClass:NSString.class] ? entry[@"title"] : @"系统事件";
+        NSString *detail = [entry[@"detail"] isKindOfClass:NSString.class] ? entry[@"detail"] : @"状态正常";
+        [history addObject:@{
+            @"time": time,
+            @"title": title,
+            @"detail": detail
+        }];
+        if (history.count >= 8) break;
+    }
+    [NSUserDefaults.standardUserDefaults setObject:history forKey:ERRecoveryHistoryKey];
 }
 
 - (void)resetTodayStatsIfNeeded {
@@ -3586,6 +3635,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     while (self.recoveryEventHistory.count > 8) {
         [self.recoveryEventHistory removeLastObject];
     }
+    [self saveRecoveryHistory];
 }
 
 - (NSString *)recoveryDiagnosticText {
