@@ -53,6 +53,7 @@ static NSString *const ERStatsSnoozedKey = @"statsSnoozed";
 static NSString *const ERStatsSkippedKey = @"statsSkipped";
 static NSString *const ERStatsHistoryKey = @"statsHistory";
 static NSString *const ERBrandName = @"松一下";
+static NSString *const ERRestOverlayWindowIdentifier = @"local.codex.eyerest.rest-overlay";
 static int ERSingleInstanceLockFD = -1;
 
 static BOOL ERAcquireSingleInstanceLock(void) {
@@ -596,6 +597,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)skipRestForKind:(ERReminderKind)kind;
 - (void)settingsDidChangeShouldReset:(BOOL)shouldReset;
 - (void)settleExpiredRests;
+- (void)repairRestOverlayAfterDisplayChange;
+- (void)repairRestStateIfNeeded;
+- (void)closeOrphanRestWindows;
+- (NSTimeInterval)configuredRestDurationForKind:(ERReminderKind)kind;
+- (NSDate *)restEndDateForKind:(ERReminderKind)kind;
+- (void)ensureRestWindowForKind:(ERReminderKind)kind remaining:(NSTimeInterval)remaining;
 - (void)loadTodayStats;
 - (void)saveTodayStats;
 - (void)resetTodayStatsIfNeeded;
@@ -1415,6 +1422,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     if (!self) return nil;
     self.appDelegate = appDelegate;
 
+    window.identifier = ERRestOverlayWindowIdentifier;
     window.level = NSStatusWindowLevel;
     window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary;
     window.opaque = YES;
@@ -1894,18 +1902,21 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)repairRestOverlayAfterDisplayChange {
     [self settleExpiredRests];
+    [self repairRestStateIfNeeded];
     if (!self.restWindowController) {
         [self publishState];
         return;
     }
     dispatch_async(dispatch_get_main_queue(), ^{
         [self settleExpiredRests];
+        [self repairRestStateIfNeeded];
         if (!self.restWindowController) return;
         [self.restWindowController presentOverlay];
         [self publishState];
     });
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self settleExpiredRests];
+        [self repairRestStateIfNeeded];
         if (!self.restWindowController) return;
         [self.restWindowController presentOverlay];
         [self publishState];
@@ -2050,6 +2061,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     if (!self.paused) {
         [self evaluateReminderKind:ERReminderKindEye];
         [self evaluateReminderKind:ERReminderKindStand];
+        [self repairRestStateIfNeeded];
     }
     [self publishState];
 }
@@ -2062,6 +2074,117 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
     if (self.standResting && self.standRestEndsAt && [self.standRestEndsAt timeIntervalSinceDate:now] <= 0) {
         [self finishRestForKind:ERReminderKindStand];
+    }
+}
+
+- (NSTimeInterval)configuredRestDurationForKind:(ERReminderKind)kind {
+    return kind == ERReminderKindEye ? self.settings.eyeRestSeconds : self.settings.standDurationSeconds;
+}
+
+- (NSDate *)restEndDateForKind:(ERReminderKind)kind {
+    return kind == ERReminderKindEye ? self.eyeRestEndsAt : self.standRestEndsAt;
+}
+
+- (void)ensureRestWindowForKind:(ERReminderKind)kind remaining:(NSTimeInterval)remaining {
+    if (!self.settings.showRestWindow || remaining <= 0) return;
+    [self.settingsWindowController close];
+    [self.restWindowController close];
+    self.restWindowController = [[ERRestWindowController alloc] initWithAppDelegate:self];
+    [self.restWindowController configureForKind:kind
+                                       settings:self.settings
+                                       duration:[self configuredRestDurationForKind:kind]];
+    [self.restWindowController updateRemaining:remaining];
+    [self.restWindowController presentOverlay];
+}
+
+- (void)repairRestStateIfNeeded {
+    if (self.paused) return;
+
+    [self closeOrphanRestWindows];
+    [self settleExpiredRests];
+
+    if (self.eyeResting && !self.settings.eyeEnabled) {
+        self.eyeResting = NO;
+        self.eyeRestEndsAt = nil;
+    }
+    if (self.standResting && !self.settings.standEnabled) {
+        self.standResting = NO;
+        self.standRestEndsAt = nil;
+    }
+
+    if (self.eyeResting && self.standResting) {
+        ERReminderKind keepKind = self.restWindowController
+            ? self.restWindowController.kind
+            : ([self remainingUntil:self.eyeRestEndsAt] <= [self remainingUntil:self.standRestEndsAt] ? ERReminderKindEye : ERReminderKindStand);
+        if (keepKind == ERReminderKindEye) {
+            self.standResting = NO;
+            self.standRestEndsAt = nil;
+            self.standDueAt = self.settings.standEnabled ? [NSDate dateWithTimeIntervalSinceNow:self.settings.standIntervalSeconds] : nil;
+        } else {
+            self.eyeResting = NO;
+            self.eyeRestEndsAt = nil;
+            self.eyeDueAt = self.settings.eyeEnabled ? [NSDate dateWithTimeIntervalSinceNow:self.settings.eyeFocusSeconds] : nil;
+        }
+    }
+
+    BOOL eyeActive = self.eyeResting && self.settings.eyeEnabled;
+    BOOL standActive = self.standResting && self.settings.standEnabled;
+    if (!eyeActive && !standActive) {
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
+        return;
+    }
+
+    ERReminderKind activeKind = eyeActive ? ERReminderKindEye : ERReminderKindStand;
+    NSDate *endDate = [self restEndDateForKind:activeKind];
+    if (!endDate) {
+        if (activeKind == ERReminderKindEye) {
+            [self resetEyeTimer];
+        } else {
+            [self resetStandTimer];
+        }
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
+        return;
+    }
+
+    NSTimeInterval remaining = [self remainingUntil:endDate];
+    if (remaining <= 0) {
+        [self finishRestForKind:activeKind];
+        return;
+    }
+
+    if (!self.settings.showRestWindow) {
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
+        return;
+    }
+
+    if (!self.restWindowController || self.restWindowController.kind != activeKind) {
+        [self ensureRestWindowForKind:activeKind remaining:remaining];
+        return;
+    }
+
+    [self.restWindowController updateRemaining:remaining];
+    if (!self.restWindowController.window.visible || !self.restWindowController.window.screen) {
+        [self.restWindowController presentOverlay];
+    }
+    [self closeOrphanRestWindows];
+}
+
+- (void)closeOrphanRestWindows {
+    NSWindow *activeWindow = self.restWindowController.window;
+    for (NSWindow *window in [NSApp.windows copy]) {
+        if (window == activeWindow) continue;
+        if ([window.identifier isEqualToString:ERRestOverlayWindowIdentifier]) {
+            [window close];
+        }
     }
 }
 
