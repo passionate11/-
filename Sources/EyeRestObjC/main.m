@@ -1098,6 +1098,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSString *)recoveryDiagnosticText;
 - (NSString *)detailedRecoveryDiagnosticText;
 - (void)copyRecoveryDiagnostic:(id)sender;
+- (void)runRecoverySelfCheck:(id)sender;
 - (NSTimeInterval)configuredRestDurationForKind:(ERReminderKind)kind;
 - (NSDate *)restEndDateForKind:(ERReminderKind)kind;
 - (void)ensureRestWindowForKind:(ERReminderKind)kind remaining:(NSTimeInterval)remaining;
@@ -3285,6 +3286,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     copyRecovery.target = self;
     [self.menu addItem:copyRecovery];
 
+    NSMenuItem *recoverySelfCheck = [[NSMenuItem alloc] initWithTitle:@"运行恢复自检" action:@selector(runRecoverySelfCheck:) keyEquivalent:@""];
+    recoverySelfCheck.target = self;
+    [self.menu addItem:recoverySelfCheck];
+
     [self.menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *settings = [[NSMenuItem alloc] initWithTitle:@"打开设置..." action:@selector(openSettings:) keyEquivalent:@","];
     settings.target = self;
@@ -4026,6 +4031,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [pasteboard clearContents];
     [pasteboard setString:[self detailedRecoveryDiagnosticText] forType:NSPasteboardTypeString];
     [self noteRecoveryEventTitle:@"诊断" detail:@"已复制恢复诊断"];
+    [self publishState];
+}
+
+- (void)runRecoverySelfCheck:(id)sender {
+    [self repairRestOverlayAfterSystemEvent:nil];
+    [self noteRecoveryEventTitle:@"手动自检" detail:self.restWindowController ? @"休息页状态已校准" : @"状态正常"];
     [self publishState];
 }
 
