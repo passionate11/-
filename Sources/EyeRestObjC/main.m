@@ -231,6 +231,31 @@ static NSString *ERStandAdjustedSuggestion(NSString *suggestion, ERStandIntensit
     }
 }
 
+static NSString *ERStandCompletionAdvice(ERStandRoutine routine, ERStandIntensity intensity) {
+    if (intensity == ERStandIntensityGentle) {
+        switch (routine) {
+            case ERStandRoutineBalanced: return @"下一轮继续小幅度活动，别急着坐太紧。";
+            case ERStandRoutineNeckShoulder: return @"回到桌前先把肩膀放低，再开始下一件事。";
+            case ERStandRoutineWalk: return @"坐下前慢慢走回工位，让呼吸稳下来。";
+            case ERStandRoutineReset: return @"接下来先做一件很小的事，把节奏接回来。";
+        }
+    }
+    if (intensity == ERStandIntensityActive) {
+        switch (routine) {
+            case ERStandRoutineBalanced: return @"状态不错，下次可以多补一杯水或多走二十步。";
+            case ERStandRoutineNeckShoulder: return @"接下来留意脖子别前探，屏幕稍微抬高一点。";
+            case ERStandRoutineWalk: return @"回来前先喝口水，再坐下处理下一段工作。";
+            case ERStandRoutineReset: return @"身体热起来了，下一段工作先从重点任务开始。";
+        }
+    }
+    switch (routine) {
+        case ERStandRoutineBalanced: return @"下一轮保持这个节奏，坐下后别立刻缩回去。";
+        case ERStandRoutineNeckShoulder: return @"接下来留意肩膀别重新耸起来。";
+        case ERStandRoutineWalk: return @"坐下前再看一眼远处，让腿和眼睛一起收尾。";
+        case ERStandRoutineReset: return @"下一段工作先从一件小事开始。";
+    }
+}
+
 static NSArray<NSString *> *ERDefaultFocusAppTokens(void) {
     return @[
         @"us.zoom.xos", @"zoom",
@@ -967,6 +992,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) BOOL autoPauseSessionActive;
 @property(nonatomic, strong) NSDate *lastStandCompletedAt;
 @property(nonatomic, copy) NSString *lastStandCompletionText;
+@property(nonatomic, copy) NSString *lastStandCompletionAdvice;
 @property(nonatomic, strong) NSDate *lastSystemEventAt;
 @property(nonatomic, copy) NSString *lastSystemEventTitle;
 @property(nonatomic, copy) NSString *lastRecoveryDetail;
@@ -3073,6 +3099,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     standStatus.enabled = NO;
     [self.menu addItem:standStatus];
 
+    NSMenuItem *standAdvice = [[NSMenuItem alloc] initWithTitle:@"" action:nil keyEquivalent:@""];
+    standAdvice.tag = 109;
+    standAdvice.enabled = NO;
+    standAdvice.hidden = YES;
+    [self.menu addItem:standAdvice];
+
     NSMenuItem *todayStats = [[NSMenuItem alloc] initWithTitle:@"" action:nil keyEquivalent:@""];
     todayStats.tag = 106;
     todayStats.enabled = NO;
@@ -3429,6 +3461,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                                         ERStandRoutineTitle(self.settings.standRoutine),
                                         ERStandIntensityTitle(self.settings.standIntensity),
                                         ERFormatShortMinutes(self.settings.standDurationSeconds)];
+        self.lastStandCompletionAdvice = ERStandCompletionAdvice(self.settings.standRoutine, self.settings.standIntensity);
         countedDone = YES;
     }
     if (manually && countedDone) {
@@ -3628,14 +3661,19 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         : @"眼睛：已关闭";
 
     NSMenuItem *standStatus = [self.menu itemWithTag:102];
+    NSMenuItem *standAdvice = [self.menu itemWithTag:109];
+    BOOL shouldShowStandAdvice = NO;
     if (!self.settings.standEnabled) {
         standStatus.title = @"站立：已关闭";
     } else if (self.lastStandCompletedAt && [NSDate.date timeIntervalSinceDate:self.lastStandCompletedAt] < 90) {
         NSString *feedback = self.lastStandCompletionText.length > 0 ? self.lastStandCompletionText : ERStandRoutineTitle(self.settings.standRoutine);
         standStatus.title = [NSString stringWithFormat:@"站立：刚完成 %@", feedback];
+        shouldShowStandAdvice = self.lastStandCompletionAdvice.length > 0;
     } else {
         standStatus.title = [NSString stringWithFormat:@"站立：%@ %@", self.standResting ? @"站立中" : @"下次提醒", ERFormatDuration([self remainingUntil:(self.standResting ? self.standRestEndsAt : self.standDueAt)])];
     }
+    standAdvice.hidden = !shouldShowStandAdvice;
+    standAdvice.title = shouldShowStandAdvice ? [NSString stringWithFormat:@"建议：%@", self.lastStandCompletionAdvice] : @"";
 
     NSMenuItem *todayStats = [self.menu itemWithTag:106];
     todayStats.title = [NSString stringWithFormat:@"今天：眼睛 %ld 次 · 站立 %ld 次 · 稍后 %ld · 跳过 %ld",
