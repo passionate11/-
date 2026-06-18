@@ -559,6 +559,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSArray<NSTextField *> *pageTitleLabels;
 @property(nonatomic, strong) NSArray<NSTextField *> *pageSubtitleLabels;
 @property(nonatomic, strong) NSArray<NSTextField *> *fieldLabels;
+@property(nonatomic, strong) NSArray<NSView *> *settingRowViews;
+@property(nonatomic, strong) NSArray<NSView *> *settingDividerViews;
 @property(nonatomic, strong) NSSegmentedControl *paneControl;
 @property(nonatomic) NSInteger selectedPage;
 - (instancetype)initWithSettings:(ERSettings *)settings appDelegate:(ERAppDelegate *)appDelegate;
@@ -627,6 +629,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     window.contentView = content;
     self.contentView = content;
     self.fieldLabels = @[];
+    self.settingRowViews = @[];
+    self.settingDividerViews = @[];
 
     NSVisualEffectView *header = [[NSVisualEffectView alloc] initWithFrame:NSMakeRect(0, 0, 196, 540)];
     header.material = NSVisualEffectMaterialSidebar;
@@ -750,8 +754,36 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     return view;
 }
 
+- (void)addSettingRowsToCard:(NSView *)card frames:(NSArray<NSValue *> *)frames dividerX:(CGFloat)dividerX dividerWidth:(CGFloat)dividerWidth {
+    NSMutableArray<NSView *> *rows = [self.settingRowViews mutableCopy];
+    NSMutableArray<NSView *> *dividers = [self.settingDividerViews mutableCopy];
+    for (NSInteger index = 0; index < frames.count; index++) {
+        NSRect frame = frames[index].rectValue;
+        NSView *row = ERRoundedView(frame, [NSColor colorWithWhite:1 alpha:0.34], 10);
+        [card addSubview:row];
+        [rows addObject:row];
+
+        if (index < frames.count - 1) {
+            NSView *divider = [[NSView alloc] initWithFrame:NSMakeRect(dividerX, frame.origin.y - 1, dividerWidth, 1)];
+            divider.wantsLayer = YES;
+            divider.layer.backgroundColor = ERColor(0.82, 0.84, 0.88, 0.48).CGColor;
+            [card addSubview:divider];
+            [dividers addObject:divider];
+        }
+    }
+    self.settingRowViews = rows;
+    self.settingDividerViews = dividers;
+}
+
 - (void)buildEyeSectionInView:(NSView *)view {
     NSView *card = self.eyeCard;
+    [self addSettingRowsToCard:card frames:@[
+        [NSValue valueWithRect:NSMakeRect(14, 148, 500, 50)],
+        [NSValue valueWithRect:NSMakeRect(14, 104, 500, 42)],
+        [NSValue valueWithRect:NSMakeRect(14, 62, 500, 42)],
+        [NSValue valueWithRect:NSMakeRect(14, 20, 500, 42)]
+    ] dividerX:136 dividerWidth:354];
+
     self.eyeEnabledSwitch = [NSButton checkboxWithTitle:@"启用眼睛休息提醒" target:self action:@selector(toggleOnly:)];
     self.eyeEnabledSwitch.frame = NSMakeRect(24, 158, 180, 24);
     [card addSubview:self.eyeEnabledSwitch];
@@ -777,6 +809,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)buildStandSectionInView:(NSView *)view {
     NSView *card = self.standCard;
+    [self addSettingRowsToCard:card frames:@[
+        [NSValue valueWithRect:NSMakeRect(14, 148, 500, 50)],
+        [NSValue valueWithRect:NSMakeRect(14, 104, 500, 42)],
+        [NSValue valueWithRect:NSMakeRect(14, 62, 500, 42)]
+    ] dividerX:136 dividerWidth:354];
+
     self.standEnabledSwitch = [NSButton checkboxWithTitle:@"启用站立提醒" target:self action:@selector(toggleOnly:)];
     self.standEnabledSwitch.frame = NSMakeRect(24, 158, 160, 24);
     [card addSubview:self.standEnabledSwitch];
@@ -790,6 +828,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)buildAlertSectionInView:(NSView *)view {
     NSView *card = self.alertCard;
+    [self addSettingRowsToCard:card frames:@[
+        [NSValue valueWithRect:NSMakeRect(14, 166, 316, 38)],
+        [NSValue valueWithRect:NSMakeRect(14, 128, 316, 38)],
+        [NSValue valueWithRect:NSMakeRect(14, 90, 316, 38)],
+        [NSValue valueWithRect:NSMakeRect(14, 50, 316, 40)],
+        [NSValue valueWithRect:NSMakeRect(14, 10, 316, 40)]
+    ] dividerX:136 dividerWidth:180];
+
     self.notificationSwitch = [NSButton checkboxWithTitle:@"系统通知" target:self action:@selector(toggleOnly:)];
     self.notificationSwitch.frame = NSMakeRect(24, 174, 160, 24);
     [card addSubview:self.notificationSwitch];
@@ -1188,6 +1234,20 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
     for (NSTextField *label in self.heatmapLabels) {
         label.textColor = theme.secondary;
+    }
+    BOOL darkStyle = theme.foreground == NSColor.whiteColor;
+    NSColor *rowColor = darkStyle
+        ? [NSColor colorWithWhite:1 alpha:0.045]
+        : [NSColor colorWithWhite:1 alpha:0.42];
+    NSColor *dividerColor = darkStyle
+        ? [NSColor colorWithWhite:1 alpha:0.10]
+        : [theme.cardBorder colorWithAlphaComponent:0.48];
+    for (NSView *row in self.settingRowViews) {
+        row.layer.backgroundColor = rowColor.CGColor;
+        row.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 10;
+    }
+    for (NSView *divider in self.settingDividerViews) {
+        divider.layer.backgroundColor = dividerColor.CGColor;
     }
     [self refreshStylePreview];
 }
