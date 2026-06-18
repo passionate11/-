@@ -1078,6 +1078,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSDate *lastSystemEventAt;
 @property(nonatomic, copy) NSString *lastSystemEventTitle;
 @property(nonatomic, copy) NSString *lastRecoveryDetail;
+@property(nonatomic, strong) NSMutableArray<NSDictionary<NSString *, id> *> *recoveryEventHistory;
 @property(nonatomic, strong) ERRestWindowController *restWindowController;
 @property(nonatomic, strong) ERSettingsWindowController *settingsWindowController;
 - (void)finishRestForKind:(ERReminderKind)kind;
@@ -1096,6 +1097,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSInteger)closeOrphanRestWindows;
 - (void)noteRecoveryEventTitle:(NSString *)title detail:(NSString *)detail;
 - (NSString *)recoveryDiagnosticText;
+- (NSArray<NSString *> *)recoveryHistoryLines;
 - (NSString *)detailedRecoveryDiagnosticText;
 - (void)copyRecoveryDiagnostic:(id)sender;
 - (void)runRecoverySelfCheck:(id)sender;
@@ -3567,19 +3569,54 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)noteRecoveryEventTitle:(NSString *)title detail:(NSString *)detail {
-    self.lastSystemEventAt = NSDate.date;
-    self.lastSystemEventTitle = title.length > 0 ? title : @"系统事件";
-    self.lastRecoveryDetail = detail.length > 0 ? detail : @"状态正常";
+    NSDate *now = NSDate.date;
+    NSString *eventTitle = title.length > 0 ? title : @"系统事件";
+    NSString *eventDetail = detail.length > 0 ? detail : @"状态正常";
+    self.lastSystemEventAt = now;
+    self.lastSystemEventTitle = eventTitle;
+    self.lastRecoveryDetail = eventDetail;
+    if (!self.recoveryEventHistory) {
+        self.recoveryEventHistory = [NSMutableArray array];
+    }
+    [self.recoveryEventHistory insertObject:@{
+        @"time": now,
+        @"title": eventTitle,
+        @"detail": eventDetail
+    } atIndex:0];
+    while (self.recoveryEventHistory.count > 8) {
+        [self.recoveryEventHistory removeLastObject];
+    }
 }
 
 - (NSString *)recoveryDiagnosticText {
     if (!self.lastSystemEventAt) {
         return @"最近恢复：暂无记录";
     }
-    return [NSString stringWithFormat:@"最近恢复：%@ %@ · %@",
+    NSString *historySuffix = self.recoveryEventHistory.count > 1
+        ? [NSString stringWithFormat:@" · %ld 条", (long)self.recoveryEventHistory.count]
+        : @"";
+    return [NSString stringWithFormat:@"最近恢复：%@ %@ · %@%@",
             ERFormatClockTime(self.lastSystemEventAt),
             self.lastSystemEventTitle ?: @"系统事件",
-            self.lastRecoveryDetail ?: @"状态正常"];
+            self.lastRecoveryDetail ?: @"状态正常",
+            historySuffix];
+}
+
+- (NSArray<NSString *> *)recoveryHistoryLines {
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    for (NSDictionary<NSString *, id> *entry in self.recoveryEventHistory) {
+        NSDate *time = [entry[@"time"] isKindOfClass:NSDate.class] ? entry[@"time"] : nil;
+        NSString *title = [entry[@"title"] isKindOfClass:NSString.class] ? entry[@"title"] : @"系统事件";
+        NSString *detail = [entry[@"detail"] isKindOfClass:NSString.class] ? entry[@"detail"] : @"状态正常";
+        [lines addObject:[NSString stringWithFormat:@"%@ %@ · %@",
+                          ERFormatClockTime(time),
+                          title,
+                          detail]];
+    }
+    if (lines.count == 0) {
+        [lines addObject:@"暂无恢复事件"];
+    }
+    return lines;
 }
 
 - (NSString *)detailedRecoveryDiagnosticText {
@@ -3587,6 +3624,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"%@ 恢复诊断", ERBrandName]];
     [lines addObject:[NSString stringWithFormat:@"生成时间：%@", ERFormatClockTime(NSDate.date)]];
     [lines addObject:[self recoveryDiagnosticText]];
+    [lines addObject:@"最近事件："];
+    for (NSString *line in [self recoveryHistoryLines]) {
+        [lines addObject:[NSString stringWithFormat:@"- %@", line]];
+    }
     [lines addObject:[NSString stringWithFormat:@"眼睛：%@ · 下次/结束 %@",
                       self.eyeResting ? @"休息中" : (self.settings.eyeEnabled ? @"计时中" : @"已关闭"),
                       ERFormatDuration([self remainingUntil:(self.eyeResting ? self.eyeRestEndsAt : self.eyeDueAt)])]];
