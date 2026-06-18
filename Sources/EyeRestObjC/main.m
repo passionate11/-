@@ -45,6 +45,8 @@ static NSString *const ERSettingsNotificationsKey = @"notificationsEnabled";
 static NSString *const ERSettingsRestStyleKey = @"restStyle";
 static NSString *const ERSettingsMenuBarModeKey = @"menuBarMode";
 static NSString *const ERSettingsLaunchAtLoginKey = @"launchAtLogin";
+static NSString *const ERSettingsAutoFocusModeKey = @"autoFocusModeEnabled";
+static NSString *const ERSettingsFocusAppTokensKey = @"focusAppTokens";
 static NSString *const ERStatsDateKey = @"statsDate";
 static NSString *const ERStatsEyeDoneKey = @"statsEyeDone";
 static NSString *const ERStatsStandDoneKey = @"statsStandDone";
@@ -121,6 +123,64 @@ static NSString *ERMenuBarModeTitle(ERMenuBarMode mode) {
         case ERMenuBarModeCompact: return @"极简图标";
         case ERMenuBarModeSmart: return @"智能轮换";
     }
+}
+
+static NSArray<NSString *> *ERDefaultFocusAppTokens(void) {
+    return @[
+        @"us.zoom.xos", @"zoom",
+        @"com.tencent.meeting", @"com.tencent.wemeet", @"腾讯会议", @"voov",
+        @"com.microsoft.teams", @"com.microsoft.teams2", @"teams",
+        @"com.bytedance.feishu", @"com.larksuite.lark", @"feishu", @"lark", @"飞书",
+        @"com.alibaba.dingtalkmac", @"dingtalk", @"钉钉",
+        @"com.apple.iwork.keynote", @"keynote",
+        @"com.microsoft.powerpoint", @"powerpoint",
+        @"com.apple.quicktimeplayerx", @"quicktime",
+        @"com.colliderli.iina", @"iina",
+        @"org.videolan.vlc", @"vlc",
+        @"com.obsproject.obs-studio", @"obs",
+        @"com.apple.facetime", @"facetime",
+        @"steam", @"epic games"
+    ];
+}
+
+static NSArray<NSString *> *ERSanitizedFocusAppTokensFromObject(id object) {
+    NSMutableArray<NSString *> *rawTokens = [NSMutableArray array];
+    NSCharacterSet *separators = [NSCharacterSet characterSetWithCharactersInString:@"\n,，;；"];
+    if ([object isKindOfClass:NSString.class]) {
+        [rawTokens addObjectsFromArray:[(NSString *)object componentsSeparatedByCharactersInSet:separators]];
+    } else if ([object isKindOfClass:NSArray.class]) {
+        for (id item in (NSArray *)object) {
+            if (![item isKindOfClass:NSString.class]) continue;
+            [rawTokens addObjectsFromArray:[(NSString *)item componentsSeparatedByCharactersInSet:separators]];
+        }
+    }
+
+    NSMutableArray<NSString *> *tokens = [NSMutableArray array];
+    NSMutableSet<NSString *> *seen = [NSMutableSet set];
+    NSCharacterSet *trimSet = NSCharacterSet.whitespaceAndNewlineCharacterSet;
+    for (NSString *rawToken in rawTokens) {
+        NSString *token = [rawToken stringByTrimmingCharactersInSet:trimSet];
+        if (token.length == 0) continue;
+        NSString *normalized = token.lowercaseString;
+        if ([seen containsObject:normalized]) continue;
+        [seen addObject:normalized];
+        [tokens addObject:token];
+    }
+    return tokens;
+}
+
+static BOOL ERApplicationMatchesFocusTokens(NSString *bundleIdentifier, NSString *appName, NSArray<NSString *> *tokens) {
+    NSString *bundleText = (bundleIdentifier ?: @"").lowercaseString;
+    NSString *nameText = (appName ?: @"").lowercaseString;
+    if (bundleText.length == 0 && nameText.length == 0) return NO;
+
+    for (NSString *token in tokens) {
+        NSString *needle = [token.lowercaseString stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+        if (needle.length == 0) continue;
+        if ([bundleText isEqualToString:needle] || [bundleText containsString:needle]) return YES;
+        if ([nameText isEqualToString:needle] || [nameText containsString:needle]) return YES;
+    }
+    return NO;
 }
 
 static NSString *ERRestStyleHint(ERRestStyle style) {
@@ -348,6 +408,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) ERRestStyle restStyle;
 @property(nonatomic) ERMenuBarMode menuBarMode;
 @property(nonatomic) BOOL launchAtLogin;
+@property(nonatomic) BOOL autoFocusModeEnabled;
+@property(nonatomic, strong) NSArray<NSString *> *focusAppTokens;
 + (instancetype)load;
 - (void)save;
 - (void)applyEyePreset:(EREyeMode)mode;
@@ -370,7 +432,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ERSettingsNotificationsKey: @YES,
         ERSettingsRestStyleKey: @(ERRestStyleBreath),
         ERSettingsMenuBarModeKey: @(ERMenuBarModeBoth),
-        ERSettingsLaunchAtLoginKey: @NO
+        ERSettingsLaunchAtLoginKey: @NO,
+        ERSettingsAutoFocusModeKey: @YES,
+        ERSettingsFocusAppTokensKey: ERDefaultFocusAppTokens()
     };
     [defaults registerDefaults:registered];
 
@@ -386,6 +450,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     settings.restStyle = [defaults integerForKey:ERSettingsRestStyleKey];
     settings.menuBarMode = [defaults integerForKey:ERSettingsMenuBarModeKey];
     settings.launchAtLogin = [defaults boolForKey:ERSettingsLaunchAtLoginKey];
+    settings.autoFocusModeEnabled = [defaults boolForKey:ERSettingsAutoFocusModeKey];
+    settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject([defaults objectForKey:ERSettingsFocusAppTokensKey]);
+    if (settings.focusAppTokens.count == 0) {
+        settings.focusAppTokens = ERDefaultFocusAppTokens();
+    }
 
     if (settings.eyeFocusSeconds <= 0) {
         NSInteger oldWorkMinutes = [defaults integerForKey:@"workMinutes"];
@@ -418,6 +487,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [defaults setInteger:self.restStyle forKey:ERSettingsRestStyleKey];
     [defaults setInteger:self.menuBarMode forKey:ERSettingsMenuBarModeKey];
     [defaults setBool:self.launchAtLogin forKey:ERSettingsLaunchAtLoginKey];
+    [defaults setBool:self.autoFocusModeEnabled forKey:ERSettingsAutoFocusModeKey];
+    [defaults setObject:ERSanitizedFocusAppTokensFromObject(self.focusAppTokens) forKey:ERSettingsFocusAppTokensKey];
 }
 
 - (void)applyEyePreset:(EREyeMode)mode {
@@ -527,6 +598,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSButton *notificationSwitch;
 @property(nonatomic, strong) NSButton *restWindowSwitch;
 @property(nonatomic, strong) NSButton *launchAtLoginSwitch;
+@property(nonatomic, strong) NSButton *autoFocusSwitch;
+@property(nonatomic, strong) NSTextField *focusAppTokensField;
+@property(nonatomic, strong) NSTextField *focusAppMatchLabel;
+@property(nonatomic, strong) NSTextField *focusAppHintLabel;
+@property(nonatomic, strong) NSButton *focusAppResetButton;
 @property(nonatomic, strong) NSPopUpButton *menuBarModePopup;
 @property(nonatomic, strong) NSPopUpButton *restStylePopup;
 @property(nonatomic, strong) NSTextField *summaryLabel;
@@ -555,6 +631,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSView *eyeCard;
 @property(nonatomic, strong) NSView *standCard;
 @property(nonatomic, strong) NSView *alertCard;
+@property(nonatomic, strong) NSView *automationCard;
 @property(nonatomic, strong) NSView *statsCard;
 @property(nonatomic, strong) NSView *contentView;
 @property(nonatomic, strong) NSVisualEffectView *headerView;
@@ -570,6 +647,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (instancetype)initWithSettings:(ERSettings *)settings appDelegate:(ERAppDelegate *)appDelegate;
 - (void)refreshControls;
 - (void)refreshStats;
+- (void)refreshAutomationStatus;
 - (void)exportStatsCSV:(id)sender;
 - (void)exportStatsJSON:(id)sender;
 @end
@@ -589,6 +667,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) BOOL standResting;
 @property(nonatomic) BOOL paused;
 @property(nonatomic) BOOL focusModeEnabled;
+@property(nonatomic) BOOL autoFocusActive;
+@property(nonatomic, copy) NSString *frontmostAppName;
+@property(nonatomic, copy) NSString *frontmostAppBundleIdentifier;
 @property(nonatomic) NSInteger todayEyeDone;
 @property(nonatomic) NSInteger todayStandDone;
 @property(nonatomic) NSInteger todayStandSeconds;
@@ -603,6 +684,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)settingsDidChangeShouldReset:(BOOL)shouldReset;
 - (void)settleExpiredRests;
 - (void)repairRestOverlayAfterDisplayChange;
+- (void)frontmostApplicationDidChange:(NSNotification *)notification;
 - (void)repairRestStateIfNeeded;
 - (void)closeOrphanRestWindows;
 - (NSTimeInterval)configuredRestDurationForKind:(ERReminderKind)kind;
@@ -612,6 +694,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)saveTodayStats;
 - (void)resetTodayStatsIfNeeded;
 - (void)applyPreferenceSideEffects;
+- (void)refreshFocusModeState;
+- (BOOL)isLightDistractionModeActive;
+- (NSString *)focusModeStatusText;
 - (void)updateStatusItemAppearance;
 - (NSDictionary *)statsHistoryIncludingToday;
 @end
@@ -664,21 +749,23 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [header addSubview:self.summaryLabel];
 
     self.paneControl = [[NSSegmentedControl alloc] initWithFrame:NSZeroRect];
-    self.paneControl.segmentCount = 4;
+    self.paneControl.segmentCount = 5;
     [self.paneControl setLabel:@"眼睛" forSegment:0];
     [self.paneControl setLabel:@"站立" forSegment:1];
     [self.paneControl setLabel:@"显示" forSegment:2];
-    [self.paneControl setLabel:@"统计" forSegment:3];
+    [self.paneControl setLabel:@"自动" forSegment:3];
+    [self.paneControl setLabel:@"统计" forSegment:4];
     [self.paneControl setImage:[NSImage imageWithSystemSymbolName:@"eye" accessibilityDescription:@"眼睛"] forSegment:0];
     [self.paneControl setImage:[NSImage imageWithSystemSymbolName:@"figure.stand" accessibilityDescription:@"站立"] forSegment:1];
     [self.paneControl setImage:[NSImage imageWithSystemSymbolName:@"bell" accessibilityDescription:@"显示"] forSegment:2];
-    [self.paneControl setImage:[NSImage imageWithSystemSymbolName:@"chart.bar" accessibilityDescription:@"统计"] forSegment:3];
+    [self.paneControl setImage:[NSImage imageWithSystemSymbolName:@"wand.and.stars" accessibilityDescription:@"自动"] forSegment:3];
+    [self.paneControl setImage:[NSImage imageWithSystemSymbolName:@"chart.bar" accessibilityDescription:@"统计"] forSegment:4];
     self.paneControl.segmentStyle = NSSegmentStyleSeparated;
     self.paneControl.target = self;
     self.paneControl.action = @selector(selectPane:);
 
-    NSArray<NSString *> *navTitles = @[@"眼睛休息", @"站立提醒", @"显示方式", @"休息统计"];
-    NSArray<NSString *> *navIcons = @[@"eye", @"figure.stand", @"bell", @"chart.bar"];
+    NSArray<NSString *> *navTitles = @[@"眼睛休息", @"站立提醒", @"显示方式", @"自动化", @"休息统计"];
+    NSArray<NSString *> *navIcons = @[@"eye", @"figure.stand", @"bell", @"wand.and.stars", @"chart.bar"];
     NSMutableArray *navButtons = [NSMutableArray arrayWithCapacity:navTitles.count];
     for (NSInteger index = 0; index < navTitles.count; index++) {
         NSButton *button = [NSButton buttonWithTitle:navTitles[index] target:self action:@selector(selectSidebarPane:)];
@@ -709,22 +796,29 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self buildAlertSectionInView:alertPage];
     [content addSubview:alertPage];
 
+    NSView *automationPage = [self pageViewWithTitle:@"自动化" subtitle:@"会议、演示、视频或游戏时自动切到轻打扰：继续计时和通知，不弹全屏休息页。"];
+    self.automationCard = automationPage.subviews.lastObject;
+    [self buildAutomationSectionInView:automationPage];
+    [content addSubview:automationPage];
+
     NSView *statsPage = [self pageViewWithTitle:@"休息统计" subtitle:@"看看最近 7 天有没有真的把休息做起来。统计只保存在本机。"];
     self.statsCard = statsPage.subviews.lastObject;
     [self buildStatsSectionInView:statsPage];
     [content addSubview:statsPage];
 
-    self.pages = @[eyePage, standPage, alertPage, statsPage];
+    self.pages = @[eyePage, standPage, alertPage, automationPage, statsPage];
     self.pageTitleLabels = @[
         [eyePage.subviews objectAtIndex:0],
         [standPage.subviews objectAtIndex:0],
         [alertPage.subviews objectAtIndex:0],
+        [automationPage.subviews objectAtIndex:0],
         [statsPage.subviews objectAtIndex:0]
     ];
     self.pageSubtitleLabels = @[
         [eyePage.subviews objectAtIndex:1],
         [standPage.subviews objectAtIndex:1],
         [alertPage.subviews objectAtIndex:1],
+        [automationPage.subviews objectAtIndex:1],
         [statsPage.subviews objectAtIndex:1]
     ];
 
@@ -920,6 +1014,46 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self.stylePreviewShell addSubview:self.stylePreviewHint];
 }
 
+- (void)buildAutomationSectionInView:(NSView *)view {
+    NSView *card = self.automationCard;
+    [self addSettingRowsToCard:card frames:@[
+        [NSValue valueWithRect:NSMakeRect(14, 150, 500, 50)],
+        [NSValue valueWithRect:NSMakeRect(14, 104, 500, 42)],
+        [NSValue valueWithRect:NSMakeRect(14, 20, 500, 82)]
+    ] dividerX:136 dividerWidth:354];
+
+    self.autoFocusSwitch = [NSButton checkboxWithTitle:@"自动轻打扰" target:self action:@selector(toggleOnly:)];
+    self.autoFocusSwitch.frame = NSMakeRect(24, 162, 160, 24);
+    [card addSubview:self.autoFocusSwitch];
+
+    self.focusAppMatchLabel = [NSTextField wrappingLabelWithString:@""];
+    self.focusAppMatchLabel.frame = NSMakeRect(190, 154, 300, 36);
+    self.focusAppMatchLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
+    self.focusAppMatchLabel.maximumNumberOfLines = 2;
+    self.focusAppMatchLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:self.focusAppMatchLabel];
+
+    [card addSubview:[self fieldLabel:@"白名单：" frame:NSMakeRect(24, 114, 96, 22)]];
+    self.focusAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 108, 268, 28)];
+    self.focusAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
+    self.focusAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
+    self.focusAppTokensField.placeholderString = @"bundle id / 应用名，用逗号分隔";
+    self.focusAppTokensField.target = self;
+    self.focusAppTokensField.action = @selector(applySettings:);
+    [card addSubview:self.focusAppTokensField];
+
+    self.focusAppResetButton = [NSButton buttonWithTitle:@"默认" target:self action:@selector(resetFocusApps:)];
+    self.focusAppResetButton.frame = NSMakeRect(418, 108, 72, 28);
+    self.focusAppResetButton.bezelStyle = NSBezelStyleRounded;
+    [card addSubview:self.focusAppResetButton];
+
+    self.focusAppHintLabel = [NSTextField wrappingLabelWithString:@"命中前台应用时，休息仍会开始并记录统计，但只发系统通知，不弹出全屏休息页。适合会议、演示、视频播放和游戏。"];
+    self.focusAppHintLabel.frame = NSMakeRect(24, 34, 466, 48);
+    self.focusAppHintLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightRegular];
+    self.focusAppHintLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:self.focusAppHintLabel];
+}
+
 - (void)buildStatsSectionInView:(NSView *)view {
     NSView *card = self.statsCard;
     self.statsOverviewLabel = [NSTextField wrappingLabelWithString:@""];
@@ -1102,8 +1236,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.notificationSwitch.state = self.settings.notificationsEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     self.restWindowSwitch.state = self.settings.showRestWindow ? NSControlStateValueOn : NSControlStateValueOff;
     self.launchAtLoginSwitch.state = self.settings.launchAtLogin ? NSControlStateValueOn : NSControlStateValueOff;
+    self.autoFocusSwitch.state = self.settings.autoFocusModeEnabled ? NSControlStateValueOn : NSControlStateValueOff;
+    self.focusAppTokensField.stringValue = [self.settings.focusAppTokens componentsJoinedByString:@", "];
     [self.menuBarModePopup selectItemAtIndex:self.settings.menuBarMode];
     [self.restStylePopup selectItemAtIndex:self.settings.restStyle];
+    [self.appDelegate refreshFocusModeState];
+    [self refreshAutomationStatus];
     self.summaryLabel.stringValue = [NSString stringWithFormat:@"眼睛：%@ %@ / %@ · 站立：每 %@ 站 %@",
                                      self.settings.eyeEnabled ? @"开启" : @"关闭",
                                      ERFormatDuration(self.settings.eyeFocusSeconds),
@@ -1112,6 +1250,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                                      ERFormatDuration(self.settings.standDurationSeconds)];
     [self applySettingsTheme];
     [self refreshStats];
+}
+
+- (void)refreshAutomationStatus {
+    if (!self.focusAppMatchLabel) return;
+    self.focusAppMatchLabel.stringValue = [self.appDelegate focusModeStatusText];
 }
 
 - (void)refreshStats {
@@ -1312,7 +1455,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"notificationsEnabled": @(self.settings.notificationsEnabled),
             @"restStyle": ERRestStyleTitle(self.settings.restStyle),
             @"menuBarMode": ERMenuBarModeTitle(self.settings.menuBarMode),
-            @"launchAtLogin": @(self.settings.launchAtLogin)
+            @"launchAtLogin": @(self.settings.launchAtLogin),
+            @"autoFocusModeEnabled": @(self.settings.autoFocusModeEnabled),
+            @"focusAppTokens": self.settings.focusAppTokens ?: @[]
         },
         @"stats": @{
             @"rangeDays": @30,
@@ -1341,17 +1486,22 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.eyeCard.layer.backgroundColor = theme.card.CGColor;
     self.standCard.layer.backgroundColor = theme.card.CGColor;
     self.alertCard.layer.backgroundColor = theme.card.CGColor;
+    self.automationCard.layer.backgroundColor = theme.card.CGColor;
     self.statsCard.layer.backgroundColor = theme.card.CGColor;
     self.eyeCard.layer.borderColor = theme.cardBorder.CGColor;
     self.standCard.layer.borderColor = theme.cardBorder.CGColor;
     self.alertCard.layer.borderColor = theme.cardBorder.CGColor;
+    self.automationCard.layer.borderColor = theme.cardBorder.CGColor;
     self.statsCard.layer.borderColor = theme.cardBorder.CGColor;
     self.eyeCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 16;
     self.standCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 16;
     self.alertCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 16;
+    self.automationCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 16;
     self.statsCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 16;
     self.titleLabel.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
     self.summaryLabel.textColor = theme.secondary;
+    self.focusAppMatchLabel.textColor = theme.secondary;
+    self.focusAppHintLabel.textColor = theme.secondary;
     self.statsOverviewLabel.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
     self.statsMonthLabel.textColor = theme.secondary;
     self.statsInsightLabel.textColor = theme.secondary;
@@ -1482,6 +1632,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.notificationsEnabled = self.notificationSwitch.state == NSControlStateValueOn;
     self.settings.showRestWindow = self.restWindowSwitch.state == NSControlStateValueOn;
     self.settings.launchAtLogin = self.launchAtLoginSwitch.state == NSControlStateValueOn;
+    self.settings.autoFocusModeEnabled = self.autoFocusSwitch.state == NSControlStateValueOn;
+    self.settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject(self.focusAppTokensField.stringValue);
+    if (self.settings.focusAppTokens.count == 0) {
+        self.settings.focusAppTokens = ERDefaultFocusAppTokens();
+    }
     self.settings.menuBarMode = self.menuBarModePopup.indexOfSelectedItem;
     self.settings.restStyle = self.restStylePopup.indexOfSelectedItem;
 
@@ -1533,11 +1688,21 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.notificationsEnabled = YES;
     self.settings.showRestWindow = YES;
     self.settings.launchAtLogin = NO;
+    self.settings.autoFocusModeEnabled = YES;
+    self.settings.focusAppTokens = ERDefaultFocusAppTokens();
     self.settings.menuBarMode = ERMenuBarModeBoth;
     self.settings.restStyle = ERRestStyleBreath;
     [self.settings save];
     [self refreshControls];
     [self.appDelegate settingsDidChangeShouldReset:YES];
+}
+
+- (void)resetFocusApps:(id)sender {
+    self.settings.autoFocusModeEnabled = YES;
+    self.settings.focusAppTokens = ERDefaultFocusAppTokens();
+    [self.settings save];
+    [self refreshControls];
+    [self.appDelegate settingsDidChangeShouldReset:NO];
 }
 
 @end
@@ -1940,6 +2105,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                                                        selector:@selector(workspaceWillSuspend:)
                                                            name:NSWorkspaceSessionDidResignActiveNotification
                                                          object:nil];
+    [NSWorkspace.sharedWorkspace.notificationCenter addObserver:self
+                                                       selector:@selector(frontmostApplicationDidChange:)
+                                                           name:NSWorkspaceDidActivateApplicationNotification
+                                                         object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self
                                            selector:@selector(screenParametersChanged:)
                                                name:NSApplicationDidChangeScreenParametersNotification
@@ -2018,7 +2187,36 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self updateStatusItemAppearance];
 }
 
+- (void)refreshFocusModeState {
+    NSRunningApplication *frontmost = NSWorkspace.sharedWorkspace.frontmostApplication;
+    self.frontmostAppBundleIdentifier = frontmost.bundleIdentifier;
+    self.frontmostAppName = frontmost.localizedName;
+
+    BOOL matched = NO;
+    if (self.settings.autoFocusModeEnabled) {
+        matched = ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.focusAppTokens);
+    }
+    self.autoFocusActive = matched;
+    [self.settingsWindowController refreshAutomationStatus];
+}
+
+- (BOOL)isLightDistractionModeActive {
+    return self.focusModeEnabled || self.autoFocusActive;
+}
+
+- (NSString *)focusModeStatusText {
+    if (!self.settings.autoFocusModeEnabled) {
+        return @"自动轻打扰已关闭。";
+    }
+    NSString *name = self.frontmostAppName.length > 0 ? self.frontmostAppName : @"当前应用";
+    NSString *bundle = self.frontmostAppBundleIdentifier.length > 0 ? self.frontmostAppBundleIdentifier : @"未识别 bundle id";
+    return self.autoFocusActive
+        ? [NSString stringWithFormat:@"命中：%@ · %@", name, bundle]
+        : [NSString stringWithFormat:@"当前：%@ · %@", name, bundle];
+}
+
 - (void)workspaceDidWake:(NSNotification *)notification {
+    [self refreshFocusModeState];
     [self repairRestOverlayAfterDisplayChange];
 }
 
@@ -2031,6 +2229,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)screenParametersChanged:(NSNotification *)notification {
     [self repairRestOverlayAfterDisplayChange];
+}
+
+- (void)frontmostApplicationDidChange:(NSNotification *)notification {
+    [self refreshFocusModeState];
+    [self repairRestStateIfNeeded];
+    [self publishState];
 }
 
 - (void)repairRestOverlayAfterDisplayChange {
@@ -2193,6 +2397,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)tick:(NSTimer *)timer {
     [self resetTodayStatsIfNeeded];
+    [self refreshFocusModeState];
     if (self.pausedUntil && [self.pausedUntil timeIntervalSinceNow] <= 0) {
         [self resumeFromPause];
     }
@@ -2224,7 +2429,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)ensureRestWindowForKind:(ERReminderKind)kind remaining:(NSTimeInterval)remaining {
-    if (!self.settings.showRestWindow || self.focusModeEnabled || remaining <= 0) return;
+    if (!self.settings.showRestWindow || [self isLightDistractionModeActive] || remaining <= 0) return;
     [self.settingsWindowController close];
     [self.restWindowController close];
     self.restWindowController = [[ERRestWindowController alloc] initWithAppDelegate:self];
@@ -2241,7 +2446,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self closeOrphanRestWindows];
     [self settleExpiredRests];
 
-    if (self.focusModeEnabled && self.restWindowController) {
+    if ([self isLightDistractionModeActive] && self.restWindowController) {
         [self.restWindowController close];
         self.restWindowController = nil;
     }
@@ -2301,7 +2506,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         return;
     }
 
-    if (!self.settings.showRestWindow || self.focusModeEnabled) {
+    if (!self.settings.showRestWindow || [self isLightDistractionModeActive]) {
         if (self.restWindowController) {
             [self.restWindowController close];
             self.restWindowController = nil;
@@ -2361,7 +2566,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
 
     [self showNotificationForKind:kind duration:duration];
-    if (self.settings.showRestWindow && !self.focusModeEnabled) {
+    if (self.settings.showRestWindow && ![self isLightDistractionModeActive]) {
         [self.settingsWindowController close];
         [self.restWindowController close];
         self.restWindowController = nil;
@@ -2484,7 +2689,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     if (self.paused) {
         title = self.settings.menuBarMode == ERMenuBarModeCompact ? @"" : @" 暂停";
-    } else if (self.focusModeEnabled && self.settings.menuBarMode == ERMenuBarModeCompact) {
+    } else if ([self isLightDistractionModeActive] && self.settings.menuBarMode == ERMenuBarModeCompact) {
         title = @"";
     } else {
         switch (self.settings.menuBarMode) {
@@ -2525,8 +2730,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             }
         }
     }
-    if (self.focusModeEnabled && title.length > 0) {
-        title = [NSString stringWithFormat:@" 工作%@", title];
+    if ([self isLightDistractionModeActive] && title.length > 0) {
+        title = [NSString stringWithFormat:@"%@%@", self.autoFocusActive ? @" 自动" : @" 工作", title];
     }
     self.statusItem.button.title = title;
 }
@@ -2539,8 +2744,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         status.title = [NSString stringWithFormat:@"暂停到 %@", [formatter stringFromDate:self.pausedUntil]];
     } else if (self.paused) {
         status.title = @"已暂停";
+    } else if (self.focusModeEnabled) {
+        status.title = @"工作模式：轻打扰";
+    } else if (self.autoFocusActive) {
+        NSString *name = self.frontmostAppName.length > 0 ? self.frontmostAppName : @"前台应用";
+        status.title = [NSString stringWithFormat:@"自动轻打扰：%@", name];
     } else {
-        status.title = self.focusModeEnabled ? @"工作模式：轻打扰" : @"节奏运行中";
+        status.title = @"节奏运行中";
     }
 
     NSMenuItem *eyeStatus = [self.menu itemWithTag:101];
