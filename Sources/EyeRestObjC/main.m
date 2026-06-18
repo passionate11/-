@@ -663,6 +663,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSView *actionSuggestionPill;
 @property(nonatomic, strong) NSImageView *actionSuggestionIcon;
 @property(nonatomic, strong) NSTextField *actionSuggestionLabel;
+@property(nonatomic, strong) NSArray<NSString *> *actionStageTitles;
+@property(nonatomic, strong) NSArray<NSString *> *actionStageMessages;
 @property(nonatomic, strong) NSArray<NSString *> *actionSuggestions;
 @property(nonatomic, strong) NSArray<NSString *> *actionSuggestionSymbols;
 @property(nonatomic) NSInteger activeSuggestionIndex;
@@ -2055,16 +2057,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.totalDuration = MAX(1, duration);
     self.currentStyle = settings.restStyle;
     [self applyStyle:settings.restStyle];
-    [self configureActionSuggestionsForKind:kind settings:settings];
 
     if (kind == ERReminderKindStand) {
         self.iconView.image = [NSImage imageWithSystemSymbolName:@"figure.stand" accessibilityDescription:@"Stand"];
-        self.titleLabel.stringValue = @"站起来活动一下";
-        self.messageLabel.stringValue = @"离开椅子，站立或轻微走动。让肩颈、腰背和注意力都换个姿势。";
-        return;
-    }
-
-    if (settings.eyeMode == EREyeModePomodoro) {
+        self.titleLabel.stringValue = @"站立活动流程";
+        self.messageLabel.stringValue = @"离开椅子，跟着几个小阶段走一遍。让肩颈、腰背和注意力都换个姿势。";
+    } else if (settings.eyeMode == EREyeModePomodoro) {
         self.iconView.image = [NSImage imageWithSystemSymbolName:@"timer" accessibilityDescription:@"Pomodoro"];
         self.titleLabel.stringValue = @"番茄休息";
         self.messageLabel.stringValue = @"站起来、喝水、走几步。下一轮专注会更轻松。";
@@ -2073,19 +2071,30 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         self.titleLabel.stringValue = @"看向 6 米外";
         self.messageLabel.stringValue = @"抬头眺望远方，让眼睛从屏幕焦距里出来。慢慢眨眼，至少 20 秒。";
     }
+    [self configureActionSuggestionsForKind:kind settings:settings];
 }
 
 - (void)configureActionSuggestionsForKind:(ERReminderKind)kind settings:(ERSettings *)settings {
     if (kind == ERReminderKindStand) {
-        self.actionSuggestions = @[
-            @"先离开椅子，双脚踩稳地面。",
-            @"肩膀向后绕 5 圈，把脖子放松。",
-            @"走到窗边或倒杯水，让身体醒过来。",
-            @"活动脚踝和小腿，给循环一点时间。",
-            @"回来前再深呼吸 4 次。"
+        self.actionStageTitles = @[@"起身", @"肩颈", @"走动", @"补水", @"收尾"];
+        self.actionStageMessages = @[
+            @"先站稳，离开椅背，膝盖微松。",
+            @"肩膀向后绕圈，脖子慢慢转动。",
+            @"离开桌边走一小圈，让腰背换个姿势。",
+            @"喝几口水，活动脚踝和小腿。",
+            @"深呼吸，确认身体轻一点再回来。"
         ];
-        self.actionSuggestionSymbols = @[@"figure.stand", @"arrow.triangle.2.circlepath", @"drop.fill", @"figure.walk", @"wind"];
+        self.actionSuggestions = @[
+            @"双脚踩稳地面，离开椅背。",
+            @"肩膀向后绕 5 圈，左右转头各 3 次。",
+            @"走到窗边或房间另一侧，再走回来。",
+            @"喝水，顺便活动脚踝和小腿。",
+            @"深呼吸 4 次，慢慢回到桌前。"
+        ];
+        self.actionSuggestionSymbols = @[@"figure.stand", @"arrow.triangle.2.circlepath", @"figure.walk", @"drop.fill", @"wind"];
     } else if (settings.eyeMode == EREyeModePomodoro) {
+        self.actionStageTitles = @[@"离屏", @"补水", @"走动", @"收尾"];
+        self.actionStageMessages = @[];
         self.actionSuggestions = @[
             @"先把手从键盘上拿开，离开屏幕。",
             @"喝几口水，顺便看向远处。",
@@ -2094,6 +2103,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ];
         self.actionSuggestionSymbols = @[@"timer", @"drop.fill", @"figure.walk", @"checkmark.circle"];
     } else {
+        self.actionStageTitles = @[@"远眺", @"眨眼", @"放焦", @"呼吸"];
+        self.actionStageMessages = @[];
         self.actionSuggestions = @[
             @"把视线投到 6 米外，不盯屏幕边缘。",
             @"慢慢眨眼 5 次，让眼球湿润一点。",
@@ -2265,10 +2276,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     self.activeSuggestionIndex = index;
     NSString *suggestion = self.actionSuggestions[index];
-    self.actionSuggestionLabel.stringValue = [NSString stringWithFormat:@"建议 %ld/%ld · %@",
+    NSString *stageTitle = index < self.actionStageTitles.count ? self.actionStageTitles[index] : @"建议";
+    self.actionSuggestionLabel.stringValue = [NSString stringWithFormat:@"阶段 %ld/%ld · %@ · %@",
                                               (long)index + 1,
                                               (long)count,
+                                              stageTitle,
                                               suggestion];
+    if (index < self.actionStageMessages.count) {
+        self.messageLabel.stringValue = self.actionStageMessages[index];
+    }
 
     NSString *symbolName = index < self.actionSuggestionSymbols.count ? self.actionSuggestionSymbols[index] : @"sparkles";
     self.actionSuggestionIcon.image = [NSImage imageWithSystemSymbolName:symbolName accessibilityDescription:@"动作建议"];
@@ -3070,7 +3086,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
     if (kind == ERReminderKindStand) {
         content.title = @"该站起来了";
-        content.body = [NSString stringWithFormat:@"站立或走动 %@，给身体换个姿势。", ERFormatDuration(duration)];
+        content.body = [NSString stringWithFormat:@"跟着起身、肩颈、走动、补水几个小阶段活动 %@。", ERFormatDuration(duration)];
     } else if (self.settings.eyeMode == EREyeModePomodoro) {
         content.title = @"番茄休息时间";
         content.body = [NSString stringWithFormat:@"离开屏幕 %@，回来再继续。", ERFormatDuration(duration)];
