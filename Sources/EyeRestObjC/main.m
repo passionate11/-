@@ -101,6 +101,7 @@ static int ERSingleInstanceLockFD = -1;
 
 static NSInteger ERClampInteger(NSInteger value, NSInteger minimum, NSInteger maximum);
 static NSInteger ERCompareVersionStrings(NSString *left, NSString *right);
+static NSString *ERCalendarAccessStatusText(void);
 
 static void ERPostOpenSettingsRequest(void) {
     [NSDistributedNotificationCenter.defaultCenter postNotificationName:EROpenSettingsNotificationName
@@ -565,6 +566,18 @@ static NSString *ERCalendarEventSearchText(EKEvent *event) {
 
 static BOOL ERCalendarEventMatchesTokens(EKEvent *event, NSArray<NSString *> *tokens) {
     return ERTextMatchesFocusTokens(ERCalendarEventSearchText(event), tokens);
+}
+
+static NSString *ERCalendarEventDiagnosticLine(EKEvent *event, NSDateFormatter *formatter, NSArray<NSString *> *focusTokens, NSArray<NSString *> *autoPauseTokens) {
+    if (!event) return @"";
+    NSString *title = event.title.length > 0 ? event.title : @"无标题";
+    NSString *calendarTitle = event.calendar.title.length > 0 ? event.calendar.title : @"未知日历";
+    NSString *startText = event.startDate ? [formatter stringFromDate:event.startDate] : @"未知开始";
+    NSString *endText = event.endDate ? [formatter stringFromDate:event.endDate] : @"未知结束";
+    BOOL pauseMatch = ERCalendarEventMatchesTokens(event, autoPauseTokens);
+    BOOL focusMatch = ERCalendarEventMatchesTokens(event, focusTokens);
+    NSString *policy = pauseMatch ? @"自动暂停" : (focusMatch ? @"只发通知" : @"默认会议");
+    return [NSString stringWithFormat:@"- %@ · %@-%@ · %@ · %@", title, startText, endText, calendarTitle, policy];
 }
 
 static BOOL ERCalendarAccessGranted(void) {
@@ -1527,6 +1540,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)requestCalendarAccessIfNeeded;
 - (void)refreshCalendarFocusStateIfNeeded:(BOOL)force;
 - (BOOL)isCurrentCalendarEvent:(EKEvent *)event now:(NSDate *)now;
+- (NSString *)calendarDiagnosticText;
+- (void)copyCalendarDiagnostic:(id)sender;
 - (void)shiftReminderDatesBySeconds:(NSTimeInterval)seconds;
 - (BOOL)isQuietHoursActiveNow;
 - (BOOL)isLightDistractionModeActive;
@@ -3826,6 +3841,73 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.currentCalendarEventTitle = activeEvent.title;
 }
 
+- (NSString *)calendarDiagnosticText {
+    [self refreshCalendarFocusStateIfNeeded:YES];
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    [lines addObject:[NSString stringWithFormat:@"%@ 日历诊断", ERBrandName]];
+    [lines addObject:[NSString stringWithFormat:@"生成时间：%@", ERFormatClockTime(NSDate.date)]];
+    [lines addObject:[NSString stringWithFormat:@"日历授权：%@", ERCalendarAccessStatusText()]];
+    [lines addObject:[NSString stringWithFormat:@"自动策略：%@ · 日历联动 %@",
+                      self.settings.autoFocusModeEnabled ? @"开" : @"关",
+                      self.settings.calendarFocusModeEnabled ? @"开" : @"关"]];
+    [lines addObject:[NSString stringWithFormat:@"当前策略：%@", [self focusModeStatusText]]];
+    [lines addObject:[NSString stringWithFormat:@"状态标记：calendar=%@ · calendarPause=%@ · autoFocus=%@ · autoPause=%@",
+                      self.calendarFocusActive ? @"YES" : @"NO",
+                      self.calendarAutoPauseActive ? @"YES" : @"NO",
+                      self.autoFocusActive ? @"YES" : @"NO",
+                      self.autoPauseActive ? @"YES" : @"NO"]];
+    [lines addObject:[NSString stringWithFormat:@"只通知关键词：%@", [self.settings.calendarFocusTokens componentsJoinedByString:@", "]]];
+    [lines addObject:[NSString stringWithFormat:@"自动暂停关键词：%@", [self.settings.calendarAutoPauseTokens componentsJoinedByString:@", "]]];
+
+    if (!self.settings.autoFocusModeEnabled || !self.settings.calendarFocusModeEnabled) {
+        [lines addObject:@"真实事件：日历联动未开启，未读取事件。"];
+        return [lines componentsJoinedByString:@"\n"];
+    }
+    if (!ERCalendarAccessGranted()) {
+        [lines addObject:@"真实事件：尚未授权或系统不可用，无法读取当前日程。"];
+        [lines addObject:@"处理建议：在系统设置里允许松一下访问日历，然后重新运行诊断。"];
+        return [lines componentsJoinedByString:@"\n"];
+    }
+
+    if (!self.eventStore) {
+        self.eventStore = [[EKEventStore alloc] init];
+    }
+    NSDate *now = NSDate.date;
+    NSDate *start = [now dateByAddingTimeInterval:-300];
+    NSDate *end = [now dateByAddingTimeInterval:300];
+    NSPredicate *predicate = [self.eventStore predicateForEventsWithStartDate:start endDate:end calendars:nil];
+    NSArray<EKEvent *> *events = [self.eventStore eventsMatchingPredicate:predicate];
+    NSMutableArray<EKEvent *> *currentEvents = [NSMutableArray array];
+    for (EKEvent *event in events) {
+        if ([self isCurrentCalendarEvent:event now:now]) {
+            [currentEvents addObject:event];
+        }
+    }
+
+    if (currentEvents.count == 0) {
+        [lines addObject:@"真实事件：当前没有进行中的日程。"];
+        return [lines componentsJoinedByString:@"\n"];
+    }
+
+    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+    formatter.locale = NSLocale.currentLocale;
+    formatter.dateFormat = @"HH:mm";
+    [lines addObject:[NSString stringWithFormat:@"真实事件：当前 %ld 个进行中", (long)currentEvents.count]];
+    for (EKEvent *event in currentEvents) {
+        [lines addObject:ERCalendarEventDiagnosticLine(event, formatter, self.settings.calendarFocusTokens, self.settings.calendarAutoPauseTokens)];
+    }
+    return [lines componentsJoinedByString:@"\n"];
+}
+
+- (void)copyCalendarDiagnostic:(id)sender {
+    NSString *text = [self calendarDiagnosticText];
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:text forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"日历诊断" detail:@"已复制真实日历诊断"];
+    [self publishState];
+}
+
 - (void)refreshFocusModeState {
     NSRunningApplication *frontmost = NSWorkspace.sharedWorkspace.frontmostApplication;
     self.frontmostAppBundleIdentifier = frontmost.bundleIdentifier;
@@ -4199,6 +4281,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     calendarPolicyStressTest.target = self;
     [self.menu addItem:calendarPolicyStressTest];
 
+    NSMenuItem *calendarDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制真实日历诊断" action:@selector(copyCalendarDiagnostic:) keyEquivalent:@""];
+    calendarDiagnostic.target = self;
+    [self.menu addItem:calendarDiagnostic];
+
     [self.menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *settings = [[NSMenuItem alloc] initWithTitle:@"打开设置..." action:@selector(openSettings:) keyEquivalent:@","];
     settings.target = self;
@@ -4238,7 +4324,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"运行窗口层级压测", ERAutomationURLString(@"diagnostics/window-layer")],
         @[@"运行自动化策略压测", ERAutomationURLString(@"diagnostics/automation-policy")],
         @[@"运行演示策略压测", ERAutomationURLString(@"diagnostics/presentation-policy")],
-        @[@"运行日历策略压测", ERAutomationURLString(@"diagnostics/calendar-policy")]
+        @[@"运行日历策略压测", ERAutomationURLString(@"diagnostics/calendar-policy")],
+        @[@"复制真实日历诊断", ERAutomationURLString(@"diagnostics/calendar-real")]
     ];
     for (NSArray<NSString *> *itemInfo in automationURLs) {
         NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"复制%@", itemInfo[0]]
@@ -6676,6 +6763,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"calendar-policy"] || [argument isEqualToString:@"calendar"] || [argument isEqualToString:@"calendar-focus"]) {
             [self runCalendarPolicyStressTest:nil];
             detail = @"运行日历策略压测";
+        } else if ([argument isEqualToString:@"calendar-real"] || [argument isEqualToString:@"calendar-diagnostic"] || [argument isEqualToString:@"calendar-status"]) {
+            [self copyCalendarDiagnostic:nil];
+            detail = @"复制真实日历诊断";
         } else {
             [self copyRecoveryDiagnostic:nil];
             detail = @"复制恢复诊断";
@@ -6724,6 +6814,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"- 专注联动模板：%@", ERAutomationURLString(@"automation/focus-template")]];
     [lines addObject:[NSString stringWithFormat:@"- 暂停 30 分钟：%@", ERAutomationURLString(@"pause/30m")]];
     [lines addObject:[NSString stringWithFormat:@"- 继续提醒：%@", ERAutomationURLString(@"resume")]];
+    [lines addObject:[NSString stringWithFormat:@"- 真实日历诊断：%@", ERAutomationURLString(@"diagnostics/calendar-real")]];
     [lines addObject:[NSString stringWithFormat:@"自动化状态：%@", [self focusModeStatusText]]];
     [lines addObject:[NSString stringWithFormat:@"轻打扰：manual=%@ auto=%@ autoPause=%@ ignored=%@ presentation=%@ quiet=%@ calendar=%@ calendarPause=%@",
                       self.focusModeEnabled ? @"YES" : @"NO",

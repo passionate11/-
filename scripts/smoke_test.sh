@@ -225,4 +225,13 @@ history_contains '提醒时间已顺延' '\\U63d0\\U9192\\U65f6\\U95f4\\U5df2\\U
 history_contains '统计已还原' '\\U7edf\\U8ba1\\U5df2\\U8fd8\\U539f' || fail "calendar policy did not restore stats"
 history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "calendar policy did not restore test state"
 
+echo "==> Checking real calendar diagnostic URL"
+open "$URL_SCHEME://diagnostics/calendar-real"
+sleep 1
+history_contains '复制真实日历诊断' '\\U590d\\U5236\\U771f\\U5b9e\\U65e5\\U5386\\U8bca\\U65ad' || fail "calendar diagnostic URL did not record success"
+calendar_diagnostic="$(/usr/bin/pbpaste)"
+[[ "$calendar_diagnostic" == *"calendar="* ]] || fail "calendar diagnostic missing calendar flag"
+[[ "$calendar_diagnostic" == *"calendarPause="* ]] || fail "calendar diagnostic missing calendar pause flag"
+[[ "$calendar_diagnostic" == *"autoPause="* ]] || fail "calendar diagnostic missing auto pause flag"
+
 echo "==> Smoke test passed"
