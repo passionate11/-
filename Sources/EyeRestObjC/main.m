@@ -1516,13 +1516,21 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *overviewEyeTimerLabel;
 @property(nonatomic, strong) NSTextField *overviewEyeMetaLabel;
 @property(nonatomic, strong) NSProgressIndicator *overviewEyeProgress;
+@property(nonatomic, strong) NSImageView *overviewEyeIcon;
 @property(nonatomic, strong) NSTextField *overviewStandStatusLabel;
 @property(nonatomic, strong) NSTextField *overviewStandTimerLabel;
 @property(nonatomic, strong) NSTextField *overviewStandMetaLabel;
 @property(nonatomic, strong) NSProgressIndicator *overviewStandProgress;
+@property(nonatomic, strong) NSImageView *overviewStandIcon;
+@property(nonatomic, strong) NSView *overviewStatusBand;
+@property(nonatomic, strong) NSImageView *overviewStatusIcon;
+@property(nonatomic, strong) NSTextField *overviewStatusTitleLabel;
+@property(nonatomic, strong) NSTextField *overviewStatusDetailLabel;
+@property(nonatomic, strong) NSTextField *overviewStatusBadgeLabel;
 @property(nonatomic, strong) NSTextField *overviewTodayLabel;
 @property(nonatomic, strong) NSTextField *overviewModeLabel;
 @property(nonatomic, strong) NSTextField *overviewHintLabel;
+@property(nonatomic, strong) NSView *overviewActionBar;
 @property(nonatomic, strong) NSButton *overviewRestEyeButton;
 @property(nonatomic, strong) NSButton *overviewRestStandButton;
 @property(nonatomic, strong) NSButton *overviewPauseButton;
@@ -2008,108 +2016,141 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMutableArray<NSView *> *tiles = [NSMutableArray array];
     NSMutableArray<NSTextField *> *labels = [NSMutableArray array];
 
-    NSView *eyeTile = ERRoundedView(NSMakeRect(18, 112, 236, 106), [NSColor colorWithWhite:1 alpha:0.38], 14);
+    self.overviewStatusBand = ERRoundedView(NSMakeRect(18, 176, 492, 44), [NSColor colorWithWhite:1 alpha:0.38], 14);
+    self.overviewStatusBand.layer.borderWidth = 1;
+    [card addSubview:self.overviewStatusBand];
+    [tiles addObject:self.overviewStatusBand];
+
+    self.overviewStatusIcon = [[NSImageView alloc] initWithFrame:NSMakeRect(14, 10, 24, 24)];
+    self.overviewStatusIcon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:21 weight:NSFontWeightSemibold];
+    [self.overviewStatusBand addSubview:self.overviewStatusIcon];
+
+    self.overviewStatusTitleLabel = [NSTextField labelWithString:@""];
+    self.overviewStatusTitleLabel.frame = NSMakeRect(48, 20, 230, 18);
+    self.overviewStatusTitleLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
+    [self.overviewStatusBand addSubview:self.overviewStatusTitleLabel];
+    [labels addObject:self.overviewStatusTitleLabel];
+
+    self.overviewStatusDetailLabel = [NSTextField labelWithString:@""];
+    self.overviewStatusDetailLabel.frame = NSMakeRect(48, 5, 310, 16);
+    self.overviewStatusDetailLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    [self.overviewStatusBand addSubview:self.overviewStatusDetailLabel];
+    [labels addObject:self.overviewStatusDetailLabel];
+
+    self.overviewStatusBadgeLabel = [NSTextField labelWithString:@""];
+    self.overviewStatusBadgeLabel.frame = NSMakeRect(366, 11, 108, 20);
+    self.overviewStatusBadgeLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
+    self.overviewStatusBadgeLabel.alignment = NSTextAlignmentRight;
+    [self.overviewStatusBand addSubview:self.overviewStatusBadgeLabel];
+    [labels addObject:self.overviewStatusBadgeLabel];
+
+    NSView *eyeTile = ERRoundedView(NSMakeRect(18, 84, 236, 82), [NSColor colorWithWhite:1 alpha:0.38], 14);
     eyeTile.layer.borderWidth = 1;
     [card addSubview:eyeTile];
     [tiles addObject:eyeTile];
 
-    NSView *standTile = ERRoundedView(NSMakeRect(274, 112, 236, 106), [NSColor colorWithWhite:1 alpha:0.38], 14);
+    NSView *standTile = ERRoundedView(NSMakeRect(274, 84, 236, 82), [NSColor colorWithWhite:1 alpha:0.38], 14);
     standTile.layer.borderWidth = 1;
     [card addSubview:standTile];
     [tiles addObject:standTile];
 
-    NSImageView *eyeIcon = [[NSImageView alloc] initWithFrame:NSMakeRect(16, 76, 24, 24)];
-    eyeIcon.image = [NSImage imageWithSystemSymbolName:@"eye" accessibilityDescription:@"眼睛"];
-    eyeIcon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:22 weight:NSFontWeightSemibold];
-    [eyeTile addSubview:eyeIcon];
+    self.overviewEyeIcon = [[NSImageView alloc] initWithFrame:NSMakeRect(16, 54, 22, 22)];
+    self.overviewEyeIcon.image = [NSImage imageWithSystemSymbolName:@"eye" accessibilityDescription:@"眼睛"];
+    self.overviewEyeIcon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:20 weight:NSFontWeightSemibold];
+    [eyeTile addSubview:self.overviewEyeIcon];
 
     self.overviewEyeStatusLabel = [NSTextField labelWithString:@""];
-    self.overviewEyeStatusLabel.frame = NSMakeRect(48, 78, 150, 22);
+    self.overviewEyeStatusLabel.frame = NSMakeRect(46, 56, 150, 20);
     self.overviewEyeStatusLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
     [eyeTile addSubview:self.overviewEyeStatusLabel];
     [labels addObject:self.overviewEyeStatusLabel];
 
     self.overviewEyeTimerLabel = [NSTextField labelWithString:@""];
-    self.overviewEyeTimerLabel.frame = NSMakeRect(16, 34, 204, 38);
-    self.overviewEyeTimerLabel.font = [NSFont monospacedDigitSystemFontOfSize:32 weight:NSFontWeightSemibold];
+    self.overviewEyeTimerLabel.frame = NSMakeRect(16, 25, 204, 30);
+    self.overviewEyeTimerLabel.font = [NSFont monospacedDigitSystemFontOfSize:27 weight:NSFontWeightSemibold];
     [eyeTile addSubview:self.overviewEyeTimerLabel];
     [labels addObject:self.overviewEyeTimerLabel];
 
-    self.overviewEyeProgress = [self overviewProgressWithFrame:NSMakeRect(16, 24, 204, 6)];
+    self.overviewEyeProgress = [self overviewProgressWithFrame:NSMakeRect(16, 20, 204, 4)];
     [eyeTile addSubview:self.overviewEyeProgress];
 
     self.overviewEyeMetaLabel = [NSTextField labelWithString:@""];
-    self.overviewEyeMetaLabel.frame = NSMakeRect(16, 4, 204, 18);
+    self.overviewEyeMetaLabel.frame = NSMakeRect(16, 4, 204, 15);
     self.overviewEyeMetaLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     [eyeTile addSubview:self.overviewEyeMetaLabel];
     [labels addObject:self.overviewEyeMetaLabel];
 
-    NSImageView *standIcon = [[NSImageView alloc] initWithFrame:NSMakeRect(16, 76, 24, 24)];
-    standIcon.image = [NSImage imageWithSystemSymbolName:@"figure.stand" accessibilityDescription:@"站立"];
-    standIcon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:22 weight:NSFontWeightSemibold];
-    [standTile addSubview:standIcon];
+    self.overviewStandIcon = [[NSImageView alloc] initWithFrame:NSMakeRect(16, 54, 22, 22)];
+    self.overviewStandIcon.image = [NSImage imageWithSystemSymbolName:@"figure.stand" accessibilityDescription:@"站立"];
+    self.overviewStandIcon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:20 weight:NSFontWeightSemibold];
+    [standTile addSubview:self.overviewStandIcon];
 
     self.overviewStandStatusLabel = [NSTextField labelWithString:@""];
-    self.overviewStandStatusLabel.frame = NSMakeRect(48, 78, 150, 22);
+    self.overviewStandStatusLabel.frame = NSMakeRect(46, 56, 150, 20);
     self.overviewStandStatusLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
     [standTile addSubview:self.overviewStandStatusLabel];
     [labels addObject:self.overviewStandStatusLabel];
 
     self.overviewStandTimerLabel = [NSTextField labelWithString:@""];
-    self.overviewStandTimerLabel.frame = NSMakeRect(16, 34, 204, 38);
-    self.overviewStandTimerLabel.font = [NSFont monospacedDigitSystemFontOfSize:32 weight:NSFontWeightSemibold];
+    self.overviewStandTimerLabel.frame = NSMakeRect(16, 25, 204, 30);
+    self.overviewStandTimerLabel.font = [NSFont monospacedDigitSystemFontOfSize:27 weight:NSFontWeightSemibold];
     [standTile addSubview:self.overviewStandTimerLabel];
     [labels addObject:self.overviewStandTimerLabel];
 
-    self.overviewStandProgress = [self overviewProgressWithFrame:NSMakeRect(16, 24, 204, 6)];
+    self.overviewStandProgress = [self overviewProgressWithFrame:NSMakeRect(16, 20, 204, 4)];
     [standTile addSubview:self.overviewStandProgress];
 
     self.overviewStandMetaLabel = [NSTextField labelWithString:@""];
-    self.overviewStandMetaLabel.frame = NSMakeRect(16, 4, 204, 18);
+    self.overviewStandMetaLabel.frame = NSMakeRect(16, 4, 204, 15);
     self.overviewStandMetaLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     [standTile addSubview:self.overviewStandMetaLabel];
     [labels addObject:self.overviewStandMetaLabel];
 
     self.overviewTodayLabel = [NSTextField wrappingLabelWithString:@""];
-    self.overviewTodayLabel.frame = NSMakeRect(24, 70, 216, 32);
-    self.overviewTodayLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
+    self.overviewTodayLabel.frame = NSMakeRect(24, 61, 216, 18);
+    self.overviewTodayLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.overviewTodayLabel.maximumNumberOfLines = 2;
     [card addSubview:self.overviewTodayLabel];
     [labels addObject:self.overviewTodayLabel];
 
     self.overviewModeLabel = [NSTextField wrappingLabelWithString:@""];
-    self.overviewModeLabel.frame = NSMakeRect(274, 70, 222, 32);
-    self.overviewModeLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
+    self.overviewModeLabel.frame = NSMakeRect(274, 61, 222, 18);
+    self.overviewModeLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.overviewModeLabel.maximumNumberOfLines = 2;
     [card addSubview:self.overviewModeLabel];
     [labels addObject:self.overviewModeLabel];
 
     self.overviewHintLabel = [NSTextField wrappingLabelWithString:@""];
-    self.overviewHintLabel.frame = NSMakeRect(24, 42, 472, 24);
+    self.overviewHintLabel.frame = NSMakeRect(24, 40, 472, 18);
     self.overviewHintLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.overviewHintLabel.maximumNumberOfLines = 1;
     [card addSubview:self.overviewHintLabel];
     [labels addObject:self.overviewHintLabel];
 
-    self.overviewRestEyeButton = [self overviewActionButtonWithTitle:@"眼睛" symbol:@"eye" action:@selector(overviewRestEyeNow:) frame:NSMakeRect(24, 10, 92, 28)];
+    self.overviewActionBar = ERRoundedView(NSMakeRect(18, 8, 492, 28), [NSColor colorWithWhite:1 alpha:0.25], 10);
+    self.overviewActionBar.layer.borderWidth = 1;
+    [card addSubview:self.overviewActionBar];
+    [tiles addObject:self.overviewActionBar];
+
+    self.overviewRestEyeButton = [self overviewActionButtonWithTitle:@"眼睛" symbol:@"eye" action:@selector(overviewRestEyeNow:) frame:NSMakeRect(6, 2, 86, 24)];
     self.overviewRestEyeButton.toolTip = @"立即开始一次眼睛休息";
-    [card addSubview:self.overviewRestEyeButton];
+    [self.overviewActionBar addSubview:self.overviewRestEyeButton];
 
-    self.overviewRestStandButton = [self overviewActionButtonWithTitle:@"站立" symbol:@"figure.stand" action:@selector(overviewRestStandNow:) frame:NSMakeRect(130, 10, 92, 28)];
+    self.overviewRestStandButton = [self overviewActionButtonWithTitle:@"站立" symbol:@"figure.stand" action:@selector(overviewRestStandNow:) frame:NSMakeRect(98, 2, 86, 24)];
     self.overviewRestStandButton.toolTip = @"立即开始一次站立提醒";
-    [card addSubview:self.overviewRestStandButton];
+    [self.overviewActionBar addSubview:self.overviewRestStandButton];
 
-    self.overviewPauseButton = [self overviewActionButtonWithTitle:@"暂停 30" symbol:@"pause" action:@selector(overviewPauseThirtyMinutes:) frame:NSMakeRect(236, 10, 100, 28)];
+    self.overviewPauseButton = [self overviewActionButtonWithTitle:@"暂停 30" symbol:@"pause" action:@selector(overviewPauseThirtyMinutes:) frame:NSMakeRect(190, 2, 92, 24)];
     self.overviewPauseButton.toolTip = @"暂停提醒 30 分钟";
-    [card addSubview:self.overviewPauseButton];
+    [self.overviewActionBar addSubview:self.overviewPauseButton];
 
-    self.overviewIssueButton = [self overviewActionButtonWithTitle:@"反馈包" symbol:@"doc.on.doc" action:@selector(overviewCopyIssueBundle:) frame:NSMakeRect(350, 10, 88, 28)];
+    self.overviewIssueButton = [self overviewActionButtonWithTitle:@"反馈包" symbol:@"doc.on.doc" action:@selector(overviewCopyIssueBundle:) frame:NSMakeRect(288, 2, 86, 24)];
     self.overviewIssueButton.toolTip = @"复制问题反馈包";
-    [card addSubview:self.overviewIssueButton];
+    [self.overviewActionBar addSubview:self.overviewIssueButton];
 
-    self.overviewQuickSetupButton = [self overviewActionButtonWithTitle:@"配置" symbol:@"slider.horizontal.3" action:@selector(openQuickSetup:) frame:NSMakeRect(452, 10, 58, 28)];
+    self.overviewQuickSetupButton = [self overviewActionButtonWithTitle:@"配置" symbol:@"slider.horizontal.3" action:@selector(openQuickSetup:) frame:NSMakeRect(380, 2, 106, 24)];
     self.overviewQuickSetupButton.toolTip = @"打开快速配置";
-    [card addSubview:self.overviewQuickSetupButton];
+    [self.overviewActionBar addSubview:self.overviewQuickSetupButton];
 
     self.overviewActionButtons = @[
         self.overviewRestEyeButton,
@@ -2718,20 +2759,65 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.overviewIssueButton.enabled = YES;
 
     NSInteger done = self.appDelegate.todayEyeDone + self.appDelegate.todayStandDone;
-    self.overviewTodayLabel.stringValue = [NSString stringWithFormat:@"今天 %ld 次：眼 %ld · 站 %ld\n稍后/跳过 %ld",
+    self.overviewTodayLabel.stringValue = [NSString stringWithFormat:@"今天 %ld 次\n眼 %ld · 站 %ld · 稍后/跳过 %ld",
                                            (long)done,
                                            (long)self.appDelegate.todayEyeDone,
                                            (long)self.appDelegate.todayStandDone,
                                            (long)(self.appDelegate.todaySnoozed + self.appDelegate.todaySkipped)];
 
     NSString *modeText = @"正常提醒";
+    NSString *statusTitle = @"下一次提醒";
+    NSString *statusDetail = @"眼睛和站立按各自节奏计时。";
+    NSString *statusBadge = @"正常";
+    NSString *statusSymbol = @"bell.badge";
     if (self.appDelegate.paused) {
         modeText = self.appDelegate.pausedUntil ? [NSString stringWithFormat:@"暂停到 %@", ERFormatClockTime(self.appDelegate.pausedUntil)] : @"暂停中";
+        statusTitle = @"提醒已暂停";
+        statusDetail = modeText;
+        statusBadge = @"暂停";
+        statusSymbol = @"pause.circle.fill";
     } else if (self.appDelegate.autoPauseActive) {
         modeText = self.appDelegate.calendarAutoPauseActive ? @"日程自动暂停中" : @"应用自动暂停中";
+        statusTitle = modeText;
+        statusDetail = @"计时会顺延，休息页不会弹出来。";
+        statusBadge = @"自动";
+        statusSymbol = @"pause.rectangle.fill";
     } else if ([self.appDelegate isLightDistractionModeActive]) {
         modeText = [self.appDelegate focusModeStatusText];
+        statusTitle = @"轻打扰中";
+        statusDetail = modeText;
+        statusBadge = @"只通知";
+        statusSymbol = @"bell.slash.fill";
+    } else if (self.appDelegate.eyeResting) {
+        statusTitle = @"正在眼睛休息";
+        statusDetail = [NSString stringWithFormat:@"剩余 %@，完成后会重新开始计时。", ERFormatDuration(eyeRemaining)];
+        statusBadge = @"休息中";
+        statusSymbol = @"eye.fill";
+    } else if (self.appDelegate.standResting) {
+        statusTitle = @"正在站立活动";
+        statusDetail = [NSString stringWithFormat:@"剩余 %@，%@。", ERFormatDuration(standRemaining), ERStandRoutineTitle(self.settings.standRoutine)];
+        statusBadge = @"站立中";
+        statusSymbol = @"figure.stand";
+    } else if (!self.settings.eyeEnabled && !self.settings.standEnabled) {
+        statusTitle = @"提醒都已关闭";
+        statusDetail = @"可以在眼睛或站立页面重新开启。";
+        statusBadge = @"关闭";
+        statusSymbol = @"bell.slash";
+    } else if (!self.settings.standEnabled || (self.settings.eyeEnabled && eyeRemaining <= standRemaining)) {
+        statusTitle = @"下一次眼睛休息";
+        statusDetail = [NSString stringWithFormat:@"%@ 后看向 6 米外。", ERFormatDuration(eyeRemaining)];
+        statusBadge = EREyeModeTitle(self.settings.eyeMode);
+        statusSymbol = self.settings.eyeMode == EREyeModePomodoro ? @"timer" : @"eye";
+    } else {
+        statusTitle = @"下一次站立提醒";
+        statusDetail = [NSString stringWithFormat:@"%@ 后%@。", ERFormatDuration(standRemaining), ERStandRoutineTitle(self.settings.standRoutine)];
+        statusBadge = ERStandIntensityTitle(self.settings.standIntensity);
+        statusSymbol = @"figure.stand";
     }
+    self.overviewStatusIcon.image = [NSImage imageWithSystemSymbolName:statusSymbol accessibilityDescription:statusTitle];
+    self.overviewStatusTitleLabel.stringValue = statusTitle;
+    self.overviewStatusDetailLabel.stringValue = statusDetail;
+    self.overviewStatusBadgeLabel.stringValue = statusBadge;
     self.overviewModeLabel.stringValue = [NSString stringWithFormat:@"当前模式：%@ · %@", modeText, ERRestStyleTitle(self.settings.restStyle)];
 
     if (self.appDelegate.paused || self.appDelegate.autoPauseActive) {
@@ -3163,8 +3249,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     for (NSTextField *label in self.overviewLabels) {
         label.textColor = label == self.overviewEyeTimerLabel || label == self.overviewStandTimerLabel ? settingsPrimaryTextColor : settingsSecondaryTextColor;
     }
+    self.overviewStatusTitleLabel.textColor = settingsPrimaryTextColor;
+    self.overviewStatusDetailLabel.textColor = settingsSecondaryTextColor;
+    self.overviewStatusBadgeLabel.textColor = theme.accent;
     self.overviewEyeStatusLabel.textColor = settingsPrimaryTextColor;
     self.overviewStandStatusLabel.textColor = settingsPrimaryTextColor;
+    self.overviewStatusIcon.contentTintColor = theme.accent;
+    self.overviewEyeIcon.contentTintColor = theme.accent;
+    self.overviewStandIcon.contentTintColor = theme.accent;
     self.focusAppMatchLabel.textColor = settingsSecondaryTextColor;
     self.calendarStatusLabel.textColor = settingsSecondaryTextColor;
     self.quietHoursStatusLabel.textColor = settingsSecondaryTextColor;
@@ -3206,7 +3298,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ? [NSColor colorWithWhite:1 alpha:0.045]
         : [NSColor colorWithWhite:1 alpha:0.42];
     NSColor *tileColor = settingsDarkStyle
-        ? [NSColor colorWithWhite:1 alpha:0.06]
+        ? [NSColor colorWithWhite:1 alpha:0.095]
         : [NSColor colorWithWhite:1 alpha:0.42];
     NSColor *dividerColor = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.10]
@@ -3216,6 +3308,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         tile.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.70].CGColor;
         tile.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 14;
     }
+    self.overviewActionBar.layer.backgroundColor = (settingsDarkStyle
+        ? [NSColor colorWithWhite:1 alpha:0.075]
+        : [NSColor colorWithWhite:1 alpha:0.24]).CGColor;
+    self.overviewActionBar.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.46].CGColor;
+    self.overviewActionBar.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 10;
     for (NSView *row in self.settingRowViews) {
         row.layer.backgroundColor = rowColor.CGColor;
         row.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 10;
