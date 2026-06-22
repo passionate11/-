@@ -48,6 +48,8 @@ GitHub Actions 会在 `main` 和 Pull Request 上运行 macOS 构建检查，覆
 
 构建时会自动生成 `AppIcon.icns` 并写入 App bundle。
 
+本地构建会默认使用 macOS ad-hoc 签名，方便安装和打包后做完整性校验，不需要 Apple Developer 账号。需要跳过签名时可以运行 `SKIP_CODESIGN=1 scripts/build_app.sh`；需要使用正式证书时可以运行 `CODESIGN_IDENTITY="Developer ID Application: ..." scripts/build_app.sh`。
+
 ## 打包
 
 ```bash
@@ -65,6 +67,8 @@ dist/songyixia-<version>-<build>.zip
 GitHub Actions 也会上传同名构建 artifact，方便直接下载测试。
 
 应用版本号来自仓库根目录的 `VERSION` 文件，构建号可通过 `BUILD_NUMBER` 环境变量覆盖。
+
+打包前会重新构建并签名，CI 会验证 zip 解压后的 `松一下.app` 仍然通过 `codesign --verify --deep --strict`。
 
 ## 运行
 

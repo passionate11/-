@@ -37,6 +37,8 @@ jobs:
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'handleAutomationURL:'
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'runRecoveryStressTest:'
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'importBackupJSON:'
+          codesign --verify --deep --strict outputs/EyeRest.app
+          codesign -dv outputs/EyeRest.app 2>&1 | grep -q 'Signature=adhoc'
 
       - name: Package app
         run: scripts/package_app.sh
@@ -48,6 +50,9 @@ jobs:
           unzip -l "$archive" | grep -q '松一下.app/Contents/MacOS/EyeRest'
           unzip -l "$archive" | grep -q '松一下.app/Contents/Resources/AppIcon.icns'
           ! unzip -l "$archive" | grep -q '/._'
+          tmpdir="$(mktemp -d)"
+          ditto -x -k "$archive" "$tmpdir"
+          codesign --verify --deep --strict "$tmpdir/松一下.app"
 
       - name: Upload app artifact
         uses: actions/upload-artifact@v4

@@ -9,6 +9,8 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
+CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
+SKIP_CODESIGN="${SKIP_CODESIGN:-0}"
 
 cd "$ROOT_DIR"
 mkdir -p "$ROOT_DIR/.build"
@@ -78,5 +80,13 @@ PLIST
   -e "s/__VERSION__/$VERSION/g" \
   -e "s/__BUILD_NUMBER__/$BUILD_NUMBER/g" \
   "$CONTENTS_DIR/Info.plist"
+
+if [[ "$SKIP_CODESIGN" != "1" ]]; then
+  if command -v codesign >/dev/null 2>&1; then
+    codesign --force --deep --sign "$CODESIGN_IDENTITY" "$APP_DIR" >/dev/null
+  else
+    echo "warning: codesign not found; app bundle was left unsigned" >&2
+  fi
+fi
 
 echo "$APP_DIR"
