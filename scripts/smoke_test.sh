@@ -118,6 +118,13 @@ sleep 1
 history_contains '快速节奏 调试 10 秒' '\\U5feb\\U901f\\U8282\\U594f \\U8c03\\U8bd5 10 \\U79d2' || fail "rhythm/debug did not record success"
 [[ "$(/usr/bin/defaults read "$BUNDLE_ID" eyeFocusSeconds 2>/dev/null || true)" == "10" ]] || fail "rhythm/debug did not set eyeFocusSeconds to 10"
 [[ "$(/usr/bin/defaults read "$BUNDLE_ID" eyeRestSeconds 2>/dev/null || true)" == "10" ]] || fail "rhythm/debug did not set eyeRestSeconds to 10"
+open "$URL_SCHEME://automation/focus-template"
+sleep 1
+history_contains '已复制专注联动脚本' '\\U5df2\\U590d\\U5236\\U4e13\\U6ce8\\U8054\\U52a8\\U811a\\U672c' || fail "focus template URL did not record success"
+template="$(/usr/bin/pbpaste)"
+[[ "$template" == *"songyixia://focus/on"* ]] || fail "focus template missing focus/on"
+[[ "$template" == *"songyixia://focus/off"* ]] || fail "focus template missing focus/off"
+[[ "$template" == *"Hammerspoon"* ]] || fail "focus template missing Hammerspoon section"
 
 echo "==> Checking recovery stress URL"
 open "$URL_SCHEME://diagnostics/recovery-stress"

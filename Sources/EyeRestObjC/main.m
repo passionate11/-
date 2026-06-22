@@ -1453,6 +1453,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
 - (BOOL)handleAutomationURL:(NSURL *)url;
 - (void)copyAutomationURL:(NSMenuItem *)sender;
+- (NSString *)focusAutomationTemplateText;
+- (void)copyFocusAutomationTemplate:(id)sender;
 - (void)presentSettingsWindow;
 - (void)toggleRestWindowTopmost:(id)sender;
 - (NSTimeInterval)configuredRestDurationForKind:(ERReminderKind)kind;
@@ -4113,6 +4115,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     automationURLGroup.submenu = automationURLMenu;
     [self.menu addItem:automationURLGroup];
 
+    NSMenuItem *automationTemplate = [[NSMenuItem alloc] initWithTitle:@"复制专注联动脚本" action:@selector(copyFocusAutomationTemplate:) keyEquivalent:@""];
+    automationTemplate.target = self;
+    [self.menu addItem:automationTemplate];
+
     NSMenu *pauseMenu = [[NSMenu alloc] initWithTitle:@"暂停提醒"];
     NSArray<NSArray *> *pauseItems = @[
         @[@"暂停 30 分钟", @(30 * 60), @"pauseFor:"],
@@ -5516,6 +5522,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             [self copyRecoveryDiagnostic:nil];
             detail = @"复制恢复诊断";
         }
+    } else if ([command isEqualToString:@"automation"] || [command isEqualToString:@"shortcut"] || [command isEqualToString:@"template"]) {
+        if ([argument isEqualToString:@"focus-template"] || [argument isEqualToString:@"focus"] || [argument isEqualToString:@"script"]) {
+            [self copyFocusAutomationTemplate:nil];
+            detail = @"复制专注联动脚本";
+        } else {
+            return NO;
+        }
     } else if ([command isEqualToString:@"backup"]) {
         if ([argument isEqualToString:@"import"] || [argument isEqualToString:@"restore"]) {
             [self presentSettingsWindow];
@@ -5538,6 +5551,55 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     return YES;
 }
 
+- (NSString *)focusAutomationTemplateText {
+    NSString *focusOn = ERAutomationURLString(@"focus/on");
+    NSString *focusOff = ERAutomationURLString(@"focus/off");
+    NSString *focusToggle = ERAutomationURLString(@"focus/toggle");
+    NSString *pause30 = ERAutomationURLString(@"pause/30m");
+    NSString *resume = ERAutomationURLString(@"resume");
+    NSString *settings = ERAutomationURLString(@"settings");
+    return [NSString stringWithFormat:
+        @"# 松一下 · 专注/勿扰联动模板\n"
+        @"\n"
+        @"## 常用链接\n"
+        @"- 专注开始：%@\n"
+        @"- 专注结束：%@\n"
+        @"- 切换轻打扰：%@\n"
+        @"- 暂停 30 分钟：%@\n"
+        @"- 继续提醒：%@\n"
+        @"- 打开设置：%@\n"
+        @"\n"
+        @"## macOS 快捷指令\n"
+        @"1. 新建快捷指令，添加“打开 URL”。\n"
+        @"2. 专注开始时打开 %@。\n"
+        @"3. 专注结束时打开 %@。\n"
+        @"\n"
+        @"## Hammerspoon 示例\n"
+        @"local function openSongYiXia(path)\n"
+        @"  hs.urlevent.openURL('songyixia://' .. path)\n"
+        @"end\n"
+        @"\n"
+        @"hs.hotkey.bind({'cmd', 'alt', 'ctrl'}, 'F', function()\n"
+        @"  openSongYiXia('focus/toggle')\n"
+        @"end)\n"
+        @"\n"
+        @"hs.hotkey.bind({'cmd', 'alt', 'ctrl'}, 'P', function()\n"
+        @"  openSongYiXia('pause/30m')\n"
+        @"end)\n"
+        @"\n"
+        @"hs.hotkey.bind({'cmd', 'alt', 'ctrl'}, 'R', function()\n"
+        @"  openSongYiXia('resume')\n"
+        @"end)\n",
+        focusOn,
+        focusOff,
+        focusToggle,
+        pause30,
+        resume,
+        settings,
+        focusOn,
+        focusOff];
+}
+
 - (void)copyAutomationURL:(NSMenuItem *)sender {
     NSString *urlString = [sender.representedObject isKindOfClass:NSString.class] ? sender.representedObject : @"";
     if (urlString.length == 0) return;
@@ -5545,6 +5607,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [pasteboard clearContents];
     [pasteboard setString:urlString forType:NSPasteboardTypeString];
     [self noteRecoveryEventTitle:@"外部自动化" detail:[NSString stringWithFormat:@"已复制 %@", urlString]];
+    [self publishState];
+}
+
+- (void)copyFocusAutomationTemplate:(id)sender {
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:[self focusAutomationTemplateText] forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"外部自动化" detail:@"已复制专注联动脚本"];
     [self publishState];
 }
 

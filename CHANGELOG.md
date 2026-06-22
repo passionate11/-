@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10
+
+- 菜单栏新增 `复制专注联动脚本`，一键复制 macOS 快捷指令和 Hammerspoon 可用的轻打扰联动模板。
+- 外部自动化新增 `songyixia://automation/focus-template`，可直接把专注联动模板复制到剪贴板。
+- 冒烟测试新增剪贴板校验，确认模板包含 `songyixia://focus/on`、`songyixia://focus/off` 和 Hammerspoon 示例。
+
 ## 0.1.9
 
 - 菜单栏新增 `运行显示恢复压测`，用于模拟休息页跑到屏幕外的显示器切换场景。
