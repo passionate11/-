@@ -53,7 +53,7 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText runRecoveryMatrixSuite: runRecoveryMatrixSuiteStep: finishRecoveryMatrixSuiteWithTotal: copySupportBundleDiagnostic: supportBundleDiagnosticText toggleRestWindowTopmost:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText copyRecoveryReportDiagnostic: recoveryReportDiagnosticText runRecoveryMatrixSuite: runRecoveryMatrixSuiteStep: finishRecoveryMatrixSuiteWithTotal: copySupportBundleDiagnostic: supportBundleDiagnosticText toggleRestWindowTopmost:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
@@ -78,6 +78,8 @@ check_contains "$SOURCE_CONTENT" "Raycast Script Command 示例" "raycast automa
 check_contains "$README_CONTENT" "songyixia://automation/focus-template" "focus automation template docs"
 check_contains "$SOURCE_CONTENT" "copyAutomationDiagnostic:" "automation diagnostic action"
 check_contains "$SOURCE_CONTENT" "automationDiagnosticText" "automation diagnostic text helper"
+check_contains "$SOURCE_CONTENT" "Bundle ID" "automation diagnostic bundle id"
+check_contains "$SOURCE_CONTENT" "bundle.bundleIdentifier" "automation diagnostic bundle identifier value"
 check_contains "$README_CONTENT" "songyixia://automation/diagnostic" "automation diagnostic docs"
 check_contains "$SOURCE_CONTENT" "runLunchRecoveryStressTest:" "lunch recovery stress action"
 check_contains "$SOURCE_CONTENT" "diagnostics/lunch-recovery" "lunch recovery automation URL"
@@ -127,6 +129,16 @@ check_contains "$SOURCE_CONTENT" "ERRecoveryHistoryLimit = 80" "expanded recover
 check_contains "$SOURCE_CONTENT" "recoveryMatrix=1" "recovery matrix machine marker"
 check_contains "$SOURCE_CONTENT" "scenario=%@" "recovery matrix scenario marker"
 check_contains "$SOURCE_CONTENT" "section=recovery-matrix" "support bundle recovery matrix section marker"
+check_contains "$SOURCE_CONTENT" "copyRecoveryReportDiagnostic:" "recovery report diagnostic action"
+check_contains "$SOURCE_CONTENT" "recoveryReportDiagnosticText" "recovery report diagnostic text helper"
+check_contains "$SOURCE_CONTENT" "diagnostics/recovery-report" "recovery report diagnostic URL"
+check_contains "$README_CONTENT" "songyixia://diagnostics/recovery-report" "recovery report diagnostic docs"
+check_contains "$SOURCE_CONTENT" "recoveryReport=1" "recovery report machine marker"
+check_contains "$SOURCE_CONTENT" "summary=%@" "recovery report summary marker"
+check_contains "$SOURCE_CONTENT" "coverage=%ld/%ld" "recovery report coverage marker"
+check_contains "$SOURCE_CONTENT" "missingScenarios=%@" "recovery report missing scenarios marker"
+check_contains "$SOURCE_CONTENT" "suggestionCount=%ld" "recovery report suggestion marker"
+check_contains "$SOURCE_CONTENT" "section=recovery-report" "support bundle recovery report section marker"
 check_contains "$SOURCE_CONTENT" "copySupportBundleDiagnostic:" "support bundle diagnostic action"
 check_contains "$SOURCE_CONTENT" "supportBundleDiagnosticText" "support bundle diagnostic text helper"
 check_contains "$SOURCE_CONTENT" "diagnostics/support-bundle" "support bundle diagnostic URL"
@@ -242,6 +254,7 @@ DIAGNOSE_OUTPUT="$(APP_TARGET="$APP_BUNDLE" scripts/diagnose_app.sh)"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/display-change-trace"* ]] || fail "diagnostics missing display trace URL"
 [[ "$DIAGNOSE_OUTPUT" == *"== Recovery Matrix =="* ]] || fail "diagnostics missing recovery matrix section"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/recovery-matrix"* ]] || fail "diagnostics missing recovery matrix URL"
+[[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/recovery-report"* ]] || fail "diagnostics missing recovery report URL"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/recovery-matrix-suite"* ]] || fail "diagnostics missing recovery matrix suite URL"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/window-layer"* ]] || fail "diagnostics missing window layer matrix URL"
 
