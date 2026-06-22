@@ -46,6 +46,20 @@ outputs/EyeRest.app
 
 GitHub Actions 会在 `main` 和 Pull Request 上运行 macOS 构建检查，覆盖 shell 语法、App bundle 生成、URL Scheme 和关键入口 selector。
 
+## 打包
+
+```bash
+scripts/package_app.sh
+```
+
+打包产物会生成到：
+
+```text
+dist/songyixia-0.1.0-1.zip
+```
+
+GitHub Actions 也会上传同名构建 artifact，方便直接下载测试。
+
 ## 运行
 
 ```bash

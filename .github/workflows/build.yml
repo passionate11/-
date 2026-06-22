@@ -18,6 +18,7 @@ jobs:
         run: |
           bash -n scripts/build_app.sh
           bash -n scripts/install_app.sh
+          bash -n scripts/package_app.sh
           bash -n scripts/smoke_test.sh
 
       - name: Build app bundle
@@ -32,3 +33,18 @@ jobs:
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'handleAutomationURL:'
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'runRecoveryStressTest:'
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'importBackupJSON:'
+
+      - name: Package app
+        run: scripts/package_app.sh
+
+      - name: Verify package
+        run: |
+          test -s dist/songyixia-0.1.0-1.zip
+          unzip -l dist/songyixia-0.1.0-1.zip | grep -q 'EyeRest.app/Contents/MacOS/EyeRest'
+          ! unzip -l dist/songyixia-0.1.0-1.zip | grep -q '/._'
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: songyixia-macos
+          path: dist/songyixia-0.1.0-1.zip
