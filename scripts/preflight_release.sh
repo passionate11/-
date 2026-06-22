@@ -19,7 +19,7 @@ check_contains() {
   local haystack="$1"
   local needle="$2"
   local label="$3"
-  if ! printf '%s\n' "$haystack" | grep -Fq "$needle"; then
+  if [[ "$haystack" != *"$needle"* ]]; then
     fail "$label missing: $needle"
   fi
 }
@@ -48,7 +48,8 @@ echo "==> Verifying bundle metadata"
 [[ "$(plist_value CFBundleDisplayName)" == "松一下" ]] || fail "display name mismatch"
 [[ "$(plist_value CFBundleIconFile)" == "AppIcon" ]] || fail "icon metadata mismatch"
 [[ "$(plist_value CFBundleShortVersionString)" == "$EXPECTED_VERSION" ]] || fail "version mismatch"
-/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST" | grep -q 'songyixia' || fail "URL scheme missing"
+URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")"
+[[ "$URL_TYPES" == *"songyixia"* ]] || fail "URL scheme missing"
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
@@ -58,21 +59,23 @@ done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
 
 echo "==> Verifying window behavior guardrails"
-grep -q '@interface ERSettingsWindow : NSWindow' "$SOURCE_FILE" || fail "settings window must remain a normal NSWindow"
-grep -q 'window.level = NSNormalWindowLevel;' "$SOURCE_FILE" || fail "settings window must use NSNormalWindowLevel"
-if grep -Eq 'NSFloatingWindowLevel|floatingPanel|NSWindowStyleMaskUtilityWindow|@interface ERSettingsPanel : NSPanel' "$SOURCE_FILE"; then
+SOURCE_CONTENT="$(< "$SOURCE_FILE")"
+[[ "$SOURCE_CONTENT" == *"@interface ERSettingsWindow : NSWindow"* ]] || fail "settings window must remain a normal NSWindow"
+[[ "$SOURCE_CONTENT" == *"window.level = NSNormalWindowLevel;"* ]] || fail "settings window must use NSNormalWindowLevel"
+if [[ "$SOURCE_CONTENT" =~ NSFloatingWindowLevel|floatingPanel|NSWindowStyleMaskUtilityWindow|@interface\ ERSettingsPanel\ :\ NSPanel ]]; then
   fail "settings window floating-panel regression detected"
 fi
-if awk '/- \(void\)presentSettingsWindow /{inside=1} inside && /}/{print; exit} inside{print}' "$SOURCE_FILE" | grep -q 'orderFrontRegardless'; then
+SETTINGS_PRESENT_BLOCK="$(awk '/- \(void\)presentSettingsWindow /{inside=1} inside && /}/{print; exit} inside{print}' "$SOURCE_FILE")"
+if [[ "$SETTINGS_PRESENT_BLOCK" == *"orderFrontRegardless"* ]]; then
   fail "settings window must not use orderFrontRegardless"
 fi
 
 echo "==> Verifying signature and diagnostics"
 codesign --verify --deep --strict "$APP_BUNDLE"
 CODESIGN_DETAILS="$(codesign -dv "$APP_BUNDLE" 2>&1 || true)"
-printf '%s\n' "$CODESIGN_DETAILS" | grep -q 'Signature=adhoc' || fail "expected ad-hoc signature"
+[[ "$CODESIGN_DETAILS" == *"Signature=adhoc"* ]] || fail "expected ad-hoc signature"
 DIAGNOSE_OUTPUT="$(APP_TARGET="$APP_BUNDLE" scripts/diagnose_app.sh)"
-printf '%s\n' "$DIAGNOSE_OUTPUT" | grep -Eq 'codesign verify:[[:space:]]+ok' || fail "diagnostics did not confirm signature"
+[[ "$DIAGNOSE_OUTPUT" =~ codesign[[:space:]]verify:[[:space:]]+ok ]] || fail "diagnostics did not confirm signature"
 
 echo "==> Verifying changelog"
 grep -q "## $EXPECTED_VERSION" CHANGELOG.md || fail "CHANGELOG.md missing $EXPECTED_VERSION section"
@@ -81,9 +84,9 @@ echo "==> Packaging app"
 ARCHIVE="$(scripts/package_app.sh)"
 [[ -s "$ARCHIVE" ]] || fail "archive was not created"
 ZIP_LIST="$(unzip -l "$ARCHIVE")"
-printf '%s\n' "$ZIP_LIST" | grep -q 'Contents/MacOS/EyeRest' || fail "archive missing executable"
-printf '%s\n' "$ZIP_LIST" | grep -q 'Contents/Resources/AppIcon.icns' || fail "archive missing icon"
-if printf '%s\n' "$ZIP_LIST" | grep -q '/._'; then
+[[ "$ZIP_LIST" == *"Contents/MacOS/EyeRest"* ]] || fail "archive missing executable"
+[[ "$ZIP_LIST" == *"Contents/Resources/AppIcon.icns"* ]] || fail "archive missing icon"
+if [[ "$ZIP_LIST" == *"/._"* ]]; then
   fail "archive contains AppleDouble resource files"
 fi
 
@@ -96,6 +99,6 @@ trap cleanup EXIT
 ditto -x -k "$ARCHIVE" "$TMPDIR_RELEASE"
 codesign --verify --deep --strict "$TMPDIR_RELEASE/松一下.app"
 PACKAGED_DIAGNOSE_OUTPUT="$(APP_TARGET="$TMPDIR_RELEASE/松一下.app" scripts/diagnose_app.sh)"
-printf '%s\n' "$PACKAGED_DIAGNOSE_OUTPUT" | grep -Eq 'codesign verify:[[:space:]]+ok' || fail "packaged app diagnostics failed"
+[[ "$PACKAGED_DIAGNOSE_OUTPUT" =~ codesign[[:space:]]verify:[[:space:]]+ok ]] || fail "packaged app diagnostics failed"
 
 echo "==> Preflight passed: $ARCHIVE"
