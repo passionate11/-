@@ -3,6 +3,7 @@
 #import <EventKit/EventKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <Carbon/Carbon.h>
 #import <fcntl.h>
 #import <sys/file.h>
 #import <unistd.h>
@@ -86,6 +87,7 @@ static NSString *const ERStatsAutoPauseSecondsKey = @"statsAutoPauseSeconds";
 static NSString *const ERStatsHistoryKey = @"statsHistory";
 static NSString *const ERRecoveryHistoryKey = @"recoveryHistory";
 static NSString *const ERBrandName = @"松一下";
+static NSString *const ERAutomationURLScheme = @"songyixia";
 static NSString *const ERRestOverlayWindowIdentifier = @"local.codex.eyerest.rest-overlay";
 static NSString *const EROpenSettingsNotificationName = @"local.codex.eyerest.open-settings";
 static NSString *const ERRunRecoveryStressTestNotificationName = @"local.codex.eyerest.run-recovery-stress-test";
@@ -144,6 +146,57 @@ static NSString *ERFormatClockTime(NSDate *date) {
     formatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
     formatter.dateFormat = @"HH:mm:ss";
     return [formatter stringFromDate:date];
+}
+
+static NSString *ERAutomationURLString(NSString *command) {
+    return [NSString stringWithFormat:@"%@://%@", ERAutomationURLScheme, command ?: @"settings"];
+}
+
+static NSArray<NSString *> *ERAutomationURLPathParts(NSURL *url) {
+    NSMutableArray<NSString *> *parts = [NSMutableArray array];
+    NSString *host = url.host.stringByRemovingPercentEncoding.lowercaseString;
+    if (host.length > 0) {
+        [parts addObject:host];
+    }
+    for (NSString *component in url.pathComponents) {
+        if ([component isEqualToString:@"/"] || component.length == 0) continue;
+        NSString *part = component.stringByRemovingPercentEncoding.lowercaseString;
+        if (part.length > 0) {
+            [parts addObject:part];
+        }
+    }
+    return parts;
+}
+
+static NSTimeInterval ERAutomationDurationSecondsFromToken(NSString *token) {
+    NSString *text = token.stringByRemovingPercentEncoding.lowercaseString;
+    text = [text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (text.length == 0) return 0;
+
+    NSTimeInterval multiplier = 60;
+    BOOL matchedSuffix = NO;
+    NSArray<NSArray<NSString *> *> *suffixGroups = @[
+        @[@"hours", @"hour", @"hrs", @"hr", @"h", @"小时"],
+        @[@"minutes", @"minute", @"mins", @"min", @"m", @"分钟", @"分"],
+        @[@"seconds", @"second", @"secs", @"sec", @"s", @"秒"]
+    ];
+    NSArray<NSNumber *> *multipliers = @[@3600, @60, @1];
+    for (NSInteger groupIndex = 0; groupIndex < suffixGroups.count; groupIndex++) {
+        for (NSString *suffix in suffixGroups[groupIndex]) {
+            if ([text hasSuffix:suffix] && text.length > suffix.length) {
+                text = [text substringToIndex:text.length - suffix.length];
+                multiplier = multipliers[groupIndex].doubleValue;
+                matchedSuffix = YES;
+                break;
+            }
+        }
+        if (matchedSuffix) break;
+    }
+
+    double value = 0;
+    NSScanner *scanner = [NSScanner scannerWithString:text];
+    if (![scanner scanDouble:&value] || value <= 0) return 0;
+    return MIN(24 * 60 * 60, MAX(10, value * multiplier));
 }
 
 static NSString *ERSystemEventTitle(NSString *name) {
@@ -1205,6 +1258,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)handleRecoveryStressTestRequest:(NSNotification *)notification;
 - (void)runRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (NSString *)recoveryWindowDiagnosticLine;
+- (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
+- (BOOL)handleAutomationURL:(NSURL *)url;
+- (void)copyAutomationURL:(NSMenuItem *)sender;
 - (void)presentSettingsWindow;
 - (NSTimeInterval)configuredRestDurationForKind:(ERReminderKind)kind;
 - (NSDate *)restEndDateForKind:(ERReminderKind)kind;
@@ -3132,6 +3188,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                                                       selector:@selector(handleRecoveryStressTestRequest:)
                                                           name:ERRunRecoveryStressTestNotificationName
                                                         object:nil];
+    [NSAppleEventManager.sharedAppleEventManager setEventHandler:self
+                                                    andSelector:@selector(handleGetURLEvent:withReplyEvent:)
+                                                  forEventClass:kInternetEventClass
+                                                     andEventID:kAEGetURL];
 
     self.timer = [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(tick:) userInfo:nil repeats:YES];
     [NSRunLoop.mainRunLoop addTimer:self.timer forMode:NSRunLoopCommonModes];
@@ -3695,6 +3755,30 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     focusMode.target = self;
     focusMode.tag = 107;
     [self.menu addItem:focusMode];
+
+    NSMenu *automationURLMenu = [[NSMenu alloc] initWithTitle:@"复制自动化链接"];
+    NSArray<NSArray<NSString *> *> *automationURLs = @[
+        @[@"轻打扰开启", ERAutomationURLString(@"focus/on")],
+        @[@"轻打扰关闭", ERAutomationURLString(@"focus/off")],
+        @[@"轻打扰切换", ERAutomationURLString(@"focus/toggle")],
+        @[@"打开设置", ERAutomationURLString(@"settings")],
+        @[@"立即眼睛休息", ERAutomationURLString(@"rest/eye")],
+        @[@"立即站立", ERAutomationURLString(@"rest/stand")],
+        @[@"暂停 30 分钟", ERAutomationURLString(@"pause/30m")],
+        @[@"继续提醒", ERAutomationURLString(@"resume")],
+        @[@"运行恢复压测", ERAutomationURLString(@"diagnostics/recovery-stress")]
+    ];
+    for (NSArray<NSString *> *itemInfo in automationURLs) {
+        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"复制%@", itemInfo[0]]
+                                                      action:@selector(copyAutomationURL:)
+                                               keyEquivalent:@""];
+        item.target = self;
+        item.representedObject = itemInfo[1];
+        [automationURLMenu addItem:item];
+    }
+    NSMenuItem *automationURLGroup = [[NSMenuItem alloc] initWithTitle:@"复制自动化链接" action:nil keyEquivalent:@""];
+    automationURLGroup.submenu = automationURLMenu;
+    [self.menu addItem:automationURLGroup];
 
     NSMenu *pauseMenu = [[NSMenu alloc] initWithTitle:@"暂停提醒"];
     NSArray<NSArray *> *pauseItems = @[
@@ -4564,6 +4648,108 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     dispatch_async(dispatch_get_main_queue(), ^{
         [self runRecoveryStressTest:nil];
     });
+}
+
+- (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent {
+    NSString *urlString = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
+    NSURL *url = [NSURL URLWithString:urlString ?: @""];
+    if (![self handleAutomationURL:url]) {
+        [self noteRecoveryEventTitle:@"外部自动化" detail:[NSString stringWithFormat:@"无法识别链接 %@", urlString ?: @""]];
+        [self publishState];
+    }
+}
+
+- (BOOL)handleAutomationURL:(NSURL *)url {
+    if (!url || ![url.scheme.lowercaseString isEqualToString:ERAutomationURLScheme]) return NO;
+
+    NSArray<NSString *> *parts = ERAutomationURLPathParts(url);
+    NSString *command = parts.count > 0 ? parts[0] : @"settings";
+    NSString *argument = parts.count > 1 ? parts[1] : @"";
+    NSString *detail = nil;
+
+    if ([command isEqualToString:@"settings"] || [command isEqualToString:@"open-settings"]) {
+        [self presentSettingsWindow];
+        detail = @"打开设置";
+    } else if ([command isEqualToString:@"focus"] || [command isEqualToString:@"work"] || [command isEqualToString:@"quiet"]) {
+        BOOL desired = YES;
+        if ([argument isEqualToString:@"off"] || [argument isEqualToString:@"false"] || [argument isEqualToString:@"0"] || [argument isEqualToString:@"disable"]) {
+            desired = NO;
+        } else if ([argument isEqualToString:@"toggle"]) {
+            desired = !self.focusModeEnabled;
+        }
+        self.focusModeEnabled = desired;
+        if (self.focusModeEnabled && self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
+        if (!self.focusModeEnabled) {
+            [self repairRestStateIfNeeded];
+        }
+        detail = self.focusModeEnabled ? @"轻打扰开启" : @"轻打扰关闭";
+    } else if ([command isEqualToString:@"pause"]) {
+        if ([argument isEqualToString:@"today"]) {
+            [self pauseToday:nil];
+            detail = @"暂停到明天";
+        } else if ([argument isEqualToString:@"off"] || [argument isEqualToString:@"resume"]) {
+            if (self.paused) {
+                [self resumeFromPause];
+            }
+            detail = @"继续提醒";
+        } else {
+            NSTimeInterval seconds = ERAutomationDurationSecondsFromToken(argument);
+            if (seconds <= 0) return NO;
+            self.paused = YES;
+            self.pauseStartedAt = NSDate.date;
+            self.pausedUntil = [NSDate dateWithTimeIntervalSinceNow:seconds];
+            detail = [NSString stringWithFormat:@"暂停 %@", ERFormatDuration(seconds)];
+        }
+    } else if ([command isEqualToString:@"resume"]) {
+        if (self.paused) {
+            [self resumeFromPause];
+        }
+        detail = @"继续提醒";
+    } else if ([command isEqualToString:@"rest"]) {
+        if ([argument isEqualToString:@"eye"]) {
+            if (!self.settings.eyeEnabled) return NO;
+            [self beginRestForKind:ERReminderKindEye];
+            detail = @"立即眼睛休息";
+        } else if ([argument isEqualToString:@"stand"]) {
+            if (!self.settings.standEnabled) return NO;
+            [self beginRestForKind:ERReminderKindStand];
+            detail = @"立即站立";
+        } else {
+            return NO;
+        }
+    } else if ([command isEqualToString:@"diagnostics"] || [command isEqualToString:@"diagnostic"] || [command isEqualToString:@"recovery"]) {
+        if ([argument isEqualToString:@"recovery-stress"] || [argument isEqualToString:@"stress"]) {
+            [self runRecoveryStressTest:nil];
+            detail = @"运行恢复压测";
+        } else {
+            [self copyRecoveryDiagnostic:nil];
+            detail = @"复制恢复诊断";
+        }
+    } else if ([command isEqualToString:@"emergency"]) {
+        [self emergencyCloseRestOverlay:nil];
+        detail = @"应急关闭休息页";
+    } else {
+        return NO;
+    }
+
+    if (detail.length > 0) {
+        [self noteRecoveryEventTitle:@"外部自动化" detail:detail];
+    }
+    [self publishState];
+    return YES;
+}
+
+- (void)copyAutomationURL:(NSMenuItem *)sender {
+    NSString *urlString = [sender.representedObject isKindOfClass:NSString.class] ? sender.representedObject : @"";
+    if (urlString.length == 0) return;
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:urlString forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"外部自动化" detail:[NSString stringWithFormat:@"已复制 %@", urlString]];
+    [self publishState];
 }
 
 - (void)handleOpenSettingsRequest:(NSNotification *)notification {

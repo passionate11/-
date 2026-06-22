@@ -14,6 +14,7 @@ clang -fobjc-arc \
   -mmacosx-version-min=13.0 \
   -framework Cocoa \
   -framework EventKit \
+  -framework Carbon \
   -framework QuartzCore \
   -framework UserNotifications \
   -framework UniformTypeIdentifiers \
@@ -47,6 +48,17 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
   <string>13.0</string>
   <key>LSUIElement</key>
   <true/>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>local.codex.eyerest.automation</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>songyixia</string>
+      </array>
+    </dict>
+  </array>
   <key>NSUserNotificationAlertStyle</key>
   <string>alert</string>
   <key>NSCalendarsUsageDescription</key>
