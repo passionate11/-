@@ -34,6 +34,11 @@ print_kv() {
   printf '  %-24s %s\n' "$key:" "$value"
 }
 
+history_has() {
+  local token="$1"
+  [[ "${RECOVERY_HISTORY:-}" == *"$token"* ]]
+}
+
 plist_value() {
   local key="$1"
   /usr/libexec/PlistBuddy -c "Print :$key" "$APP_TARGET/Contents/Info.plist" 2>/dev/null || true
@@ -131,6 +136,31 @@ if /usr/bin/defaults read "$BUNDLE_ID" >/dev/null 2>&1; then
   fi
 else
   print_kv "Defaults domain" "missing"
+fi
+
+print_section "Display Recovery"
+print_kv "Display diagnostic URL" "$URL_SCHEME://diagnostics/display-real"
+print_kv "Display trace URL" "$URL_SCHEME://diagnostics/display-change-trace"
+print_kv "Settings recovery URL" "$URL_SCHEME://diagnostics/settings-window"
+print_kv "Live display check URL" "$URL_SCHEME://diagnostics/display-live"
+if [[ -n "${RECOVERY_HISTORY:-}" ]]; then
+  if history_has "displayChangeFrom" || history_has "\\U5c4f\\U5e55\\U53d8\\U5316" || history_has "屏幕变化"; then
+    print_kv "Screen change history" "present"
+  else
+    print_kv "Screen change history" "none recorded"
+  fi
+  if history_has "\\U8bbe\\U7f6e\\U9875\\U56de\\U5230\\U5c4f\\U5e55\\U5185" || history_has "设置页回到屏幕内"; then
+    print_kv "Settings window recovery" "recorded"
+  else
+    print_kv "Settings window recovery" "none recorded"
+  fi
+  if history_has "\\U771f\\U5b9e\\U663e\\U793a\\U73af\\U5883\\U81ea\\U68c0" || history_has "真实显示环境自检"; then
+    print_kv "Live display check" "recorded"
+  else
+    print_kv "Live display check" "none recorded"
+  fi
+else
+  print_kv "Recovery history" "missing"
 fi
 
 print_section "Windows"
