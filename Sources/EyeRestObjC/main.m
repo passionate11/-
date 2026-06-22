@@ -89,6 +89,7 @@ static NSString *const ERRecoveryHistoryKey = @"recoveryHistory";
 static NSString *const ERBrandName = @"松一下";
 static NSString *const ERGitHubURLString = @"https://github.com/passionate11/-";
 static NSString *const ERLatestReleaseURLString = @"https://github.com/passionate11/-/releases/latest";
+static NSString *const ERLatestReleaseAPIURLString = @"https://api.github.com/repos/passionate11/-/releases/latest";
 static NSString *const ERAutomationURLScheme = @"songyixia";
 static NSString *const ERRestOverlayWindowIdentifier = @"local.codex.eyerest.rest-overlay";
 static NSString *const EROpenSettingsNotificationName = @"local.codex.eyerest.open-settings";
@@ -97,6 +98,7 @@ static const NSUInteger ERRecoveryHistoryLimit = 20;
 static int ERSingleInstanceLockFD = -1;
 
 static NSInteger ERClampInteger(NSInteger value, NSInteger minimum, NSInteger maximum);
+static NSInteger ERCompareVersionStrings(NSString *left, NSString *right);
 
 static void ERPostOpenSettingsRequest(void) {
     [NSDistributedNotificationCenter.defaultCenter postNotificationName:EROpenSettingsNotificationName
@@ -621,6 +623,21 @@ typedef struct {
 
 static NSInteger ERClampInteger(NSInteger value, NSInteger minimum, NSInteger maximum) {
     return MIN(maximum, MAX(minimum, value));
+}
+
+static NSInteger ERCompareVersionStrings(NSString *left, NSString *right) {
+    NSString *cleanLeft = [[left ?: @"" stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"vV"]];
+    NSString *cleanRight = [[right ?: @"" stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"vV"]];
+    NSArray<NSString *> *leftParts = [cleanLeft componentsSeparatedByString:@"."];
+    NSArray<NSString *> *rightParts = [cleanRight componentsSeparatedByString:@"."];
+    NSUInteger count = MAX(leftParts.count, rightParts.count);
+    for (NSUInteger index = 0; index < count; index++) {
+        NSInteger leftValue = index < leftParts.count ? leftParts[index].integerValue : 0;
+        NSInteger rightValue = index < rightParts.count ? rightParts[index].integerValue : 0;
+        if (leftValue < rightValue) return -1;
+        if (leftValue > rightValue) return 1;
+    }
+    return 0;
 }
 
 static NSInteger ERSanitizedMinuteOfDay(NSInteger minute) {
@@ -4952,12 +4969,85 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)checkForUpdates:(id)sender {
-    NSURL *url = [NSURL URLWithString:ERLatestReleaseURLString];
-    if (url) {
-        [NSWorkspace.sharedWorkspace openURL:url];
-        [self noteRecoveryEventTitle:@"更新" detail:@"已打开最新版本页面"];
-        [self publishState];
-    }
+    NSURL *apiURL = [NSURL URLWithString:ERLatestReleaseAPIURLString];
+    if (!apiURL) return;
+
+    NSURLSessionConfiguration *configuration = NSURLSessionConfiguration.ephemeralSessionConfiguration;
+    configuration.timeoutIntervalForRequest = 12;
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:configuration];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:apiURL];
+    [request setValue:@"application/vnd.github+json" forHTTPHeaderField:@"Accept"];
+    [request setValue:@"SongYiXia" forHTTPHeaderField:@"User-Agent"];
+
+    [self noteRecoveryEventTitle:@"更新" detail:@"正在检查最新版本"];
+    [self publishState];
+
+    NSURLSessionDataTask *task = [session dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSBundle *bundle = NSBundle.mainBundle;
+            NSDictionary *info = bundle.infoDictionary;
+            NSString *currentVersion = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"0.0.0";
+            NSString *latestVersion = nil;
+            NSString *releaseName = nil;
+            NSString *releaseURLString = ERLatestReleaseURLString;
+
+            if (!error && data.length > 0) {
+                id object = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+                if ([object isKindOfClass:NSDictionary.class]) {
+                    NSDictionary *release = (NSDictionary *)object;
+                    NSString *tag = [release[@"tag_name"] isKindOfClass:NSString.class] ? release[@"tag_name"] : nil;
+                    latestVersion = [[tag ?: @"" stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"vV"]];
+                    releaseName = [release[@"name"] isKindOfClass:NSString.class] ? release[@"name"] : nil;
+                    releaseURLString = [release[@"html_url"] isKindOfClass:NSString.class] ? release[@"html_url"] : ERLatestReleaseURLString;
+                }
+            }
+
+            NSAlert *alert = [[NSAlert alloc] init];
+            alert.icon = [NSImage imageNamed:NSImageNameInfo];
+            [NSApp activateIgnoringOtherApps:YES];
+
+            if (latestVersion.length == 0) {
+                alert.messageText = @"暂时无法检查更新";
+                alert.informativeText = error.localizedDescription.length > 0
+                    ? error.localizedDescription
+                    : @"没有拿到 GitHub 最新版本信息。";
+                [alert addButtonWithTitle:@"打开下载页"];
+                [alert addButtonWithTitle:@"好"];
+                if ([alert runModal] == NSAlertFirstButtonReturn) {
+                    NSURL *url = [NSURL URLWithString:ERLatestReleaseURLString];
+                    if (url) [NSWorkspace.sharedWorkspace openURL:url];
+                }
+                [self noteRecoveryEventTitle:@"更新" detail:@"检查失败"];
+                [self publishState];
+                return;
+            }
+
+            NSInteger compare = ERCompareVersionStrings(currentVersion, latestVersion);
+            if (compare < 0) {
+                alert.messageText = @"发现新版本";
+                alert.informativeText = [NSString stringWithFormat:@"当前版本 %@，最新版本 %@%@。", currentVersion, latestVersion, releaseName.length > 0 ? [NSString stringWithFormat:@"（%@）", releaseName] : @""];
+                [alert addButtonWithTitle:@"打开下载页"];
+                [alert addButtonWithTitle:@"稍后"];
+                if ([alert runModal] == NSAlertFirstButtonReturn) {
+                    NSURL *url = [NSURL URLWithString:releaseURLString];
+                    if (url) [NSWorkspace.sharedWorkspace openURL:url];
+                }
+                [self noteRecoveryEventTitle:@"更新" detail:[NSString stringWithFormat:@"发现 %@", latestVersion]];
+            } else {
+                alert.messageText = @"已经是最新版本";
+                alert.informativeText = [NSString stringWithFormat:@"当前版本 %@，GitHub 最新版本 %@。", currentVersion, latestVersion];
+                [alert addButtonWithTitle:@"好"];
+                [alert addButtonWithTitle:@"打开发布页"];
+                if ([alert runModal] == NSAlertSecondButtonReturn) {
+                    NSURL *url = [NSURL URLWithString:releaseURLString];
+                    if (url) [NSWorkspace.sharedWorkspace openURL:url];
+                }
+                [self noteRecoveryEventTitle:@"更新" detail:[NSString stringWithFormat:@"已是最新 %@", latestVersion]];
+            }
+            [self publishState];
+        });
+    }];
+    [task resume];
 }
 
 - (void)handleRecoveryStressTestRequest:(NSNotification *)notification {

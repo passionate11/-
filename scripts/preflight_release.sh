@@ -58,10 +58,13 @@ for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: sh
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-/releases/latest" "latest release URL"
+check_contains "$STRINGS_OUTPUT" "https://api.github.com/repos/passionate11/-/releases/latest" "latest release API URL"
 
 echo "==> Verifying window behavior guardrails"
 SOURCE_CONTENT="$(< "$SOURCE_FILE")"
 check_contains "$SOURCE_CONTENT" "应用诊断" "application diagnostics title"
+check_contains "$SOURCE_CONTENT" "NSURLSession" "update check network request"
+check_contains "$SOURCE_CONTENT" "ERCompareVersionStrings" "version comparison helper"
 [[ "$SOURCE_CONTENT" == *"@interface ERSettingsWindow : NSWindow"* ]] || fail "settings window must remain a normal NSWindow"
 [[ "$SOURCE_CONTENT" == *"window.level = NSNormalWindowLevel;"* ]] || fail "settings window must use NSNormalWindowLevel"
 if [[ "$SOURCE_CONTENT" =~ NSFloatingWindowLevel|floatingPanel|NSWindowStyleMaskUtilityWindow|@interface\ ERSettingsPanel\ :\ NSPanel ]]; then
