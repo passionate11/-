@@ -45,6 +45,7 @@
 - 菜单栏支持查看关于信息，显示版本、构建号、安装位置和 GitHub 源码入口。
 - 菜单栏支持检查更新，可检查 GitHub 最新 Release 并打开下载页。
 - 菜单栏支持复制应用诊断，方便反馈计时、窗口、自动化和恢复状态。
+- 菜单栏支持复制完整排查包，一次性收集应用、恢复、显示、自动化和日历诊断。
 - 本机诊断脚本会输出显示恢复摘要，包含显示诊断、设置窗口恢复、显示变化追踪和真实显示自检入口。
 - 菜单栏支持反馈问题，可打开 GitHub Issue 并预填版本、系统和安装路径。
 - 设置会自动保存到 `UserDefaults`。
@@ -118,7 +119,7 @@ open outputs/EyeRest.app
 
 菜单栏里的 `检查更新...` 会检查 GitHub 最新 Release，并在发现新版时提示打开下载页。
 
-菜单栏里的 `复制应用诊断` 会把版本、计时、设置、自动化、窗口和恢复事件摘要复制到剪贴板。
+菜单栏里的 `复制应用诊断` 会把版本、计时、设置、自动化、窗口和恢复事件摘要复制到剪贴板。遇到复杂问题时可以直接用 `复制完整排查包`，它会把应用、恢复、显示、自动化和日历诊断合并到一个文本里。
 
 菜单栏里的 `快速节奏` 可以直接切换 `20-20-20`、`番茄 25/5` 和 `调试 10 秒`。当前命中的节奏会有对勾，切换后会保存设置并重新开始眼睛休息计时。
 
@@ -201,6 +202,7 @@ songyixia://diagnostics/display-recovery
 songyixia://diagnostics/settings-window
 songyixia://diagnostics/display-bounds
 songyixia://diagnostics/display-real
+songyixia://diagnostics/support-bundle
 songyixia://diagnostics/display-change-trace
 songyixia://diagnostics/display-live
 songyixia://diagnostics/overlay-yield
@@ -286,6 +288,7 @@ songyixia://diagnostics/calendar-live
 - 关于窗口：菜单栏可查看版本、构建号、安装位置和 GitHub 源码入口。
 - 检查更新：菜单栏可检查最新 GitHub Release，并在发现新版时提示下载。
 - 应用诊断：菜单栏可复制完整状态摘要，方便反馈问题。
+- 完整排查包：可一次性复制应用诊断、恢复诊断、显示环境诊断、自动化诊断和日历诊断，适合反馈复杂问题。
 - 问题反馈：菜单栏可打开 GitHub Issue，并自动带上版本、系统和安装路径。
 - 站立流程增强：可选择均衡活动、肩颈舒展、走动循环、恢复放松四套动作组合，全屏休息页会跟随组合切换阶段文案。
 - 自定义站立阶段：站立设置里可以编辑多行动作阶段，留空时继续使用内置动作组合。

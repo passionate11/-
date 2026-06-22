@@ -53,7 +53,7 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText toggleRestWindowTopmost:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copySupportBundleDiagnostic: supportBundleDiagnosticText toggleRestWindowTopmost:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
@@ -114,6 +114,13 @@ check_contains "$README_CONTENT" "songyixia://diagnostics/display-real" "real di
 check_contains "$SOURCE_CONTENT" "显示环境诊断" "real display diagnostic title"
 check_contains "$SOURCE_CONTENT" "displayDiagnostic=1" "real display diagnostic machine marker"
 check_contains "$SOURCE_CONTENT" "screenCount=" "real display diagnostic screen count"
+check_contains "$SOURCE_CONTENT" "copySupportBundleDiagnostic:" "support bundle diagnostic action"
+check_contains "$SOURCE_CONTENT" "supportBundleDiagnosticText" "support bundle diagnostic text helper"
+check_contains "$SOURCE_CONTENT" "diagnostics/support-bundle" "support bundle diagnostic URL"
+check_contains "$README_CONTENT" "songyixia://diagnostics/support-bundle" "support bundle diagnostic docs"
+check_contains "$SOURCE_CONTENT" "supportBundle=1" "support bundle machine marker"
+check_contains "$SOURCE_CONTENT" "section=display" "support bundle display section marker"
+check_contains "$SOURCE_CONTENT" "section=calendar" "support bundle calendar section marker"
 check_contains "$SOURCE_CONTENT" "runDisplayChangeTraceSelfCheck:" "display change trace self check action"
 check_contains "$SOURCE_CONTENT" "diagnostics/display-change-trace" "display change trace automation URL"
 check_contains "$README_CONTENT" "songyixia://diagnostics/display-change-trace" "display change trace docs"

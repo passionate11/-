@@ -202,6 +202,18 @@ display_diagnostic="$(/usr/bin/pbpaste)"
 [[ "$display_diagnostic" == *"restWindow="* ]] || fail "display diagnostic missing rest window state"
 [[ "$display_diagnostic" == *"settingsWindow="* ]] || fail "display diagnostic missing settings window state"
 
+echo "==> Checking support bundle diagnostic URL"
+open "$URL_SCHEME://diagnostics/support-bundle"
+sleep 1
+history_contains '已复制完整排查包' '\\U5df2\\U590d\\U5236\\U5b8c\\U6574\\U6392\\U67e5\\U5305' || fail "support bundle URL did not record success"
+support_bundle="$(/usr/bin/pbpaste)"
+[[ "$support_bundle" == *"supportBundle=1"* ]] || fail "support bundle missing marker"
+[[ "$support_bundle" == *"section=application"* ]] || fail "support bundle missing application section"
+[[ "$support_bundle" == *"section=recovery"* ]] || fail "support bundle missing recovery section"
+[[ "$support_bundle" == *"section=display"* ]] || fail "support bundle missing display section"
+[[ "$support_bundle" == *"section=automation"* ]] || fail "support bundle missing automation section"
+[[ "$support_bundle" == *"section=calendar"* ]] || fail "support bundle missing calendar section"
+
 echo "==> Checking live display URL"
 open "$URL_SCHEME://diagnostics/display-live"
 sleep 4

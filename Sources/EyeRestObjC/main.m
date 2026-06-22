@@ -1519,9 +1519,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSString *)detailedRecoveryDiagnosticText;
 - (NSString *)applicationDiagnosticText;
 - (NSString *)displayDiagnosticText;
+- (NSString *)supportBundleDiagnosticText;
 - (void)copyRecoveryDiagnostic:(id)sender;
 - (void)copyApplicationDiagnostic:(id)sender;
 - (void)copyDisplayDiagnostic:(id)sender;
+- (void)copySupportBundleDiagnostic:(id)sender;
 - (void)runRecoverySelfCheck:(id)sender;
 - (void)runRecoveryStressTest:(id)sender;
 - (void)handleRecoveryStressTestRequest:(NSNotification *)notification;
@@ -4337,6 +4339,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     copyDisplayDiagnostic.target = self;
     [self.menu addItem:copyDisplayDiagnostic];
 
+    NSMenuItem *copySupportBundleDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制完整排查包" action:@selector(copySupportBundleDiagnostic:) keyEquivalent:@""];
+    copySupportBundleDiagnostic.target = self;
+    [self.menu addItem:copySupportBundleDiagnostic];
+
     NSMenuItem *displayChangeTraceSelfCheck = [[NSMenuItem alloc] initWithTitle:@"运行显示变化追踪自检" action:@selector(runDisplayChangeTraceSelfCheck:) keyEquivalent:@""];
     displayChangeTraceSelfCheck.target = self;
     [self.menu addItem:displayChangeTraceSelfCheck];
@@ -4446,6 +4452,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"运行设置窗口恢复压测", ERAutomationURLString(@"diagnostics/settings-window")],
         @[@"运行显示边界压测", ERAutomationURLString(@"diagnostics/display-bounds")],
         @[@"复制显示环境诊断", ERAutomationURLString(@"diagnostics/display-real")],
+        @[@"复制完整排查包", ERAutomationURLString(@"diagnostics/support-bundle")],
         @[@"运行显示变化追踪自检", ERAutomationURLString(@"diagnostics/display-change-trace")],
         @[@"运行真实显示环境自检", ERAutomationURLString(@"diagnostics/display-live")],
         @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")],
@@ -5057,6 +5064,40 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     return [lines componentsJoinedByString:@"\n"];
 }
 
+- (NSString *)supportBundleDiagnosticText {
+    NSMutableArray<NSString *> *sections = [NSMutableArray array];
+    [sections addObject:[NSString stringWithFormat:@"%@ 完整排查包", ERBrandName]];
+    [sections addObject:@"supportBundle=1"];
+    [sections addObject:[NSString stringWithFormat:@"生成时间：%@", ERFormatClockTime(NSDate.date)]];
+    [sections addObject:[NSString stringWithFormat:@"URL Scheme：%@", ERAutomationURLScheme]];
+    [sections addObject:@"排查入口："];
+    [sections addObject:[NSString stringWithFormat:@"- 显示环境诊断：%@", ERAutomationURLString(@"diagnostics/display-real")]];
+    [sections addObject:[NSString stringWithFormat:@"- 设置窗口恢复压测：%@", ERAutomationURLString(@"diagnostics/settings-window")]];
+    [sections addObject:[NSString stringWithFormat:@"- 自动化诊断：%@", ERAutomationURLString(@"automation/diagnostic")]];
+    [sections addObject:[NSString stringWithFormat:@"- 真实日历诊断：%@", ERAutomationURLString(@"diagnostics/calendar-real")]];
+    [sections addObject:@""];
+    [sections addObject:@"--- 应用诊断 ---"];
+    [sections addObject:@"section=application"];
+    [sections addObject:[self applicationDiagnosticText]];
+    [sections addObject:@""];
+    [sections addObject:@"--- 恢复诊断 ---"];
+    [sections addObject:@"section=recovery"];
+    [sections addObject:[self detailedRecoveryDiagnosticText]];
+    [sections addObject:@""];
+    [sections addObject:@"--- 显示环境诊断 ---"];
+    [sections addObject:@"section=display"];
+    [sections addObject:[self displayDiagnosticText]];
+    [sections addObject:@""];
+    [sections addObject:@"--- 自动化诊断 ---"];
+    [sections addObject:@"section=automation"];
+    [sections addObject:[self automationDiagnosticText]];
+    [sections addObject:@""];
+    [sections addObject:@"--- 日历诊断 ---"];
+    [sections addObject:@"section=calendar"];
+    [sections addObject:[self calendarDiagnosticText]];
+    return [sections componentsJoinedByString:@"\n"];
+}
+
 - (void)evaluateReminderKind:(ERReminderKind)kind {
     BOOL enabled = kind == ERReminderKindEye ? self.settings.eyeEnabled : self.settings.standEnabled;
     if (!enabled) return;
@@ -5555,6 +5596,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [pasteboard clearContents];
     [pasteboard setString:[self displayDiagnosticText] forType:NSPasteboardTypeString];
     [self noteRecoveryEventTitle:@"诊断" detail:@"已复制显示环境诊断"];
+    [self publishState];
+}
+
+- (void)copySupportBundleDiagnostic:(id)sender {
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:[self supportBundleDiagnosticText] forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"诊断" detail:@"已复制完整排查包"];
     [self publishState];
 }
 
@@ -7518,6 +7567,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"display-real"] || [argument isEqualToString:@"display-diagnostic"] || [argument isEqualToString:@"screen-diagnostic"] || [argument isEqualToString:@"screen-real"]) {
             [self copyDisplayDiagnostic:nil];
             detail = @"复制显示环境诊断";
+        } else if ([argument isEqualToString:@"support-bundle"] || [argument isEqualToString:@"support"] || [argument isEqualToString:@"bundle"] || [argument isEqualToString:@"full"]) {
+            [self copySupportBundleDiagnostic:nil];
+            detail = @"复制完整排查包";
         } else if ([argument isEqualToString:@"display-change-trace"] || [argument isEqualToString:@"display-trace"] || [argument isEqualToString:@"screen-change-trace"]) {
             [self runDisplayChangeTraceSelfCheck:nil];
             detail = @"运行显示变化追踪自检";
@@ -7595,6 +7647,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"- 继续提醒：%@", ERAutomationURLString(@"resume")]];
     [lines addObject:[NSString stringWithFormat:@"- 设置窗口恢复压测：%@", ERAutomationURLString(@"diagnostics/settings-window")]];
     [lines addObject:[NSString stringWithFormat:@"- 显示环境诊断：%@", ERAutomationURLString(@"diagnostics/display-real")]];
+    [lines addObject:[NSString stringWithFormat:@"- 完整排查包：%@", ERAutomationURLString(@"diagnostics/support-bundle")]];
     [lines addObject:[NSString stringWithFormat:@"- 显示变化追踪自检：%@", ERAutomationURLString(@"diagnostics/display-change-trace")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实显示环境自检：%@", ERAutomationURLString(@"diagnostics/display-live")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实演示联动自检：%@", ERAutomationURLString(@"diagnostics/presentation-live")]];
