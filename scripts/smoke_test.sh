@@ -147,6 +147,15 @@ sleep 3
 history_contains '完成 3/3' '\\U5b8c\\U6210 3/3' || fail "lunch recovery stress did not complete"
 history_contains '站立过期已结算' '\\U7ad9\\U7acb\\U8fc7\\U671f\\U5df2\\U7ed3\\U7b97' || fail "lunch recovery did not settle expired stand rest"
 
+echo "==> Checking long-away recovery URL"
+open "$URL_SCHEME://diagnostics/long-away-recovery"
+sleep 3
+history_contains '长离开恢复压测' '\\U957f\\U79bb\\U5f00\\U6062\\U590d\\U538b\\U6d4b' || fail "long-away recovery stress did not run"
+history_contains '眼睛过期已结算' '\\U773c\\U775b\\U8fc7\\U671f\\U5df2\\U7ed3\\U7b97' || fail "long-away recovery did not settle expired eye rest"
+history_contains '站立过期已结算' '\\U7ad9\\U7acb\\U8fc7\\U671f\\U5df2\\U7ed3\\U7b97' || fail "long-away recovery did not settle expired stand rest"
+history_contains '无休息页' '\\U65e0\\U4f11\\U606f\\U9875' || fail "long-away recovery did not clear rest window"
+history_contains '统计已还原' '\\U7edf\\U8ba1\\U5df2\\U8fd8\\U539f' || fail "long-away recovery did not restore stats"
+
 echo "==> Checking display recovery URL"
 open "$URL_SCHEME://diagnostics/display-recovery"
 sleep 3

@@ -1409,6 +1409,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSUInteger lunchRecoveryStressTestGeneration;
 @property(nonatomic) NSUInteger displayRecoveryStressTestGeneration;
 @property(nonatomic) NSUInteger overlayYieldStressTestGeneration;
+@property(nonatomic) NSUInteger longAwayRecoveryStressTestGeneration;
+@property(nonatomic, strong) NSDictionary<NSString *, NSNumber *> *longAwayRecoveryStatsSnapshot;
 @property(nonatomic, strong) ERRestWindowController *restWindowController;
 @property(nonatomic, strong) ERSettingsWindowController *settingsWindowController;
 @property(nonatomic) BOOL restOverlayYielded;
@@ -1446,6 +1448,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runDisplayRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runOverlayYieldStressTest:(id)sender;
 - (void)runOverlayYieldStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
+- (void)runLongAwayRecoveryStressTest:(id)sender;
+- (void)runLongAwayRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (NSString *)recoveryWindowDiagnosticLine;
 - (void)yieldRestOverlayForUserFocusChange;
 - (void)showAbout:(id)sender;
@@ -4088,6 +4092,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     lunchRecoveryStressTest.target = self;
     [self.menu addItem:lunchRecoveryStressTest];
 
+    NSMenuItem *longAwayRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行长离开恢复压测" action:@selector(runLongAwayRecoveryStressTest:) keyEquivalent:@""];
+    longAwayRecoveryStressTest.target = self;
+    [self.menu addItem:longAwayRecoveryStressTest];
+
     NSMenuItem *displayRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行显示恢复压测" action:@selector(runDisplayRecoveryStressTest:) keyEquivalent:@""];
     displayRecoveryStressTest.target = self;
     [self.menu addItem:displayRecoveryStressTest];
@@ -4127,6 +4135,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"恢复 JSON", ERAutomationURLString(@"backup/import")],
         @[@"运行恢复压测", ERAutomationURLString(@"diagnostics/recovery-stress")],
         @[@"运行午休恢复压测", ERAutomationURLString(@"diagnostics/lunch-recovery")],
+        @[@"运行长离开恢复压测", ERAutomationURLString(@"diagnostics/long-away-recovery")],
         @[@"运行显示恢复压测", ERAutomationURLString(@"diagnostics/display-recovery")],
         @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")]
     ];
@@ -5237,6 +5246,111 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self publishState];
 }
 
+- (void)runLongAwayRecoveryStressTest:(id)sender {
+    if (!self.settings.eyeEnabled || !self.settings.standEnabled || !self.settings.showRestWindow) {
+        [self noteRecoveryEventTitle:@"长离开恢复压测" detail:@"眼睛、站立或休息页已关闭，跳过"];
+        [self publishState];
+        return;
+    }
+
+    self.longAwayRecoveryStressTestGeneration += 1;
+    NSUInteger generation = self.longAwayRecoveryStressTestGeneration;
+    NSInteger total = 3;
+
+    self.longAwayRecoveryStatsSnapshot = @{
+        @"eye": @(self.todayEyeDone),
+        @"stand": @(self.todayStandDone),
+        @"standSeconds": @(self.todayStandSeconds),
+        @"snoozed": @(self.todaySnoozed),
+        @"skipped": @(self.todaySkipped),
+        @"manualDone": @(self.todayManualDone),
+        @"notificationOnly": @(self.todayNotificationOnly),
+        @"autoPauseSessions": @(self.todayAutoPauseSessions),
+        @"autoPauseSeconds": @(self.todayAutoPauseSeconds)
+    };
+
+    self.paused = NO;
+    self.pausedUntil = nil;
+    self.autoPauseActive = NO;
+    self.focusModeEnabled = NO;
+    self.eyeResting = YES;
+    self.eyeRestEndsAt = [NSDate dateWithTimeIntervalSinceNow:-8 * 60];
+    self.eyeDueAt = nil;
+    self.standResting = YES;
+    self.standRestEndsAt = [NSDate dateWithTimeIntervalSinceNow:-15 * 60];
+    self.standDueAt = nil;
+    self.restOverlayYielded = NO;
+
+    if (self.restWindowController) {
+        [self.restWindowController close];
+        self.restWindowController = nil;
+    }
+    [self closeOrphanRestWindows];
+    [self ensureRestWindowForKind:ERReminderKindStand remaining:MAX(30, self.settings.standDurationSeconds)];
+    if (self.restWindowController) {
+        [self.restWindowController.window orderOut:nil];
+    }
+
+    [self noteRecoveryEventTitle:@"长离开恢复压测" detail:@"已模拟眼睛和站立休息均过期，开始复查"];
+    [self publishState];
+
+    NSArray<NSNumber *> *delays = @[@0.0, @0.5, @1.5];
+    for (NSInteger index = 0; index < delays.count; index++) {
+        NSTimeInterval delay = delays[index].doubleValue;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self runLongAwayRecoveryStressTestPass:index + 1 total:total generation:generation];
+        });
+    }
+}
+
+- (void)runLongAwayRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation {
+    if (generation != self.longAwayRecoveryStressTestGeneration) return;
+
+    [self settleExpiredRests];
+    [self repairRestStateIfNeeded];
+    NSInteger orphaned = [self closeOrphanRestWindows];
+
+    BOOL eyeResolved = !self.eyeResting && self.eyeRestEndsAt == nil && self.eyeDueAt != nil;
+    BOOL standResolved = !self.standResting && self.standRestEndsAt == nil && self.standDueAt != nil;
+    BOOL windowCleared = self.restWindowController == nil;
+
+    NSMutableArray<NSString *> *details = [NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%@ %ld/%ld",
+                                                                           pass == total ? @"完成" : @"复查",
+                                                                           (long)pass,
+                                                                           (long)total]];
+    [details addObject:eyeResolved ? @"眼睛过期已结算" : @"眼睛仍需复查"];
+    [details addObject:standResolved ? @"站立过期已结算" : @"站立仍需复查"];
+    [details addObject:windowCleared ? @"无休息页" : @"仍有休息页"];
+    if (orphaned > 0) {
+        [details addObject:[NSString stringWithFormat:@"清理残留 %ld 个", (long)orphaned]];
+    }
+    [details addObject:[NSString stringWithFormat:@"下次眼睛 %@",
+                        self.eyeDueAt ? ERFormatDuration([self remainingUntil:self.eyeDueAt]) : @"未设置"]];
+    [details addObject:[NSString stringWithFormat:@"下次站立 %@",
+                        self.standDueAt ? ERFormatDuration([self remainingUntil:self.standDueAt]) : @"未设置"]];
+
+    if (pass == total && eyeResolved && standResolved) {
+        NSDictionary<NSString *, NSNumber *> *snapshot = self.longAwayRecoveryStatsSnapshot;
+        if (snapshot) {
+            self.todayEyeDone = snapshot[@"eye"].integerValue;
+            self.todayStandDone = snapshot[@"stand"].integerValue;
+            self.todayStandSeconds = snapshot[@"standSeconds"].integerValue;
+            self.todaySnoozed = snapshot[@"snoozed"].integerValue;
+            self.todaySkipped = snapshot[@"skipped"].integerValue;
+            self.todayManualDone = snapshot[@"manualDone"].integerValue;
+            self.todayNotificationOnly = snapshot[@"notificationOnly"].integerValue;
+            self.todayAutoPauseSessions = snapshot[@"autoPauseSessions"].integerValue;
+            self.todayAutoPauseSeconds = snapshot[@"autoPauseSeconds"].integerValue;
+            [self saveTodayStats];
+            self.longAwayRecoveryStatsSnapshot = nil;
+            [details addObject:@"统计已还原"];
+        }
+    }
+
+    [self noteRecoveryEventTitle:@"长离开恢复压测" detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
+}
+
 - (void)runDisplayRecoveryStressTest:(id)sender {
     if (!self.settings.eyeEnabled || !self.settings.showRestWindow) {
         [self noteRecoveryEventTitle:@"显示恢复压测" detail:@"眼睛提醒或休息页已关闭，跳过"];
@@ -5632,6 +5746,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"lunch-recovery"] || [argument isEqualToString:@"lunch"] || [argument isEqualToString:@"stand-expired"]) {
             [self runLunchRecoveryStressTest:nil];
             detail = @"运行午休恢复压测";
+        } else if ([argument isEqualToString:@"long-away-recovery"] || [argument isEqualToString:@"long-away"] || [argument isEqualToString:@"both-expired"]) {
+            [self runLongAwayRecoveryStressTest:nil];
+            detail = @"运行长离开恢复压测";
         } else if ([argument isEqualToString:@"display-recovery"] || [argument isEqualToString:@"display"] || [argument isEqualToString:@"screen"]) {
             [self runDisplayRecoveryStressTest:nil];
             detail = @"运行显示恢复压测";
