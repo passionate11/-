@@ -94,6 +94,8 @@ static NSString *const ERRunRecoveryStressTestNotificationName = @"local.codex.e
 static const NSUInteger ERRecoveryHistoryLimit = 20;
 static int ERSingleInstanceLockFD = -1;
 
+static NSInteger ERClampInteger(NSInteger value, NSInteger minimum, NSInteger maximum);
+
 static void ERPostOpenSettingsRequest(void) {
     [NSDistributedNotificationCenter.defaultCenter postNotificationName:EROpenSettingsNotificationName
                                                                  object:nil
@@ -218,6 +220,18 @@ static NSString *EREyeModeTitle(EREyeMode mode) {
     }
 }
 
+static EREyeMode EREyeModeFromObject(id object, EREyeMode fallback) {
+    if ([object respondsToSelector:@selector(integerValue)]) {
+        return ERClampInteger([object integerValue], EREyeMode202020, EREyeModeCustom);
+    }
+    if (![object isKindOfClass:NSString.class]) return fallback;
+    NSString *text = [(NSString *)object lowercaseString];
+    if ([text containsString:@"20-20-20"] || [text containsString:@"202020"]) return EREyeMode202020;
+    if ([text containsString:@"番茄"] || [text containsString:@"pomodoro"]) return EREyeModePomodoro;
+    if ([text containsString:@"自定义"] || [text containsString:@"custom"]) return EREyeModeCustom;
+    return fallback;
+}
+
 static NSString *ERRestStyleTitle(ERRestStyle style) {
     switch (style) {
         case ERRestStyleBreath: return @"极简呼吸";
@@ -226,6 +240,20 @@ static NSString *ERRestStyleTitle(ERRestStyle style) {
         case ERRestStyleToy: return @"软糖玩具";
         case ERRestStyleNight: return @"夜间护眼";
     }
+}
+
+static ERRestStyle ERRestStyleFromObject(id object, ERRestStyle fallback) {
+    if ([object respondsToSelector:@selector(integerValue)]) {
+        return ERClampInteger([object integerValue], ERRestStyleBreath, ERRestStyleNight);
+    }
+    if (![object isKindOfClass:NSString.class]) return fallback;
+    NSString *text = [(NSString *)object lowercaseString];
+    if ([text containsString:@"呼吸"] || [text containsString:@"breath"]) return ERRestStyleBreath;
+    if ([text containsString:@"森林"] || [text containsString:@"forest"]) return ERRestStyleForest;
+    if ([text containsString:@"像素"] || [text containsString:@"pixel"]) return ERRestStylePixel;
+    if ([text containsString:@"玩具"] || [text containsString:@"toy"]) return ERRestStyleToy;
+    if ([text containsString:@"夜间"] || [text containsString:@"night"]) return ERRestStyleNight;
+    return fallback;
 }
 
 static NSString *ERMenuBarModeTitle(ERMenuBarMode mode) {
@@ -238,6 +266,20 @@ static NSString *ERMenuBarModeTitle(ERMenuBarMode mode) {
     }
 }
 
+static ERMenuBarMode ERMenuBarModeFromObject(id object, ERMenuBarMode fallback) {
+    if ([object respondsToSelector:@selector(integerValue)]) {
+        return ERClampInteger([object integerValue], ERMenuBarModeBoth, ERMenuBarModeSmart);
+    }
+    if (![object isKindOfClass:NSString.class]) return fallback;
+    NSString *text = [(NSString *)object lowercaseString];
+    if ([text containsString:@"眼睛 + 站立"] || [text containsString:@"both"]) return ERMenuBarModeBoth;
+    if ([text containsString:@"只显示眼睛"] || [text isEqualToString:@"eye"]) return ERMenuBarModeEye;
+    if ([text containsString:@"只显示站立"] || [text isEqualToString:@"stand"]) return ERMenuBarModeStand;
+    if ([text containsString:@"极简"] || [text containsString:@"compact"]) return ERMenuBarModeCompact;
+    if ([text containsString:@"智能"] || [text containsString:@"smart"]) return ERMenuBarModeSmart;
+    return fallback;
+}
+
 static NSString *ERStandRoutineTitle(ERStandRoutine routine) {
     switch (routine) {
         case ERStandRoutineBalanced: return @"均衡活动";
@@ -245,6 +287,19 @@ static NSString *ERStandRoutineTitle(ERStandRoutine routine) {
         case ERStandRoutineWalk: return @"走动循环";
         case ERStandRoutineReset: return @"恢复放松";
     }
+}
+
+static ERStandRoutine ERStandRoutineFromObject(id object, ERStandRoutine fallback) {
+    if ([object respondsToSelector:@selector(integerValue)]) {
+        return ERClampInteger([object integerValue], ERStandRoutineBalanced, ERStandRoutineReset);
+    }
+    if (![object isKindOfClass:NSString.class]) return fallback;
+    NSString *text = [(NSString *)object lowercaseString];
+    if ([text containsString:@"均衡"] || [text containsString:@"balanced"]) return ERStandRoutineBalanced;
+    if ([text containsString:@"肩颈"] || [text containsString:@"neck"]) return ERStandRoutineNeckShoulder;
+    if ([text containsString:@"走动"] || [text containsString:@"walk"]) return ERStandRoutineWalk;
+    if ([text containsString:@"恢复"] || [text containsString:@"reset"]) return ERStandRoutineReset;
+    return fallback;
 }
 
 static NSString *ERStandRoutineSummary(ERStandRoutine routine) {
@@ -262,6 +317,18 @@ static NSString *ERStandIntensityTitle(ERStandIntensity intensity) {
         case ERStandIntensityStandard: return @"标准";
         case ERStandIntensityActive: return @"活动一点";
     }
+}
+
+static ERStandIntensity ERStandIntensityFromObject(id object, ERStandIntensity fallback) {
+    if ([object respondsToSelector:@selector(integerValue)]) {
+        return ERClampInteger([object integerValue], ERStandIntensityGentle, ERStandIntensityActive);
+    }
+    if (![object isKindOfClass:NSString.class]) return fallback;
+    NSString *text = [(NSString *)object lowercaseString];
+    if ([text containsString:@"轻柔"] || [text containsString:@"gentle"]) return ERStandIntensityGentle;
+    if ([text containsString:@"标准"] || [text containsString:@"standard"]) return ERStandIntensityStandard;
+    if ([text containsString:@"活动"] || [text containsString:@"active"]) return ERStandIntensityActive;
+    return fallback;
 }
 
 static NSString *ERStandIntensityHint(ERStandIntensity intensity) {
@@ -835,6 +902,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 + (instancetype)load;
 - (void)save;
 - (void)applyEyePreset:(EREyeMode)mode;
+- (void)applyBackupSettingsDictionary:(NSDictionary *)dictionary;
 @end
 
 @implementation ERSettings
@@ -988,6 +1056,68 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             break;
     }
     [self save];
+}
+
+- (void)applyBackupSettingsDictionary:(NSDictionary *)dictionary {
+    if (![dictionary isKindOfClass:NSDictionary.class]) return;
+
+    id value = nil;
+    value = dictionary[@"eyeEnabled"];
+    if (value) self.eyeEnabled = [value boolValue];
+    value = dictionary[@"eyeMode"];
+    if (value) self.eyeMode = EREyeModeFromObject(value, self.eyeMode);
+    value = dictionary[@"eyeFocusSeconds"];
+    if (value) self.eyeFocusSeconds = ERClampInteger([value integerValue], 10, 8 * 60 * 60);
+    value = dictionary[@"eyeRestSeconds"];
+    if (value) self.eyeRestSeconds = ERClampInteger([value integerValue], 10, 60 * 60);
+
+    value = dictionary[@"standEnabled"];
+    if (value) self.standEnabled = [value boolValue];
+    value = dictionary[@"standIntervalSeconds"];
+    if (value) self.standIntervalSeconds = ERClampInteger([value integerValue], 10, 8 * 60 * 60);
+    value = dictionary[@"standDurationSeconds"];
+    if (value) self.standDurationSeconds = ERClampInteger([value integerValue], 10, 2 * 60 * 60);
+    value = dictionary[@"standRoutine"];
+    if (value) self.standRoutine = ERStandRoutineFromObject(value, self.standRoutine);
+    value = dictionary[@"standIntensity"];
+    if (value) self.standIntensity = ERStandIntensityFromObject(value, self.standIntensity);
+    value = dictionary[@"standCustomStages"];
+    if (value) self.standCustomStagesText = ERSanitizedStandCustomStagesTextFromObject(value);
+
+    value = dictionary[@"showRestWindow"];
+    if (value) self.showRestWindow = [value boolValue];
+    value = dictionary[@"notificationsEnabled"];
+    if (value) self.notificationsEnabled = [value boolValue];
+    value = dictionary[@"restStyle"];
+    if (value) self.restStyle = ERRestStyleFromObject(value, self.restStyle);
+    value = dictionary[@"menuBarMode"];
+    if (value) self.menuBarMode = ERMenuBarModeFromObject(value, self.menuBarMode);
+    value = dictionary[@"launchAtLogin"];
+    if (value) self.launchAtLogin = [value boolValue];
+
+    value = dictionary[@"autoFocusModeEnabled"];
+    if (value) self.autoFocusModeEnabled = [value boolValue];
+    value = dictionary[@"calendarFocusModeEnabled"];
+    if (value) self.calendarFocusModeEnabled = [value boolValue];
+    value = dictionary[@"presentationFocusModeEnabled"];
+    if (value) self.presentationFocusModeEnabled = [value boolValue];
+    value = dictionary[@"quietHoursEnabled"];
+    if (value) self.quietHoursEnabled = [value boolValue];
+    value = dictionary[@"quietHoursStart"];
+    if (value) self.quietHoursStartMinute = ERMinuteOfDayFromClockString([value description], self.quietHoursStartMinute);
+    value = dictionary[@"quietHoursEnd"];
+    if (value) self.quietHoursEndMinute = ERMinuteOfDayFromClockString([value description], self.quietHoursEndMinute);
+
+    value = dictionary[@"focusAppTokens"];
+    if (value) self.focusAppTokens = ERSanitizedFocusAppTokensFromObject(value);
+    value = dictionary[@"autoPauseAppTokens"];
+    if (value) self.autoPauseAppTokens = ERSanitizedFocusAppTokensFromObject(value);
+    value = dictionary[@"ignoreAppTokens"];
+    if (value) self.ignoreAppTokens = ERSanitizedFocusAppTokensFromObject(value);
+    value = dictionary[@"calendarFocusTokens"];
+    if (value) self.calendarFocusTokens = ERSanitizedFocusAppTokensFromObject(value);
+    value = dictionary[@"calendarAutoPauseTokens"];
+    if (value) self.calendarAutoPauseTokens = ERSanitizedFocusAppTokensFromObject(value);
 }
 
 @end
@@ -1145,6 +1275,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *statsMonthDetailLabel;
 @property(nonatomic, strong) NSButton *exportStatsButton;
 @property(nonatomic, strong) NSButton *exportBackupButton;
+@property(nonatomic, strong) NSButton *importBackupButton;
 @property(nonatomic, strong) NSArray<NSView *> *statsBars;
 @property(nonatomic, strong) NSArray<NSTextField *> *statsBarLabels;
 @property(nonatomic, strong) NSArray<NSView *> *heatmapCells;
@@ -1180,6 +1311,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)refreshAutomationStatus;
 - (void)exportStatsCSV:(id)sender;
 - (void)exportStatsJSON:(id)sender;
+- (void)importBackupJSON:(id)sender;
 @end
 
 @interface ERAppDelegate : NSObject <NSApplicationDelegate, UNUserNotificationCenterDelegate, NSMenuDelegate>
@@ -1753,16 +1885,22 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.statsOverviewLabel];
 
     self.exportStatsButton = [NSButton buttonWithTitle:@"导出 CSV" target:self action:@selector(exportStatsCSV:)];
-    self.exportStatsButton.frame = NSMakeRect(330, 200, 84, 30);
+    self.exportStatsButton.frame = NSMakeRect(292, 200, 72, 30);
     self.exportStatsButton.bezelStyle = NSBezelStyleRounded;
     self.exportStatsButton.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
     [card addSubview:self.exportStatsButton];
 
     self.exportBackupButton = [NSButton buttonWithTitle:@"备份 JSON" target:self action:@selector(exportStatsJSON:)];
-    self.exportBackupButton.frame = NSMakeRect(420, 200, 92, 30);
+    self.exportBackupButton.frame = NSMakeRect(370, 200, 72, 30);
     self.exportBackupButton.bezelStyle = NSBezelStyleRounded;
     self.exportBackupButton.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
     [card addSubview:self.exportBackupButton];
+
+    self.importBackupButton = [NSButton buttonWithTitle:@"恢复 JSON" target:self action:@selector(importBackupJSON:)];
+    self.importBackupButton.frame = NSMakeRect(448, 200, 72, 30);
+    self.importBackupButton.bezelStyle = NSBezelStyleRounded;
+    self.importBackupButton.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
+    [card addSubview:self.importBackupButton];
 
     self.statsMonthLabel = [NSTextField labelWithString:@""];
     self.statsMonthLabel.frame = NSMakeRect(24, 176, 480, 20);
@@ -2279,6 +2417,74 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [panel beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse result) {
         if (result != NSModalResponseOK) return;
         [data writeToURL:panel.URL atomically:YES];
+    }];
+}
+
+- (void)importBackupJSON:(id)sender {
+    NSOpenPanel *panel = [NSOpenPanel openPanel];
+    panel.title = @"恢复休息数据";
+    panel.allowsMultipleSelection = NO;
+    panel.canChooseDirectories = NO;
+    panel.allowedContentTypes = @[[UTType typeWithFilenameExtension:@"json"]];
+    [panel beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse result) {
+        if (result != NSModalResponseOK) return;
+
+        NSData *data = [NSData dataWithContentsOfURL:panel.URL];
+        if (!data) return;
+        NSError *error = nil;
+        id object = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+        if (![object isKindOfClass:NSDictionary.class]) return;
+        NSDictionary *payload = (NSDictionary *)object;
+
+        NSDictionary *settingsDictionary = [payload[@"settings"] isKindOfClass:NSDictionary.class] ? payload[@"settings"] : nil;
+        BOOL restoredSettings = settingsDictionary != nil;
+        if (settingsDictionary) {
+            [self.settings applyBackupSettingsDictionary:settingsDictionary];
+            [self.settings save];
+        }
+
+        NSDictionary *statsDictionary = [payload[@"stats"] isKindOfClass:NSDictionary.class] ? payload[@"stats"] : nil;
+        NSArray *entries = [statsDictionary[@"entries"] isKindOfClass:NSArray.class] ? statsDictionary[@"entries"] : @[];
+        NSMutableDictionary *history = [NSMutableDictionary dictionary];
+        NSSet *recentDates = [NSSet setWithArray:ERRecentDateKeys(30)];
+        for (id item in entries) {
+            if (![item isKindOfClass:NSDictionary.class]) continue;
+            NSDictionary *entry = (NSDictionary *)item;
+            NSString *dateKey = [entry[@"date"] isKindOfClass:NSString.class] ? entry[@"date"] : nil;
+            if (![recentDates containsObject:dateKey]) continue;
+            history[dateKey] = @{
+                @"eye": @(ERStatsInteger(entry, @"eyeDone")),
+                @"stand": @(ERStatsInteger(entry, @"standDone")),
+                @"standSeconds": @(ERStatsInteger(entry, @"standSeconds")),
+                @"snoozed": @(ERStatsInteger(entry, @"snoozed")),
+                @"skipped": @(ERStatsInteger(entry, @"skipped")),
+                @"manualDone": @(ERStatsInteger(entry, @"manualDone")),
+                @"notificationOnly": @(ERStatsInteger(entry, @"notificationOnly")),
+                @"autoPauseSessions": @(ERStatsInteger(entry, @"autoPauseSessions")),
+                @"autoPauseSeconds": @(ERStatsInteger(entry, @"autoPauseSeconds"))
+            };
+        }
+        if (history.count > 0) {
+            [NSUserDefaults.standardUserDefaults setObject:history forKey:ERStatsHistoryKey];
+            [NSUserDefaults.standardUserDefaults setObject:ERTodayKey() forKey:ERStatsDateKey];
+            [self.appDelegate loadTodayStats];
+        }
+
+        [NSUserDefaults.standardUserDefaults synchronize];
+        NSString *summary = nil;
+        if (restoredSettings && history.count > 0) {
+            summary = [NSString stringWithFormat:@"已恢复设置和 %ld 天统计", (long)history.count];
+        } else if (restoredSettings) {
+            summary = @"已恢复设置";
+        } else if (history.count > 0) {
+            summary = [NSString stringWithFormat:@"已恢复 %ld 天统计", (long)history.count];
+        } else {
+            summary = @"没有可恢复的数据";
+        }
+        [self.appDelegate noteRecoveryEventTitle:@"数据恢复"
+                                          detail:summary];
+        [self refreshControls];
+        [self.appDelegate settingsDidChangeShouldReset:YES];
     }];
 }
 
@@ -3766,6 +3972,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"立即站立", ERAutomationURLString(@"rest/stand")],
         @[@"暂停 30 分钟", ERAutomationURLString(@"pause/30m")],
         @[@"继续提醒", ERAutomationURLString(@"resume")],
+        @[@"恢复 JSON", ERAutomationURLString(@"backup/import")],
         @[@"运行恢复压测", ERAutomationURLString(@"diagnostics/recovery-stress")]
     ];
     for (NSArray<NSString *> *itemInfo in automationURLs) {
@@ -4727,6 +4934,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else {
             [self copyRecoveryDiagnostic:nil];
             detail = @"复制恢复诊断";
+        }
+    } else if ([command isEqualToString:@"backup"]) {
+        if ([argument isEqualToString:@"import"] || [argument isEqualToString:@"restore"]) {
+            [self presentSettingsWindow];
+            [self.settingsWindowController importBackupJSON:nil];
+            detail = @"打开 JSON 恢复";
+        } else {
+            return NO;
         }
     } else if ([command isEqualToString:@"emergency"]) {
         [self emergencyCloseRestOverlay:nil];
