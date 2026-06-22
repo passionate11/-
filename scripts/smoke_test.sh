@@ -205,4 +205,13 @@ history_contains '自动暂停已关闭休息页' '\\U81ea\\U52a8\\U6682\\U505c\
 history_contains '提醒时间已顺延' '\\U63d0\\U9192\\U65f6\\U95f4\\U5df2\\U987a\\U5ef6' || fail "automation policy did not shift reminder time"
 history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "automation policy did not restore test state"
 
+echo "==> Checking presentation policy URL"
+open "$URL_SCHEME://diagnostics/presentation-policy"
+sleep 3
+history_contains '演示策略压测' '\\U6f14\\U793a\\U7b56\\U7565\\U538b\\U6d4b' || fail "presentation policy stress did not run"
+history_contains '演示模式只发通知' '\\U6f14\\U793a\\U6a21\\U5f0f\\U53ea\\U53d1\\U901a\\U77e5' || fail "presentation policy did not keep notification-only"
+history_contains '演示命中已关闭休息页' '\\U6f14\\U793a\\U547d\\U4e2d\\U5df2\\U5173\\U95ed\\U4f11\\U606f\\U9875' || fail "presentation policy did not close rest window"
+history_contains '恢复自检不弹休息页' '\\U6062\\U590d\\U81ea\\U68c0\\U4e0d\\U5f39\\U4f11\\U606f\\U9875' || fail "presentation policy recovery check popped rest window"
+history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "presentation policy did not restore test state"
+
 echo "==> Smoke test passed"

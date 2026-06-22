@@ -95,7 +95,7 @@ if command -v xattr >/dev/null 2>&1; then
 fi
 
 print_section "Process"
-PROCESS_LINES="$(pgrep -fl "$EXECUTABLE_PATH" 2>/dev/null || true)"
+PROCESS_LINES="$(pgrep -fl "$EXECUTABLE_PATH" 2>/dev/null | awk -v executable_path="$EXECUTABLE_PATH" '$2 == executable_path {print}' || true)"
 PROCESS_COUNT="$(printf '%s\n' "$PROCESS_LINES" | sed '/^$/d' | wc -l | tr -d ' ')"
 print_kv "Process count" "$PROCESS_COUNT"
 if [[ -n "$PROCESS_LINES" ]]; then

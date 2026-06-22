@@ -1436,9 +1436,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSUInteger overlayYieldStressTestGeneration;
 @property(nonatomic) NSUInteger windowLayerPolicyStressTestGeneration;
 @property(nonatomic) NSUInteger automationPolicyStressTestGeneration;
+@property(nonatomic) NSUInteger presentationPolicyStressTestGeneration;
 @property(nonatomic) NSUInteger longAwayRecoveryStressTestGeneration;
 @property(nonatomic, strong) NSDictionary<NSString *, NSNumber *> *longAwayRecoveryStatsSnapshot;
 @property(nonatomic, strong) NSDictionary<NSString *, NSNumber *> *automationPolicyStatsSnapshot;
+@property(nonatomic, strong) NSDictionary<NSString *, NSNumber *> *presentationPolicyStatsSnapshot;
 @property(nonatomic, strong) ERRestWindowController *restWindowController;
 @property(nonatomic, strong) ERSettingsWindowController *settingsWindowController;
 @property(nonatomic) BOOL restOverlayYielded;
@@ -1486,6 +1488,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runWindowLayerPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousTopmost:(BOOL)previousTopmost;
 - (void)runAutomationPolicyStressTest:(id)sender;
 - (void)runAutomationPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousSettings:(NSDictionary<NSString *, id> *)previousSettings previousEyeDueAt:(NSDate *)previousEyeDueAt;
+- (void)runPresentationPolicyStressTest:(id)sender;
+- (void)runPresentationPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousSettings:(NSDictionary<NSString *, id> *)previousSettings previousEyeDueAt:(NSDate *)previousEyeDueAt;
 - (void)runLongAwayRecoveryStressTest:(id)sender;
 - (void)runLongAwayRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (NSString *)recoveryWindowDiagnosticLine;
@@ -4183,6 +4187,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     automationPolicyStressTest.target = self;
     [self.menu addItem:automationPolicyStressTest];
 
+    NSMenuItem *presentationPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行演示策略压测" action:@selector(runPresentationPolicyStressTest:) keyEquivalent:@""];
+    presentationPolicyStressTest.target = self;
+    [self.menu addItem:presentationPolicyStressTest];
+
     [self.menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *settings = [[NSMenuItem alloc] initWithTitle:@"打开设置..." action:@selector(openSettings:) keyEquivalent:@","];
     settings.target = self;
@@ -4220,7 +4228,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"运行显示边界压测", ERAutomationURLString(@"diagnostics/display-bounds")],
         @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")],
         @[@"运行窗口层级压测", ERAutomationURLString(@"diagnostics/window-layer")],
-        @[@"运行自动化策略压测", ERAutomationURLString(@"diagnostics/automation-policy")]
+        @[@"运行自动化策略压测", ERAutomationURLString(@"diagnostics/automation-policy")],
+        @[@"运行演示策略压测", ERAutomationURLString(@"diagnostics/presentation-policy")]
     ];
     for (NSArray<NSString *> *itemInfo in automationURLs) {
         NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"复制%@", itemInfo[0]]
@@ -6044,6 +6053,160 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self publishState];
 }
 
+- (void)runPresentationPolicyStressTest:(id)sender {
+    if (!self.settings.eyeEnabled || !self.settings.showRestWindow) {
+        [self noteRecoveryEventTitle:@"演示策略压测" detail:@"眼睛提醒或休息页已关闭，跳过"];
+        [self publishState];
+        return;
+    }
+
+    self.presentationPolicyStressTestGeneration += 1;
+    NSUInteger generation = self.presentationPolicyStressTestGeneration;
+    NSInteger total = 3;
+    NSDictionary<NSString *, id> *previousSettings = @{
+        @"autoFocusModeEnabled": @(self.settings.autoFocusModeEnabled),
+        @"presentationFocusModeEnabled": @(self.settings.presentationFocusModeEnabled)
+    };
+    NSDate *previousEyeDueAt = self.eyeDueAt;
+    self.presentationPolicyStatsSnapshot = @{
+        @"eye": @(self.todayEyeDone),
+        @"stand": @(self.todayStandDone),
+        @"standSeconds": @(self.todayStandSeconds),
+        @"snoozed": @(self.todaySnoozed),
+        @"skipped": @(self.todaySkipped),
+        @"manualDone": @(self.todayManualDone),
+        @"notificationOnly": @(self.todayNotificationOnly),
+        @"autoPauseSessions": @(self.todayAutoPauseSessions),
+        @"autoPauseSeconds": @(self.todayAutoPauseSeconds)
+    };
+
+    self.settings.autoFocusModeEnabled = YES;
+    self.settings.presentationFocusModeEnabled = YES;
+    [self.settings save];
+    self.paused = NO;
+    self.pausedUntil = nil;
+    self.focusModeEnabled = NO;
+    self.autoPauseActive = NO;
+    self.autoPauseSessionActive = NO;
+    self.autoIgnoreActive = NO;
+    self.appAutoPauseActive = NO;
+    self.calendarFocusActive = NO;
+    self.calendarAutoPauseActive = NO;
+    self.quietHoursActive = NO;
+    self.presentationFocusActive = YES;
+    self.autoFocusActive = YES;
+    self.restOverlayYielded = NO;
+    self.eyeResting = NO;
+    self.eyeRestEndsAt = nil;
+    self.eyeDueAt = [NSDate dateWithTimeIntervalSinceNow:-1];
+    self.standResting = NO;
+    self.standRestEndsAt = nil;
+    if (self.restWindowController) {
+        [self.restWindowController close];
+        self.restWindowController = nil;
+    }
+    [self closeOrphanRestWindows];
+    [self.settingsWindowController refreshControls];
+
+    [self noteRecoveryEventTitle:@"演示策略压测" detail:@"已模拟全屏/演示轻打扰，开始复查"];
+    [self publishState];
+
+    NSArray<NSNumber *> *delays = @[@0.0, @0.7, @1.4];
+    for (NSInteger index = 0; index < delays.count; index++) {
+        NSTimeInterval delay = delays[index].doubleValue;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (generation != self.presentationPolicyStressTestGeneration) return;
+            [self runPresentationPolicyStressTestPass:index + 1 total:total generation:generation previousSettings:previousSettings previousEyeDueAt:previousEyeDueAt];
+        });
+    }
+}
+
+- (void)runPresentationPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousSettings:(NSDictionary<NSString *, id> *)previousSettings previousEyeDueAt:(NSDate *)previousEyeDueAt {
+    if (generation != self.presentationPolicyStressTestGeneration) return;
+
+    NSMutableArray<NSString *> *details = [NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%@ %ld/%ld",
+                                                                           pass == total ? @"完成" : @"复查",
+                                                                           (long)pass,
+                                                                           (long)total]];
+
+    if (pass == 1) {
+        self.presentationFocusActive = YES;
+        self.autoFocusActive = YES;
+        self.eyeDueAt = [NSDate dateWithTimeIntervalSinceNow:-1];
+        [self evaluateReminderKind:ERReminderKindEye];
+        [self repairRestStateIfNeeded];
+        BOOL notificationOnly = self.restWindowController == nil && self.todayNotificationOnly > self.presentationPolicyStatsSnapshot[@"notificationOnly"].integerValue;
+        [details addObject:notificationOnly ? @"演示模式只发通知" : @"演示模式仍弹窗"];
+        [details addObject:(self.presentationFocusActive && self.autoFocusActive) ? @"演示命中" : @"演示未命中"];
+    } else if (pass == 2) {
+        self.presentationFocusActive = NO;
+        self.autoFocusActive = NO;
+        self.eyeResting = YES;
+        self.eyeRestEndsAt = [NSDate dateWithTimeIntervalSinceNow:MAX(30, self.settings.eyeRestSeconds)];
+        self.restOverlayYielded = NO;
+        [self ensureRestWindowForKind:ERReminderKindEye remaining:[self remainingUntil:self.eyeRestEndsAt]];
+        BOOL windowVisible = self.restWindowController && self.restWindowController.window.visible;
+        self.presentationFocusActive = YES;
+        self.autoFocusActive = YES;
+        [self repairRestStateIfNeeded];
+        BOOL windowClosed = self.restWindowController == nil;
+        [details addObject:windowVisible ? @"演示前休息页已显示" : @"演示前休息页未显示"];
+        [details addObject:windowClosed ? @"演示命中已关闭休息页" : @"演示命中仍有休息页"];
+    } else {
+        self.presentationFocusActive = YES;
+        self.autoFocusActive = YES;
+        [self repairRestOverlayAfterSystemEvent:nil];
+        BOOL windowClosed = self.restWindowController == nil;
+        [details addObject:windowClosed ? @"恢复自检不弹休息页" : @"恢复自检异常弹窗"];
+    }
+
+    NSInteger orphaned = [self closeOrphanRestWindows];
+    if (orphaned > 0) {
+        [details addObject:[NSString stringWithFormat:@"清理残留 %ld 个", (long)orphaned]];
+    }
+
+    if (pass == total) {
+        self.settings.autoFocusModeEnabled = [previousSettings[@"autoFocusModeEnabled"] boolValue];
+        self.settings.presentationFocusModeEnabled = [previousSettings[@"presentationFocusModeEnabled"] boolValue];
+        [self.settings save];
+        NSDictionary<NSString *, NSNumber *> *snapshot = self.presentationPolicyStatsSnapshot;
+        if (snapshot) {
+            self.todayEyeDone = snapshot[@"eye"].integerValue;
+            self.todayStandDone = snapshot[@"stand"].integerValue;
+            self.todayStandSeconds = snapshot[@"standSeconds"].integerValue;
+            self.todaySnoozed = snapshot[@"snoozed"].integerValue;
+            self.todaySkipped = snapshot[@"skipped"].integerValue;
+            self.todayManualDone = snapshot[@"manualDone"].integerValue;
+            self.todayNotificationOnly = snapshot[@"notificationOnly"].integerValue;
+            self.todayAutoPauseSessions = snapshot[@"autoPauseSessions"].integerValue;
+            self.todayAutoPauseSeconds = snapshot[@"autoPauseSeconds"].integerValue;
+            [self saveTodayStats];
+        }
+        self.presentationPolicyStatsSnapshot = nil;
+        self.paused = NO;
+        self.pausedUntil = nil;
+        self.autoPauseActive = NO;
+        self.autoPauseSessionActive = NO;
+        self.appAutoPauseActive = NO;
+        self.autoFocusActive = NO;
+        self.presentationFocusActive = NO;
+        self.eyeResting = NO;
+        self.eyeRestEndsAt = nil;
+        self.eyeDueAt = previousEyeDueAt ?: (self.settings.eyeEnabled ? [NSDate dateWithTimeIntervalSinceNow:self.settings.eyeFocusSeconds] : nil);
+        self.restOverlayYielded = NO;
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
+        [self closeOrphanRestWindows];
+        [self.settingsWindowController refreshControls];
+        [details addObject:@"测试状态已还原"];
+    }
+
+    [self noteRecoveryEventTitle:@"演示策略压测" detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
+}
+
 - (void)yieldRestOverlayForUserFocusChange {
     if (!self.restWindowController || self.settings.restWindowTopmost) return;
     BOOL alreadyYieldedAndHidden = self.restOverlayYielded && !self.restWindowController.window.visible;
@@ -6309,6 +6472,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"automation-policy"] || [argument isEqualToString:@"automation"] || [argument isEqualToString:@"policy"]) {
             [self runAutomationPolicyStressTest:nil];
             detail = @"运行自动化策略压测";
+        } else if ([argument isEqualToString:@"presentation-policy"] || [argument isEqualToString:@"presentation"] || [argument isEqualToString:@"fullscreen-policy"]) {
+            [self runPresentationPolicyStressTest:nil];
+            detail = @"运行演示策略压测";
         } else {
             [self copyRecoveryDiagnostic:nil];
             detail = @"复制恢复诊断";
