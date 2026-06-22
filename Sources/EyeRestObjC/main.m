@@ -4123,18 +4123,30 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     ERTheme theme = ERThemeForStyle(style);
     self.currentStyle = style;
 
-    [self.backgroundView.layer.sublayers makeObjectsPerformSelector:@selector(removeFromSuperlayer)];
-    [self.backgroundView.layer insertSublayer:ERGradientLayer(self.backgroundView.bounds, @[theme.backgroundA, theme.backgroundB], CGPointMake(0, 0), CGPointMake(1, 1)) atIndex:0];
+    ERRemoveStyleMotifLayers(self.backgroundView.layer, @"restBackdropGradient");
+    ERRemoveStyleMotifLayers(self.backgroundView.layer, @"rest-backdrop-motif");
+    CAGradientLayer *backdrop = ERGradientLayer(self.backgroundView.bounds, @[theme.backgroundA, theme.backgroundB], CGPointMake(0, 0), CGPointMake(1, 1));
+    backdrop.name = @"restBackdropGradient";
+    [self.backgroundView.layer insertSublayer:backdrop atIndex:0];
     [self addDecorationsForStyle:style theme:theme];
-    CGFloat cardAlpha = style == ERRestStyleNight ? 0.14 : (style == ERRestStyleToy ? 0.32 : (style == ERRestStylePixel ? 0.38 : 0.24));
+
+    ERRemoveStyleMotifLayers(self.focusCard.layer, @"rest-card-motif");
+    CGFloat cardAlpha = style == ERRestStyleNight ? 0.18 : (style == ERRestStyleToy ? 0.38 : (style == ERRestStylePixel ? 0.46 : 0.30));
     self.focusCard.layer.backgroundColor = [theme.card colorWithAlphaComponent:cardAlpha].CGColor;
     self.focusCard.layer.borderColor = theme.cardBorder.CGColor;
     self.focusCard.layer.cornerRadius = theme.cornerRadius;
     self.focusCard.layer.borderWidth = style == ERRestStylePixel ? 2 : 1;
-    self.focusCard.layer.shadowOpacity = style == ERRestStyleToy ? 0.16 : 0.08;
-    self.focusCard.layer.shadowRadius = style == ERRestStylePixel ? 0 : 22;
-    self.focusCard.layer.shadowOffset = CGSizeMake(0, style == ERRestStylePixel ? 0 : -8);
+    self.focusCard.layer.shadowOpacity = style == ERRestStylePixel ? 0.0 : (style == ERRestStyleNight ? 0.30 : 0.18);
+    self.focusCard.layer.shadowRadius = style == ERRestStylePixel ? 0 : 28;
+    self.focusCard.layer.shadowOffset = CGSizeMake(0, style == ERRestStylePixel ? 0 : -10);
     self.focusCard.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:0.28].CGColor;
+    ERAddStyleMotifLayers(self.focusCard.layer, self.focusCard.bounds, style, theme, @"rest-card-motif", 0.18, YES, 0);
+    for (CALayer *layer in self.focusCard.layer.sublayers) {
+        if ([layer.name hasPrefix:@"rest-card-motif"]) {
+            layer.zPosition = -1;
+        }
+    }
+
     self.iconView.contentTintColor = theme.accent;
     self.brandLabel.textColor = theme.secondary;
     self.titleLabel.textColor = theme.foreground;
@@ -4154,67 +4166,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)addDecorationsForStyle:(ERRestStyle)style theme:(ERTheme)theme {
-    NSRect bounds = self.backgroundView.bounds;
-    if (style == ERRestStylePixel) {
-        CGFloat block = 28;
-        CALayer *sun = [CALayer layer];
-        sun.frame = CGRectMake(bounds.size.width - 180, bounds.size.height - 180, 76, 76);
-        sun.backgroundColor = ERColor(1.00, 0.86, 0.32, 0.85).CGColor;
-        [self.backgroundView.layer addSublayer:sun];
-        for (NSInteger i = 0; i < 9; i++) {
-            CALayer *cloud = [CALayer layer];
-            cloud.frame = CGRectMake(80 + i * 42, bounds.size.height - 130 - (i % 2) * 34, block, block);
-            cloud.backgroundColor = [NSColor colorWithWhite:1 alpha:0.70].CGColor;
-            [self.backgroundView.layer addSublayer:cloud];
-        }
-        CALayer *mountain = [CALayer layer];
-        mountain.frame = CGRectMake(0, 0, bounds.size.width, 120);
-        mountain.backgroundColor = ERColor(0.22, 0.45, 0.36, 0.55).CGColor;
-        [self.backgroundView.layer addSublayer:mountain];
-    } else if (style == ERRestStyleToy) {
-        NSArray<NSColor *> *colors = @[ERColor(1, 1, 1, 0.18), ERColor(1, 0.85, 0.35, 0.24), ERColor(0.55, 0.85, 1, 0.22)];
-        for (NSInteger i = 0; i < 7; i++) {
-            CALayer *bubble = [CALayer layer];
-            CGFloat size = 80 + (i % 3) * 34;
-            bubble.frame = CGRectMake(70 + i * 190, 90 + (i % 2) * 360, size, size);
-            bubble.cornerRadius = size / 2.0;
-            bubble.backgroundColor = [colors objectAtIndex:(i % colors.count)].CGColor;
-            [self.backgroundView.layer addSublayer:bubble];
-        }
-        for (NSInteger i = 0; i < 5; i++) {
-            CALayer *block = [CALayer layer];
-            block.frame = CGRectMake(bounds.size.width - 280 + i * 46, 78 + (i % 2) * 22, 36, 36);
-            block.cornerRadius = 10;
-            block.backgroundColor = [colors objectAtIndex:((i + 1) % colors.count)].CGColor;
-            [self.backgroundView.layer addSublayer:block];
-        }
-    } else if (style == ERRestStyleForest) {
-        CALayer *ground = [CALayer layer];
-        ground.frame = CGRectMake(0, 0, bounds.size.width, 96);
-        ground.backgroundColor = ERColor(0.05, 0.20, 0.12, 0.42).CGColor;
-        [self.backgroundView.layer addSublayer:ground];
-        for (NSInteger i = 0; i < 8; i++) {
-            CALayer *tree = [CALayer layer];
-            tree.frame = CGRectMake(40 + i * 180, 0, 80, 180 + (i % 3) * 40);
-            tree.backgroundColor = ERColor(0.04, 0.18, 0.11, 0.30).CGColor;
-            tree.cornerRadius = 38;
-            [self.backgroundView.layer addSublayer:tree];
-        }
-    } else if (style == ERRestStyleNight) {
-        CALayer *moon = [CALayer layer];
-        moon.frame = CGRectMake(bounds.size.width - 190, bounds.size.height - 170, 82, 82);
-        moon.cornerRadius = 41;
-        moon.backgroundColor = ERColor(0.88, 0.92, 1.00, 0.78).CGColor;
-        [self.backgroundView.layer addSublayer:moon];
-        for (NSInteger i = 0; i < 30; i++) {
-            CALayer *star = [CALayer layer];
-            CGFloat size = 2 + (i % 3);
-            star.frame = CGRectMake(40 + (i * 97) % (NSInteger)bounds.size.width, 80 + (i * 53) % (NSInteger)(bounds.size.height - 120), size, size);
-            star.cornerRadius = size / 2;
-            star.backgroundColor = [NSColor colorWithWhite:1 alpha:0.55].CGColor;
-            [self.backgroundView.layer addSublayer:star];
-        }
-    }
+    ERAddStyleMotifLayers(self.backgroundView.layer, self.backgroundView.bounds, style, theme, @"rest-backdrop-motif", 0.54, NO, 1);
 }
 
 - (void)updateRemaining:(NSTimeInterval)remaining {
@@ -5642,6 +5594,42 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             (long)NSScreen.screens.count];
 }
 
+- (NSString *)restOverlayViewDiagnosticLine {
+    if (!self.restWindowController) return @"休息页视图：无";
+    NSView *content = self.restWindowController.window.contentView;
+    NSView *card = self.restWindowController.focusCard;
+    NSRect contentFrame = content ? content.frame : NSZeroRect;
+    NSRect cardFrame = card ? card.frame : NSZeroRect;
+    NSInteger cardMotifLayers = 0;
+    for (CALayer *layer in card.layer.sublayers) {
+        if ([layer.name hasPrefix:@"rest-card-motif"]) {
+            cardMotifLayers += 1;
+        }
+    }
+    NSInteger backdropMotifLayers = 0;
+    for (CALayer *layer in content.layer.sublayers) {
+        if ([layer.name hasPrefix:@"rest-backdrop-motif"] || [layer.name isEqualToString:@"restBackdropGradient"]) {
+            backdropMotifLayers += 1;
+        }
+    }
+    return [NSString stringWithFormat:@"休息页视图：content %.0fx%.0f subviews %ld layers %ld motifLayers %ld · card %@ %.0f,%.0f %.0fx%.0f hidden %@ alpha %.2f subviews %ld layers %ld motifLayers %ld",
+            contentFrame.size.width,
+            contentFrame.size.height,
+            (long)content.subviews.count,
+            (long)content.layer.sublayers.count,
+            (long)backdropMotifLayers,
+            card.superview == content ? @"in-content" : @"detached",
+            cardFrame.origin.x,
+            cardFrame.origin.y,
+            cardFrame.size.width,
+            cardFrame.size.height,
+            card.hidden ? @"YES" : @"NO",
+            card.alphaValue,
+            (long)card.subviews.count,
+            (long)card.layer.sublayers.count,
+            (long)cardMotifLayers];
+}
+
 - (NSString *)detailedRecoveryDiagnosticText {
     NSMutableArray<NSString *> *lines = [NSMutableArray array];
     [lines addObject:[NSString stringWithFormat:@"%@ 恢复诊断", ERBrandName]];
@@ -5661,6 +5649,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                       self.restWindowController ? (self.restWindowController.window.visible ? @"可见" : @"存在但不可见") : @"无",
                       (long)NSApp.windows.count]];
     [lines addObject:[self recoveryWindowDiagnosticLine]];
+    [lines addObject:[self restOverlayViewDiagnosticLine]];
     [lines addObject:[NSString stringWithFormat:@"暂停/轻打扰：paused=%@ autoPause=%@ focus=%@ presentation=%@ quiet=%@ calendar=%@",
                       self.paused ? @"YES" : @"NO",
                       self.autoPauseActive ? @"YES" : @"NO",
@@ -5718,6 +5707,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                       (long)self.todayNotificationOnly,
                       ERFormatDuration(self.todayAutoPauseSeconds)]];
     [lines addObject:[self recoveryWindowDiagnosticLine]];
+    [lines addObject:[self restOverlayViewDiagnosticLine]];
     [lines addObject:[self recoveryDiagnosticText]];
     [lines addObject:@"最近恢复事件："];
     for (NSString *line in [self recoveryHistoryLines]) {
@@ -5812,6 +5802,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
 
     [lines addObject:[self recoveryWindowDiagnosticLine]];
+    [lines addObject:[self restOverlayViewDiagnosticLine]];
     [lines addObject:[self recoveryDiagnosticText]];
     [lines addObject:[NSString stringWithFormat:@"状态：eyeResting=%@ standResting=%@ yielded=%@ topmost=%@ showWindow=%@ lightDistraction=%@ presentation=%@",
                       self.eyeResting ? @"YES" : @"NO",
