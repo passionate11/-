@@ -53,16 +53,19 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: checkForUpdates: copyApplicationDiagnostic: applicationDiagnosticText toggleRestWindowTopmost:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: copyApplicationDiagnostic: applicationDiagnosticText toggleRestWindowTopmost:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
+check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-/issues/new" "GitHub issue URL"
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-/releases/latest" "latest release URL"
 check_contains "$STRINGS_OUTPUT" "https://api.github.com/repos/passionate11/-/releases/latest" "latest release API URL"
 
 echo "==> Verifying window behavior guardrails"
 SOURCE_CONTENT="$(< "$SOURCE_FILE")"
 check_contains "$SOURCE_CONTENT" "应用诊断" "application diagnostics title"
+check_contains "$SOURCE_CONTENT" "反馈问题" "issue feedback menu"
+check_contains "$SOURCE_CONTENT" "NSURLComponents" "issue URL builder"
 check_contains "$SOURCE_CONTENT" "NSURLSession" "update check network request"
 check_contains "$SOURCE_CONTENT" "ERCompareVersionStrings" "version comparison helper"
 check_contains "$SOURCE_CONTENT" "ERSettingsRestWindowTopmostKey: @NO" "rest window topmost default"

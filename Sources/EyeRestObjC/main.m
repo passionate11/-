@@ -89,6 +89,7 @@ static NSString *const ERStatsHistoryKey = @"statsHistory";
 static NSString *const ERRecoveryHistoryKey = @"recoveryHistory";
 static NSString *const ERBrandName = @"松一下";
 static NSString *const ERGitHubURLString = @"https://github.com/passionate11/-";
+static NSString *const ERNewIssueURLString = @"https://github.com/passionate11/-/issues/new";
 static NSString *const ERLatestReleaseURLString = @"https://github.com/passionate11/-/releases/latest";
 static NSString *const ERLatestReleaseAPIURLString = @"https://api.github.com/repos/passionate11/-/releases/latest";
 static NSString *const ERAutomationURLScheme = @"songyixia";
@@ -1421,6 +1422,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (NSString *)recoveryWindowDiagnosticLine;
 - (void)showAbout:(id)sender;
+- (void)openIssueFeedback:(id)sender;
 - (void)checkForUpdates:(id)sender;
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
 - (BOOL)handleAutomationURL:(NSURL *)url;
@@ -4117,6 +4119,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     update.target = self;
     [self.menu addItem:update];
 
+    NSMenuItem *feedback = [[NSMenuItem alloc] initWithTitle:@"反馈问题..." action:@selector(openIssueFeedback:) keyEquivalent:@""];
+    feedback.target = self;
+    [self.menu addItem:feedback];
+
     NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"退出 %@", ERBrandName] action:@selector(terminate:) keyEquivalent:@"q"];
     quit.target = NSApp;
     [self.menu addItem:quit];
@@ -5006,6 +5012,35 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         if (url) {
             [NSWorkspace.sharedWorkspace openURL:url];
         }
+    }
+}
+
+- (void)openIssueFeedback:(id)sender {
+    NSBundle *bundle = NSBundle.mainBundle;
+    NSDictionary *info = bundle.infoDictionary;
+    NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"未知";
+    NSString *build = [info[@"CFBundleVersion"] isKindOfClass:NSString.class] ? info[@"CFBundleVersion"] : @"未知";
+    NSString *bundlePath = bundle.bundlePath ?: @"未知";
+    NSString *systemVersion = NSProcessInfo.processInfo.operatingSystemVersionString ?: @"未知";
+    NSString *title = [NSString stringWithFormat:@"%@ 反馈：", ERBrandName];
+    NSString *body = [NSString stringWithFormat:
+        @"## 发生了什么？\n\n\n\n## 期望行为\n\n\n\n## 诊断信息\n\n- 版本：%@ (%@)\n- 系统：%@\n- 安装位置：%@\n\n请先在菜单栏选择「复制应用诊断」，再把剪贴板内容粘贴到这里。\n",
+        version,
+        build,
+        systemVersion,
+        bundlePath];
+
+    NSURLComponents *components = [NSURLComponents componentsWithString:ERNewIssueURLString];
+    components.queryItems = @[
+        [NSURLQueryItem queryItemWithName:@"title" value:title],
+        [NSURLQueryItem queryItemWithName:@"body" value:body]
+    ];
+
+    NSURL *url = components.URL ?: [NSURL URLWithString:ERNewIssueURLString];
+    if (url) {
+        [NSWorkspace.sharedWorkspace openURL:url];
+        [self noteRecoveryEventTitle:@"反馈" detail:@"已打开 GitHub Issues"];
+        [self publishState];
     }
 }
 
