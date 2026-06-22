@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  macos-release:
+    name: Publish macOS release
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify tag version
+        run: |
+          version="$(cat VERSION)"
+          tag="${GITHUB_REF_NAME#v}"
+          test "$tag" = "$version"
+
+      - name: Release preflight
+        run: scripts/preflight_release.sh
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 松一下 ${{ github.ref_name }}
+          body_path: CHANGELOG.md
+          files: dist/songyixia-*.zip

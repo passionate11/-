@@ -73,6 +73,23 @@ GitHub Actions 也会上传同名构建 artifact，方便直接下载测试。
 
 版本更新内容见 [CHANGELOG.md](CHANGELOG.md)。
 
+## 发布到 GitHub
+
+确认 `VERSION` 和 [CHANGELOG.md](CHANGELOG.md) 已更新后，先跑：
+
+```bash
+scripts/preflight_release.sh
+```
+
+再推送版本标签：
+
+```bash
+git tag v$(cat VERSION)
+git push origin v$(cat VERSION)
+```
+
+GitHub Actions 会在 `v*` 标签上再次运行发布前检查，并把 `dist/songyixia-<version>-<build>.zip` 上传到 GitHub Releases。标签版本必须和 `VERSION` 完全一致。
+
 ## 运行
 
 ```bash
@@ -189,6 +206,7 @@ songyixia://diagnostics/recovery-stress
 - 恢复压测：菜单栏可运行多轮恢复压测，连续校准休息页、按钮链路、残留窗口和屏幕挂载状态，并写入可复制的恢复诊断。
 - 本机诊断脚本：一键输出安装包、签名、进程、窗口和关键偏好状态，方便排查置顶、卡住、多实例和安装异常。
 - 发布前检查脚本：统一本地和 CI 的构建、签名、打包、版本、变更记录和包体校验。
+- GitHub Release 自动化：推送 `v*` 标签后自动运行发布前检查，并上传 macOS zip 到 Releases。
 - 关于窗口：菜单栏可查看版本、构建号、安装位置和 GitHub 源码入口。
 - 站立流程增强：可选择均衡活动、肩颈舒展、走动循环、恢复放松四套动作组合，全屏休息页会跟随组合切换阶段文案。
 - 自定义站立阶段：站立设置里可以编辑多行动作阶段，留空时继续使用内置动作组合。
