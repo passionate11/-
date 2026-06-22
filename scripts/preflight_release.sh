@@ -53,7 +53,7 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copySupportBundleDiagnostic: supportBundleDiagnosticText toggleRestWindowTopmost:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText copySupportBundleDiagnostic: supportBundleDiagnosticText toggleRestWindowTopmost:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
@@ -114,6 +114,13 @@ check_contains "$README_CONTENT" "songyixia://diagnostics/display-real" "real di
 check_contains "$SOURCE_CONTENT" "显示环境诊断" "real display diagnostic title"
 check_contains "$SOURCE_CONTENT" "displayDiagnostic=1" "real display diagnostic machine marker"
 check_contains "$SOURCE_CONTENT" "screenCount=" "real display diagnostic screen count"
+check_contains "$SOURCE_CONTENT" "copyRecoveryMatrixDiagnostic:" "recovery matrix diagnostic action"
+check_contains "$SOURCE_CONTENT" "recoveryMatrixDiagnosticText" "recovery matrix diagnostic text helper"
+check_contains "$SOURCE_CONTENT" "diagnostics/recovery-matrix" "recovery matrix diagnostic URL"
+check_contains "$README_CONTENT" "songyixia://diagnostics/recovery-matrix" "recovery matrix diagnostic docs"
+check_contains "$SOURCE_CONTENT" "recoveryMatrix=1" "recovery matrix machine marker"
+check_contains "$SOURCE_CONTENT" "scenario=%@" "recovery matrix scenario marker"
+check_contains "$SOURCE_CONTENT" "section=recovery-matrix" "support bundle recovery matrix section marker"
 check_contains "$SOURCE_CONTENT" "copySupportBundleDiagnostic:" "support bundle diagnostic action"
 check_contains "$SOURCE_CONTENT" "supportBundleDiagnosticText" "support bundle diagnostic text helper"
 check_contains "$SOURCE_CONTENT" "diagnostics/support-bundle" "support bundle diagnostic URL"
@@ -227,6 +234,9 @@ DIAGNOSE_OUTPUT="$(APP_TARGET="$APP_BUNDLE" scripts/diagnose_app.sh)"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/display-real"* ]] || fail "diagnostics missing display diagnostic URL"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/settings-window"* ]] || fail "diagnostics missing settings recovery URL"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/display-change-trace"* ]] || fail "diagnostics missing display trace URL"
+[[ "$DIAGNOSE_OUTPUT" == *"== Recovery Matrix =="* ]] || fail "diagnostics missing recovery matrix section"
+[[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/recovery-matrix"* ]] || fail "diagnostics missing recovery matrix URL"
+[[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/window-layer"* ]] || fail "diagnostics missing window layer matrix URL"
 
 echo "==> Verifying changelog"
 grep -q "## $EXPECTED_VERSION" CHANGELOG.md || fail "CHANGELOG.md missing $EXPECTED_VERSION section"

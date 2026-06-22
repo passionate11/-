@@ -143,6 +143,7 @@ print_kv "Display diagnostic URL" "$URL_SCHEME://diagnostics/display-real"
 print_kv "Display trace URL" "$URL_SCHEME://diagnostics/display-change-trace"
 print_kv "Settings recovery URL" "$URL_SCHEME://diagnostics/settings-window"
 print_kv "Live display check URL" "$URL_SCHEME://diagnostics/display-live"
+print_kv "Recovery matrix URL" "$URL_SCHEME://diagnostics/recovery-matrix"
 if [[ -n "${RECOVERY_HISTORY:-}" ]]; then
   if history_has "displayChangeFrom" || history_has "\\U5c4f\\U5e55\\U53d8\\U5316" || history_has "屏幕变化"; then
     print_kv "Screen change history" "present"
@@ -162,6 +163,18 @@ if [[ -n "${RECOVERY_HISTORY:-}" ]]; then
 else
   print_kv "Recovery history" "missing"
 fi
+
+print_section "Recovery Matrix"
+print_kv "Matrix URL" "$URL_SCHEME://diagnostics/recovery-matrix"
+print_kv "Base window" "$URL_SCHEME://diagnostics/recovery-stress"
+print_kv "Lunch return" "$URL_SCHEME://diagnostics/lunch-recovery"
+print_kv "Sleep hidden" "$URL_SCHEME://diagnostics/sleep-hidden-recovery"
+print_kv "Long away" "$URL_SCHEME://diagnostics/long-away-recovery"
+print_kv "Display recovery" "$URL_SCHEME://diagnostics/display-recovery"
+print_kv "Display bounds" "$URL_SCHEME://diagnostics/display-bounds"
+print_kv "Settings window" "$URL_SCHEME://diagnostics/settings-window"
+print_kv "Overlay yield" "$URL_SCHEME://diagnostics/overlay-yield"
+print_kv "Window layer" "$URL_SCHEME://diagnostics/window-layer"
 
 print_section "Windows"
 if [[ -x "$WINDOW_LIST_TOOL" ]]; then

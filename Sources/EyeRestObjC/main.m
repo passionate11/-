@@ -1516,13 +1516,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)noteRecoveryEventTitle:(NSString *)title detail:(NSString *)detail;
 - (NSString *)recoveryDiagnosticText;
 - (NSArray<NSString *> *)recoveryHistoryLines;
+- (BOOL)recoveryHistoryContainsAny:(NSArray<NSString *> *)needles;
 - (NSString *)detailedRecoveryDiagnosticText;
 - (NSString *)applicationDiagnosticText;
 - (NSString *)displayDiagnosticText;
+- (NSString *)recoveryMatrixDiagnosticText;
 - (NSString *)supportBundleDiagnosticText;
 - (void)copyRecoveryDiagnostic:(id)sender;
 - (void)copyApplicationDiagnostic:(id)sender;
 - (void)copyDisplayDiagnostic:(id)sender;
+- (void)copyRecoveryMatrixDiagnostic:(id)sender;
 - (void)copySupportBundleDiagnostic:(id)sender;
 - (void)runRecoverySelfCheck:(id)sender;
 - (void)runRecoveryStressTest:(id)sender;
@@ -4339,6 +4342,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     copyDisplayDiagnostic.target = self;
     [self.menu addItem:copyDisplayDiagnostic];
 
+    NSMenuItem *copyRecoveryMatrixDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制恢复场景矩阵" action:@selector(copyRecoveryMatrixDiagnostic:) keyEquivalent:@""];
+    copyRecoveryMatrixDiagnostic.target = self;
+    [self.menu addItem:copyRecoveryMatrixDiagnostic];
+
     NSMenuItem *copySupportBundleDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制完整排查包" action:@selector(copySupportBundleDiagnostic:) keyEquivalent:@""];
     copySupportBundleDiagnostic.target = self;
     [self.menu addItem:copySupportBundleDiagnostic];
@@ -4452,6 +4459,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"运行设置窗口恢复压测", ERAutomationURLString(@"diagnostics/settings-window")],
         @[@"运行显示边界压测", ERAutomationURLString(@"diagnostics/display-bounds")],
         @[@"复制显示环境诊断", ERAutomationURLString(@"diagnostics/display-real")],
+        @[@"复制恢复场景矩阵", ERAutomationURLString(@"diagnostics/recovery-matrix")],
         @[@"复制完整排查包", ERAutomationURLString(@"diagnostics/support-bundle")],
         @[@"运行显示变化追踪自检", ERAutomationURLString(@"diagnostics/display-change-trace")],
         @[@"运行真实显示环境自检", ERAutomationURLString(@"diagnostics/display-live")],
@@ -4852,6 +4860,21 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     return lines;
 }
 
+- (BOOL)recoveryHistoryContainsAny:(NSArray<NSString *> *)needles {
+    if (needles.count == 0 || self.recoveryEventHistory.count == 0) return NO;
+    for (NSDictionary<NSString *, id> *entry in self.recoveryEventHistory) {
+        NSString *title = [entry[@"title"] isKindOfClass:NSString.class] ? entry[@"title"] : @"";
+        NSString *detail = [entry[@"detail"] isKindOfClass:NSString.class] ? entry[@"detail"] : @"";
+        NSString *combined = [NSString stringWithFormat:@"%@ %@", title, detail];
+        for (NSString *needle in needles) {
+            if (needle.length > 0 && [combined containsString:needle]) {
+                return YES;
+            }
+        }
+    }
+    return NO;
+}
+
 - (NSString *)recoveryWindowDiagnosticLine {
     NSInteger orphaned = 0;
     for (NSWindow *window in NSApp.windows) {
@@ -5064,6 +5087,116 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     return [lines componentsJoinedByString:@"\n"];
 }
 
+- (NSString *)recoveryMatrixDiagnosticText {
+    NSArray<NSDictionary<NSString *, id> *> *scenarios = @[
+        @{
+            @"id": @"base-window",
+            @"title": @"基础休息页恢复",
+            @"url": ERAutomationURLString(@"diagnostics/recovery-stress"),
+            @"evidence": @"完成 5 轮窗口复查",
+            @"needles": @[@"恢复压测", @"休息页状态已校准", @"休息页二次校准完成"]
+        },
+        @{
+            @"id": @"lunch-return",
+            @"title": @"午休/离开后站立过期",
+            @"url": ERAutomationURLString(@"diagnostics/lunch-recovery"),
+            @"evidence": @"站立过期后自动结算并重新排期",
+            @"needles": @[@"午休恢复压测", @"站立过期已结算"]
+        },
+        @{
+            @"id": @"sleep-hidden",
+            @"title": @"锁屏/睡眠后隐藏休息页",
+            @"url": ERAutomationURLString(@"diagnostics/sleep-hidden-recovery"),
+            @"evidence": @"未过期隐藏页恢复，已让开窗口保持隐藏",
+            @"needles": @[@"睡眠隐藏恢复压测", @"隐藏休息页已恢复", @"已让开休息页保持隐藏"]
+        },
+        @{
+            @"id": @"long-away",
+            @"title": @"长时间离开后双提醒过期",
+            @"url": ERAutomationURLString(@"diagnostics/long-away-recovery"),
+            @"evidence": @"眼睛和站立过期均结算，无残留休息页",
+            @"needles": @[@"长离开恢复压测", @"眼睛过期已结算", @"站立过期已结算"]
+        },
+        @{
+            @"id": @"display-offscreen",
+            @"title": @"外接屏/合盖后休息页跑到屏幕外",
+            @"url": ERAutomationURLString(@"diagnostics/display-recovery"),
+            @"evidence": @"窗口回到屏幕内",
+            @"needles": @[@"显示恢复压测", @"窗口回到屏幕内"]
+        },
+        @{
+            @"id": @"display-bounds",
+            @"title": @"分辨率变化后休息页尺寸不匹配",
+            @"url": ERAutomationURLString(@"diagnostics/display-bounds"),
+            @"evidence": @"窗口贴合屏幕，内容已重排",
+            @"needles": @[@"显示边界压测", @"窗口已贴合屏幕", @"内容已重排"]
+        },
+        @{
+            @"id": @"settings-offscreen",
+            @"title": @"外接屏变化后设置窗口不可见",
+            @"url": ERAutomationURLString(@"diagnostics/settings-window"),
+            @"evidence": @"设置页回到屏幕内并保持可见",
+            @"needles": @[@"设置窗口恢复压测", @"设置页回到屏幕内", @"设置页可见"]
+        },
+        @{
+            @"id": @"display-trace",
+            @"title": @"显示变化追踪",
+            @"url": ERAutomationURLString(@"diagnostics/display-change-trace"),
+            @"evidence": @"记录变化前后屏幕摘要",
+            @"needles": @[@"显示变化追踪自检", @"已记录屏幕变化"]
+        },
+        @{
+            @"id": @"real-display",
+            @"title": @"真实当前显示环境",
+            @"url": ERAutomationURLString(@"diagnostics/display-live"),
+            @"evidence": @"真实窗口在屏幕内、贴合屏幕、内容重排",
+            @"needles": @[@"真实显示环境自检", @"真实窗口在屏幕内", @"真实窗口贴合屏幕"]
+        },
+        @{
+            @"id": @"overlay-yield",
+            @"title": @"用户切走后休息页让开",
+            @"url": ERAutomationURLString(@"diagnostics/overlay-yield"),
+            @"evidence": @"休息页让开，设置页保留，休息计时继续",
+            @"needles": @[@"窗口让开压测", @"休息页已让开", @"设置页保留", @"休息计时继续"]
+        },
+        @{
+            @"id": @"window-layer",
+            @"title": @"窗口层级/置顶策略",
+            @"url": ERAutomationURLString(@"diagnostics/window-layer"),
+            @"evidence": @"设置页普通层级，普通休息页不置顶，让开后不弹回",
+            @"needles": @[@"窗口层级压测", @"设置页普通层级", @"普通休息页未置顶", @"让开后未弹回"]
+        }
+    ];
+
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    [lines addObject:[NSString stringWithFormat:@"%@ 恢复场景矩阵", ERBrandName]];
+    [lines addObject:@"recoveryMatrix=1"];
+    [lines addObject:[NSString stringWithFormat:@"生成时间：%@", ERFormatClockTime(NSDate.date)]];
+    [lines addObject:[NSString stringWithFormat:@"屏幕摘要：%@", ERScreenDiagnosticSummary()]];
+    [lines addObject:[self recoveryWindowDiagnosticLine]];
+    [lines addObject:[NSString stringWithFormat:@"最近恢复事件数量：%ld", (long)self.recoveryEventHistory.count]];
+    [lines addObject:@"场景覆盖："];
+    for (NSDictionary<NSString *, id> *scenario in scenarios) {
+        NSString *identifier = [scenario[@"id"] isKindOfClass:NSString.class] ? scenario[@"id"] : @"unknown";
+        NSString *title = [scenario[@"title"] isKindOfClass:NSString.class] ? scenario[@"title"] : identifier;
+        NSString *url = [scenario[@"url"] isKindOfClass:NSString.class] ? scenario[@"url"] : @"";
+        NSString *evidence = [scenario[@"evidence"] isKindOfClass:NSString.class] ? scenario[@"evidence"] : @"";
+        NSArray<NSString *> *needles = [scenario[@"needles"] isKindOfClass:NSArray.class] ? scenario[@"needles"] : @[];
+        BOOL recorded = [self recoveryHistoryContainsAny:needles];
+        [lines addObject:[NSString stringWithFormat:@"scenario=%@ status=%@ url=%@ evidence=%@ title=%@",
+                          identifier,
+                          recorded ? @"recorded" : @"not-recorded",
+                          url,
+                          evidence,
+                          title]];
+    }
+    [lines addObject:@"最近事件："];
+    for (NSString *line in [self recoveryHistoryLines]) {
+        [lines addObject:[NSString stringWithFormat:@"- %@", line]];
+    }
+    return [lines componentsJoinedByString:@"\n"];
+}
+
 - (NSString *)supportBundleDiagnosticText {
     NSMutableArray<NSString *> *sections = [NSMutableArray array];
     [sections addObject:[NSString stringWithFormat:@"%@ 完整排查包", ERBrandName]];
@@ -5072,6 +5205,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [sections addObject:[NSString stringWithFormat:@"URL Scheme：%@", ERAutomationURLScheme]];
     [sections addObject:@"排查入口："];
     [sections addObject:[NSString stringWithFormat:@"- 显示环境诊断：%@", ERAutomationURLString(@"diagnostics/display-real")]];
+    [sections addObject:[NSString stringWithFormat:@"- 恢复场景矩阵：%@", ERAutomationURLString(@"diagnostics/recovery-matrix")]];
     [sections addObject:[NSString stringWithFormat:@"- 设置窗口恢复压测：%@", ERAutomationURLString(@"diagnostics/settings-window")]];
     [sections addObject:[NSString stringWithFormat:@"- 自动化诊断：%@", ERAutomationURLString(@"automation/diagnostic")]];
     [sections addObject:[NSString stringWithFormat:@"- 真实日历诊断：%@", ERAutomationURLString(@"diagnostics/calendar-real")]];
@@ -5087,6 +5221,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [sections addObject:@"--- 显示环境诊断 ---"];
     [sections addObject:@"section=display"];
     [sections addObject:[self displayDiagnosticText]];
+    [sections addObject:@""];
+    [sections addObject:@"--- 恢复场景矩阵 ---"];
+    [sections addObject:@"section=recovery-matrix"];
+    [sections addObject:[self recoveryMatrixDiagnosticText]];
     [sections addObject:@""];
     [sections addObject:@"--- 自动化诊断 ---"];
     [sections addObject:@"section=automation"];
@@ -5596,6 +5734,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [pasteboard clearContents];
     [pasteboard setString:[self displayDiagnosticText] forType:NSPasteboardTypeString];
     [self noteRecoveryEventTitle:@"诊断" detail:@"已复制显示环境诊断"];
+    [self publishState];
+}
+
+- (void)copyRecoveryMatrixDiagnostic:(id)sender {
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:[self recoveryMatrixDiagnosticText] forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"诊断" detail:@"已复制恢复场景矩阵"];
     [self publishState];
 }
 
@@ -7567,6 +7713,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"display-real"] || [argument isEqualToString:@"display-diagnostic"] || [argument isEqualToString:@"screen-diagnostic"] || [argument isEqualToString:@"screen-real"]) {
             [self copyDisplayDiagnostic:nil];
             detail = @"复制显示环境诊断";
+        } else if ([argument isEqualToString:@"recovery-matrix"] || [argument isEqualToString:@"matrix"] || [argument isEqualToString:@"recovery-plan"] || [argument isEqualToString:@"scenario-matrix"]) {
+            [self copyRecoveryMatrixDiagnostic:nil];
+            detail = @"复制恢复场景矩阵";
         } else if ([argument isEqualToString:@"support-bundle"] || [argument isEqualToString:@"support"] || [argument isEqualToString:@"bundle"] || [argument isEqualToString:@"full"]) {
             [self copySupportBundleDiagnostic:nil];
             detail = @"复制完整排查包";
@@ -7647,6 +7796,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"- 继续提醒：%@", ERAutomationURLString(@"resume")]];
     [lines addObject:[NSString stringWithFormat:@"- 设置窗口恢复压测：%@", ERAutomationURLString(@"diagnostics/settings-window")]];
     [lines addObject:[NSString stringWithFormat:@"- 显示环境诊断：%@", ERAutomationURLString(@"diagnostics/display-real")]];
+    [lines addObject:[NSString stringWithFormat:@"- 恢复场景矩阵：%@", ERAutomationURLString(@"diagnostics/recovery-matrix")]];
     [lines addObject:[NSString stringWithFormat:@"- 完整排查包：%@", ERAutomationURLString(@"diagnostics/support-bundle")]];
     [lines addObject:[NSString stringWithFormat:@"- 显示变化追踪自检：%@", ERAutomationURLString(@"diagnostics/display-change-trace")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实显示环境自检：%@", ERAutomationURLString(@"diagnostics/display-live")]];
