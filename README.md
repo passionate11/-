@@ -192,6 +192,7 @@ songyixia://diagnostics/long-away-recovery
 songyixia://diagnostics/display-recovery
 songyixia://diagnostics/display-bounds
 songyixia://diagnostics/overlay-yield
+songyixia://diagnostics/automation-policy
 ```
 
 ## 说明
@@ -249,6 +250,7 @@ songyixia://diagnostics/overlay-yield
 - 显示恢复压测：可模拟休息页位于屏幕外，验证显示器切换或外接屏断开后会回到当前屏幕内。
 - 显示边界压测：可模拟休息页仍在屏幕内但尺寸继承旧显示器，验证会重新贴合当前屏幕并重排内容。
 - 窗口让开压测：可模拟非置顶休息页、设置页和用户切走场景，验证休息页让开后计时继续、设置页不被关闭。
+- 自动化策略压测：可模拟安静时段和自动暂停，验证只发通知、关闭休息页和顺延提醒时间。
 - 本机诊断脚本：一键输出安装包、签名、进程、窗口和关键偏好状态，方便排查置顶、卡住、多实例和安装异常。
 - 发布前检查脚本：统一本地和 CI 的构建、签名、打包、版本、变更记录和包体校验。
 - GitHub Release 自动化：推送 `v*` 标签后自动运行发布前检查，并上传 macOS zip 到 Releases。
@@ -274,6 +276,7 @@ songyixia://diagnostics/overlay-yield
 #### v0.4 自动化增强
 
 - 勿扰/专注模式联动：已加入公开的 `songyixia://` 外部自动化入口，可由快捷指令等工具在专注/勿扰流程开始和结束时切换轻打扰；后续如果 macOS 提供稳定公开接口，再接入自动读取系统专注状态。
+- 自动化策略压测：已加入安静时段和自动暂停验证；后续继续覆盖真实日历事件和更多演示/全屏组合。
 
 ### 后续可以探索
 

@@ -185,4 +185,14 @@ history_contains '休息页已让开' '\\U4f11\\U606f\\U9875\\U5df2\\U8ba9\\U5f0
 history_contains '设置页保留' '\\U8bbe\\U7f6e\\U9875\\U4fdd\\U7559' || fail "overlay yield stress did not preserve settings window"
 history_contains '休息计时继续' '\\U4f11\\U606f\\U8ba1\\U65f6\\U7ee7\\U7eed' || fail "overlay yield stress did not keep timer running"
 
+echo "==> Checking automation policy URL"
+open "$URL_SCHEME://diagnostics/automation-policy"
+sleep 4
+history_contains '自动化策略压测' '\\U81ea\\U52a8\\U5316\\U7b56\\U7565\\U538b\\U6d4b' || fail "automation policy stress did not run"
+history_contains '安静时段只发通知' '\\U5b89\\U9759\\U65f6\\U6bb5\\U53ea\\U53d1\\U901a\\U77e5' || fail "automation policy did not keep quiet hours notification-only"
+history_contains '自动暂停命中' '\\U81ea\\U52a8\\U6682\\U505c\\U547d\\U4e2d' || fail "automation policy did not hit auto pause"
+history_contains '自动暂停已关闭休息页' '\\U81ea\\U52a8\\U6682\\U505c\\U5df2\\U5173\\U95ed\\U4f11\\U606f\\U9875' || fail "automation policy did not close rest window"
+history_contains '提醒时间已顺延' '\\U63d0\\U9192\\U65f6\\U95f4\\U5df2\\U987a\\U5ef6' || fail "automation policy did not shift reminder time"
+history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "automation policy did not restore test state"
+
 echo "==> Smoke test passed"
