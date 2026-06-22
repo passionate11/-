@@ -162,6 +162,13 @@ sleep 3
 history_contains '完成 3/3' '\\U5b8c\\U6210 3/3' || fail "display recovery stress did not complete"
 history_contains '窗口回到屏幕内' '\\U7a97\\U53e3\\U56de\\U5230\\U5c4f\\U5e55\\U5185' || fail "display recovery did not restore window onscreen"
 
+echo "==> Checking display bounds URL"
+open "$URL_SCHEME://diagnostics/display-bounds"
+sleep 3
+history_contains '显示边界压测' '\\U663e\\U793a\\U8fb9\\U754c\\U538b\\U6d4b' || fail "display bounds stress did not run"
+history_contains '窗口已贴合屏幕' '\\U7a97\\U53e3\\U5df2\\U8d34\\U5408\\U5c4f\\U5e55' || fail "display bounds stress did not refit window"
+history_contains '内容已重排' '\\U5185\\U5bb9\\U5df2\\U91cd\\U6392' || fail "display bounds stress did not relayout content"
+
 echo "==> Checking overlay yield URL"
 open "$URL_SCHEME://diagnostics/overlay-yield"
 sleep 3

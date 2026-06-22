@@ -1169,6 +1169,18 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     return YES;
 }
 
+- (void)sendEvent:(NSEvent *)event {
+    if (event.type == NSEventTypeLeftMouseDown) {
+        id controller = self.windowController;
+        if ([controller respondsToSelector:@selector(er_shouldYieldForMouseDown:)] &&
+            [controller er_shouldYieldForMouseDown:event]) {
+            [controller er_yieldRestOverlayForUserFocusChange:self];
+            return;
+        }
+    }
+    [super sendEvent:event];
+}
+
 - (void)mouseDown:(NSEvent *)event {
     id controller = self.windowController;
     if ([controller respondsToSelector:@selector(er_shouldYieldForMouseDown:)] &&
@@ -1188,6 +1200,17 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         }
     }
     [super keyDown:event];
+}
+
+@end
+
+@interface ERRestOverlayContentView : NSView
+@end
+
+@implementation ERRestOverlayContentView
+
+- (BOOL)acceptsFirstMouse:(NSEvent *)event {
+    return YES;
 }
 
 @end
@@ -1408,6 +1431,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSUInteger recoveryStressTestGeneration;
 @property(nonatomic) NSUInteger lunchRecoveryStressTestGeneration;
 @property(nonatomic) NSUInteger displayRecoveryStressTestGeneration;
+@property(nonatomic) NSUInteger displayBoundsStressTestGeneration;
 @property(nonatomic) NSUInteger overlayYieldStressTestGeneration;
 @property(nonatomic) NSUInteger longAwayRecoveryStressTestGeneration;
 @property(nonatomic, strong) NSDictionary<NSString *, NSNumber *> *longAwayRecoveryStatsSnapshot;
@@ -1446,12 +1470,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runLunchRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runDisplayRecoveryStressTest:(id)sender;
 - (void)runDisplayRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
+- (void)runDisplayBoundsStressTest:(id)sender;
+- (void)runDisplayBoundsStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runOverlayYieldStressTest:(id)sender;
 - (void)runOverlayYieldStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runLongAwayRecoveryStressTest:(id)sender;
 - (void)runLongAwayRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (NSString *)recoveryWindowDiagnosticLine;
 - (void)yieldRestOverlayForUserFocusChange;
+- (void)cleanupDiagnosticEyeRest;
 - (void)showAbout:(id)sender;
 - (void)openIssueFeedback:(id)sender;
 - (void)checkForUpdates:(id)sender;
@@ -2964,16 +2991,18 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     window.ignoresMouseEvents = NO;
     [window setFrame:frame display:NO];
 
-    NSView *content = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, frame.size.width, frame.size.height)];
+    NSView *content = [[ERRestOverlayContentView alloc] initWithFrame:NSMakeRect(0, 0, frame.size.width, frame.size.height)];
     content.wantsLayer = YES;
     window.contentView = content;
     self.backgroundView = content;
 
     CGFloat cardWidth = MIN(760, MAX(420, frame.size.width - 160));
     CGFloat cardHeight = MIN(520, MAX(460, frame.size.height - 120));
-    self.focusCard = ERRoundedView(NSMakeRect(0, 0, cardWidth, cardHeight),
-                                   [NSColor colorWithWhite:1 alpha:0.18],
-                                   28);
+    self.focusCard = [[ERRestOverlayContentView alloc] initWithFrame:NSMakeRect(0, 0, cardWidth, cardHeight)];
+    self.focusCard.wantsLayer = YES;
+    self.focusCard.layer.backgroundColor = [NSColor colorWithWhite:1 alpha:0.18].CGColor;
+    self.focusCard.layer.cornerRadius = 28;
+    self.focusCard.layer.masksToBounds = YES;
     self.focusCard.layer.borderWidth = 1;
     self.focusCard.layer.borderColor = [NSColor colorWithWhite:1 alpha:0.24].CGColor;
     [content addSubview:self.focusCard];
@@ -4100,6 +4129,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     displayRecoveryStressTest.target = self;
     [self.menu addItem:displayRecoveryStressTest];
 
+    NSMenuItem *displayBoundsStressTest = [[NSMenuItem alloc] initWithTitle:@"运行显示边界压测" action:@selector(runDisplayBoundsStressTest:) keyEquivalent:@""];
+    displayBoundsStressTest.target = self;
+    [self.menu addItem:displayBoundsStressTest];
+
     NSMenuItem *overlayYieldStressTest = [[NSMenuItem alloc] initWithTitle:@"运行窗口让开压测" action:@selector(runOverlayYieldStressTest:) keyEquivalent:@""];
     overlayYieldStressTest.target = self;
     [self.menu addItem:overlayYieldStressTest];
@@ -4137,6 +4170,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"运行午休恢复压测", ERAutomationURLString(@"diagnostics/lunch-recovery")],
         @[@"运行长离开恢复压测", ERAutomationURLString(@"diagnostics/long-away-recovery")],
         @[@"运行显示恢复压测", ERAutomationURLString(@"diagnostics/display-recovery")],
+        @[@"运行显示边界压测", ERAutomationURLString(@"diagnostics/display-bounds")],
         @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")]
     ];
     for (NSArray<NSString *> *itemInfo in automationURLs) {
@@ -4449,8 +4483,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
 
     [self.restWindowController updateRemaining:remaining];
-    if (!self.restWindowController.window.visible || !self.restWindowController.window.screen) {
+    NSWindow *restWindow = self.restWindowController.window;
+    NSScreen *restScreen = restWindow.screen ?: NSScreen.mainScreen ?: NSScreen.screens.firstObject;
+    NSRect expectedFrame = restScreen ? restScreen.frame : NSMakeRect(0, 0, 1280, 800);
+    BOOL frameMismatch = restWindow.screen && !NSEqualRects(NSIntegralRect(restWindow.frame), NSIntegralRect(expectedFrame));
+    if (!restWindow.visible || !restWindow.screen || frameMismatch) {
         [self.restWindowController presentOverlay];
+        if (frameMismatch) {
+            [self noteRecoveryEventTitle:@"窗口自检" detail:@"休息页尺寸不匹配当前屏幕，已重新贴合"];
+        }
     }
     [self closeOrphanRestWindows];
 }
@@ -5432,6 +5473,87 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self publishState];
 }
 
+- (void)runDisplayBoundsStressTest:(id)sender {
+    if (!self.settings.eyeEnabled || !self.settings.showRestWindow) {
+        [self noteRecoveryEventTitle:@"显示边界压测" detail:@"眼睛提醒或休息页已关闭，跳过"];
+        [self publishState];
+        return;
+    }
+
+    self.displayBoundsStressTestGeneration += 1;
+    NSUInteger generation = self.displayBoundsStressTestGeneration;
+    NSInteger total = 3;
+
+    self.paused = NO;
+    self.pausedUntil = nil;
+    self.autoPauseActive = NO;
+    self.focusModeEnabled = NO;
+    self.eyeResting = YES;
+    self.eyeRestEndsAt = [NSDate dateWithTimeIntervalSinceNow:MAX(30, self.settings.eyeRestSeconds)];
+    self.standResting = NO;
+    self.standRestEndsAt = nil;
+    self.restOverlayYielded = NO;
+
+    [self ensureRestWindowForKind:ERReminderKindEye remaining:[self remainingUntil:self.eyeRestEndsAt]];
+    if (self.restWindowController) {
+        NSScreen *screen = NSScreen.mainScreen ?: NSScreen.screens.firstObject;
+        NSRect screenFrame = screen ? screen.frame : NSMakeRect(0, 0, 1280, 800);
+        NSRect staleFrame = NSInsetRect(screenFrame, MAX(80, screenFrame.size.width * 0.12), MAX(70, screenFrame.size.height * 0.10));
+        [self.restWindowController.window setFrame:staleFrame display:YES animate:NO];
+        self.restWindowController.window.contentView.frame = NSMakeRect(0, 0, staleFrame.size.width, staleFrame.size.height);
+    }
+
+    [self noteRecoveryEventTitle:@"显示边界压测" detail:@"已模拟休息页仍在屏幕内但尺寸不匹配，开始复查"];
+    [self publishState];
+
+    NSArray<NSNumber *> *delays = @[@0.0, @0.5, @1.5];
+    for (NSInteger index = 0; index < delays.count; index++) {
+        NSTimeInterval delay = delays[index].doubleValue;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self runDisplayBoundsStressTestPass:index + 1 total:total generation:generation];
+        });
+    }
+}
+
+- (void)runDisplayBoundsStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation {
+    if (generation != self.displayBoundsStressTestGeneration) return;
+
+    [self settleExpiredRests];
+    [self repairRestStateIfNeeded];
+    NSInteger orphaned = [self closeOrphanRestWindows];
+
+    NSWindow *window = self.restWindowController.window;
+    NSScreen *screen = window.screen ?: NSScreen.mainScreen ?: NSScreen.screens.firstObject;
+    NSRect expectedFrame = screen ? screen.frame : NSMakeRect(0, 0, 1280, 800);
+    BOOL refit = window && NSEqualRects(NSIntegralRect(window.frame), NSIntegralRect(expectedFrame));
+    BOOL contentRefit = window && NSEqualRects(NSIntegralRect(window.contentView.frame), NSIntegralRect(NSMakeRect(0, 0, expectedFrame.size.width, expectedFrame.size.height)));
+
+    NSMutableArray<NSString *> *details = [NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%@ %ld/%ld",
+                                                                           pass == total ? @"完成" : @"复查",
+                                                                           (long)pass,
+                                                                           (long)total]];
+    [details addObject:refit ? @"窗口已贴合屏幕" : @"窗口尺寸仍异常"];
+    [details addObject:contentRefit ? @"内容已重排" : @"内容仍需重排"];
+    if (window) {
+        [details addObject:[NSString stringWithFormat:@"frame %.0f,%.0f %.0fx%.0f",
+                            window.frame.origin.x,
+                            window.frame.origin.y,
+                            window.frame.size.width,
+                            window.frame.size.height]];
+    } else {
+        [details addObject:@"无休息页"];
+    }
+    if (orphaned > 0) {
+        [details addObject:[NSString stringWithFormat:@"清理残留 %ld 个", (long)orphaned]];
+    }
+
+    if (pass == total) {
+        [self cleanupDiagnosticEyeRest];
+    }
+    [self noteRecoveryEventTitle:@"显示边界压测" detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
+}
+
 - (void)runOverlayYieldStressTest:(id)sender {
     if (!self.settings.eyeEnabled || !self.settings.showRestWindow) {
         [self noteRecoveryEventTitle:@"窗口让开压测" detail:@"眼睛提醒或休息页已关闭，跳过"];
@@ -5523,6 +5645,18 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self.restWindowController.window orderOut:nil];
     [self noteRecoveryEventTitle:@"窗口让开" detail:@"用户切到其他窗口，非置顶休息页已隐藏，本轮计时继续"];
     [self publishState];
+}
+
+- (void)cleanupDiagnosticEyeRest {
+    self.eyeResting = NO;
+    self.eyeRestEndsAt = nil;
+    self.eyeDueAt = self.settings.eyeEnabled ? [NSDate dateWithTimeIntervalSinceNow:self.settings.eyeFocusSeconds] : nil;
+    self.restOverlayYielded = NO;
+    if (self.restWindowController && self.restWindowController.kind == ERReminderKindEye) {
+        [self.restWindowController close];
+        self.restWindowController = nil;
+    }
+    [self closeOrphanRestWindows];
 }
 
 - (void)showAbout:(id)sender {
@@ -5752,6 +5886,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"display-recovery"] || [argument isEqualToString:@"display"] || [argument isEqualToString:@"screen"]) {
             [self runDisplayRecoveryStressTest:nil];
             detail = @"运行显示恢复压测";
+        } else if ([argument isEqualToString:@"display-bounds"] || [argument isEqualToString:@"bounds"] || [argument isEqualToString:@"screen-bounds"]) {
+            [self runDisplayBoundsStressTest:nil];
+            detail = @"运行显示边界压测";
         } else if ([argument isEqualToString:@"overlay-yield"] || [argument isEqualToString:@"yield"] || [argument isEqualToString:@"window-yield"]) {
             [self runOverlayYieldStressTest:nil];
             detail = @"运行窗口让开压测";
