@@ -1408,6 +1408,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSUInteger recoveryStressTestGeneration;
 @property(nonatomic) NSUInteger lunchRecoveryStressTestGeneration;
 @property(nonatomic) NSUInteger displayRecoveryStressTestGeneration;
+@property(nonatomic) NSUInteger overlayYieldStressTestGeneration;
 @property(nonatomic, strong) ERRestWindowController *restWindowController;
 @property(nonatomic, strong) ERSettingsWindowController *settingsWindowController;
 @property(nonatomic) BOOL restOverlayYielded;
@@ -1443,6 +1444,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runLunchRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runDisplayRecoveryStressTest:(id)sender;
 - (void)runDisplayRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
+- (void)runOverlayYieldStressTest:(id)sender;
+- (void)runOverlayYieldStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (NSString *)recoveryWindowDiagnosticLine;
 - (void)yieldRestOverlayForUserFocusChange;
 - (void)showAbout:(id)sender;
@@ -4089,6 +4092,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     displayRecoveryStressTest.target = self;
     [self.menu addItem:displayRecoveryStressTest];
 
+    NSMenuItem *overlayYieldStressTest = [[NSMenuItem alloc] initWithTitle:@"运行窗口让开压测" action:@selector(runOverlayYieldStressTest:) keyEquivalent:@""];
+    overlayYieldStressTest.target = self;
+    [self.menu addItem:overlayYieldStressTest];
+
     [self.menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *settings = [[NSMenuItem alloc] initWithTitle:@"打开设置..." action:@selector(openSettings:) keyEquivalent:@","];
     settings.target = self;
@@ -4120,7 +4127,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"恢复 JSON", ERAutomationURLString(@"backup/import")],
         @[@"运行恢复压测", ERAutomationURLString(@"diagnostics/recovery-stress")],
         @[@"运行午休恢复压测", ERAutomationURLString(@"diagnostics/lunch-recovery")],
-        @[@"运行显示恢复压测", ERAutomationURLString(@"diagnostics/display-recovery")]
+        @[@"运行显示恢复压测", ERAutomationURLString(@"diagnostics/display-recovery")],
+        @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")]
     ];
     for (NSArray<NSString *> *itemInfo in automationURLs) {
         NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"复制%@", itemInfo[0]]
@@ -5310,6 +5318,91 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self publishState];
 }
 
+- (void)runOverlayYieldStressTest:(id)sender {
+    if (!self.settings.eyeEnabled || !self.settings.showRestWindow) {
+        [self noteRecoveryEventTitle:@"窗口让开压测" detail:@"眼睛提醒或休息页已关闭，跳过"];
+        [self publishState];
+        return;
+    }
+
+    self.overlayYieldStressTestGeneration += 1;
+    NSUInteger generation = self.overlayYieldStressTestGeneration;
+    NSInteger total = 3;
+
+    BOOL previousTopmost = self.settings.restWindowTopmost;
+    self.settings.restWindowTopmost = NO;
+    self.paused = NO;
+    self.pausedUntil = nil;
+    self.autoPauseActive = NO;
+    self.focusModeEnabled = NO;
+    self.eyeResting = YES;
+    self.eyeRestEndsAt = [NSDate dateWithTimeIntervalSinceNow:MAX(30, self.settings.eyeRestSeconds)];
+    self.standResting = NO;
+    self.standRestEndsAt = nil;
+    self.restOverlayYielded = NO;
+
+    [self presentSettingsWindow];
+    [self ensureRestWindowForKind:ERReminderKindEye remaining:[self remainingUntil:self.eyeRestEndsAt]];
+
+    [self noteRecoveryEventTitle:@"窗口让开压测" detail:@"已模拟非置顶休息页和设置页并存，开始复查"];
+    [self publishState];
+
+    NSArray<NSNumber *> *delays = @[@0.0, @0.45, @1.2];
+    for (NSInteger index = 0; index < delays.count; index++) {
+        NSTimeInterval delay = delays[index].doubleValue;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (generation != self.overlayYieldStressTestGeneration) return;
+            if (index == 0) {
+                [self yieldRestOverlayForUserFocusChange];
+            }
+            [self runOverlayYieldStressTestPass:index + 1 total:total generation:generation];
+            if (index + 1 == total) {
+                self.settings.restWindowTopmost = previousTopmost;
+                [self.settings save];
+                self.eyeResting = NO;
+                self.eyeRestEndsAt = nil;
+                self.eyeDueAt = self.settings.eyeEnabled ? [NSDate dateWithTimeIntervalSinceNow:self.settings.eyeFocusSeconds] : nil;
+                self.restOverlayYielded = NO;
+                if (self.restWindowController) {
+                    [self.restWindowController close];
+                    self.restWindowController = nil;
+                }
+                [self closeOrphanRestWindows];
+                [self.settingsWindowController close];
+                [self publishState];
+            }
+        });
+    }
+}
+
+- (void)runOverlayYieldStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation {
+    if (generation != self.overlayYieldStressTestGeneration) return;
+
+    [self settleExpiredRests];
+    [self repairRestStateIfNeeded];
+    NSInteger orphaned = [self closeOrphanRestWindows];
+
+    BOOL yielded = self.restOverlayYielded;
+    BOOL hidden = !self.restWindowController || !self.restWindowController.window.visible;
+    BOOL settingsAlive = self.settingsWindowController && self.settingsWindowController.window.visible;
+    BOOL restContinues = self.eyeResting && self.eyeRestEndsAt && [self.eyeRestEndsAt timeIntervalSinceNow] > 0;
+
+    NSMutableArray<NSString *> *details = [NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%@ %ld/%ld",
+                                                                           pass == total ? @"完成" : @"复查",
+                                                                           (long)pass,
+                                                                           (long)total]];
+    [details addObject:yielded ? @"休息页已让开" : @"休息页未让开"];
+    [details addObject:hidden ? @"窗口已隐藏" : @"窗口仍可见"];
+    [details addObject:settingsAlive ? @"设置页保留" : @"设置页丢失"];
+    [details addObject:restContinues ? @"休息计时继续" : @"休息计时异常"];
+    if (orphaned > 0) {
+        [details addObject:[NSString stringWithFormat:@"清理残留 %ld 个", (long)orphaned]];
+    }
+
+    [self noteRecoveryEventTitle:@"窗口让开压测" detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
+}
+
 - (void)yieldRestOverlayForUserFocusChange {
     if (!self.restWindowController || self.settings.restWindowTopmost) return;
     self.restOverlayYielded = YES;
@@ -5542,6 +5635,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"display-recovery"] || [argument isEqualToString:@"display"] || [argument isEqualToString:@"screen"]) {
             [self runDisplayRecoveryStressTest:nil];
             detail = @"运行显示恢复压测";
+        } else if ([argument isEqualToString:@"overlay-yield"] || [argument isEqualToString:@"yield"] || [argument isEqualToString:@"window-yield"]) {
+            [self runOverlayYieldStressTest:nil];
+            detail = @"运行窗口让开压测";
         } else {
             [self copyRecoveryDiagnostic:nil];
             detail = @"复制恢复诊断";

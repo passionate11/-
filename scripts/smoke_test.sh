@@ -153,4 +153,12 @@ sleep 3
 history_contains '完成 3/3' '\\U5b8c\\U6210 3/3' || fail "display recovery stress did not complete"
 history_contains '窗口回到屏幕内' '\\U7a97\\U53e3\\U56de\\U5230\\U5c4f\\U5e55\\U5185' || fail "display recovery did not restore window onscreen"
 
+echo "==> Checking overlay yield URL"
+open "$URL_SCHEME://diagnostics/overlay-yield"
+sleep 3
+history_contains '窗口让开压测' '\\U7a97\\U53e3\\U8ba9\\U5f00\\U538b\\U6d4b' || fail "overlay yield stress did not run"
+history_contains '休息页已让开' '\\U4f11\\U606f\\U9875\\U5df2\\U8ba9\\U5f00' || fail "overlay yield stress did not yield rest overlay"
+history_contains '设置页保留' '\\U8bbe\\U7f6e\\U9875\\U4fdd\\U7559' || fail "overlay yield stress did not preserve settings window"
+history_contains '休息计时继续' '\\U4f11\\U606f\\U8ba1\\U65f6\\U7ee7\\U7eed' || fail "overlay yield stress did not keep timer running"
+
 echo "==> Smoke test passed"
