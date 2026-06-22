@@ -53,7 +53,7 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: copyApplicationDiagnostic: applicationDiagnosticText toggleRestWindowTopmost:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText toggleRestWindowTopmost:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
@@ -63,7 +63,14 @@ check_contains "$STRINGS_OUTPUT" "https://api.github.com/repos/passionate11/-/re
 
 echo "==> Verifying window behavior guardrails"
 SOURCE_CONTENT="$(< "$SOURCE_FILE")"
+README_CONTENT="$(< README.md)"
 check_contains "$SOURCE_CONTENT" "应用诊断" "application diagnostics title"
+check_contains "$SOURCE_CONTENT" "applyQuickRhythm:" "quick rhythm action"
+check_contains "$SOURCE_CONTENT" "quickRhythmMatchesItemInfo" "quick rhythm state guard"
+check_contains "$SOURCE_CONTENT" "快速节奏" "quick rhythm menu"
+check_contains "$SOURCE_CONTENT" "调试 10 秒" "debug rhythm menu item"
+check_contains "$SOURCE_CONTENT" "rhythm/debug" "debug rhythm automation URL"
+check_contains "$README_CONTENT" "songyixia://rhythm/debug" "debug rhythm docs"
 check_contains "$SOURCE_CONTENT" "反馈问题" "issue feedback menu"
 check_contains "$SOURCE_CONTENT" "NSURLComponents" "issue URL builder"
 check_contains "$SOURCE_CONTENT" "NSURLSession" "update check network request"

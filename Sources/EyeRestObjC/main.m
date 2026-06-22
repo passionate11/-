@@ -1424,6 +1424,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)showAbout:(id)sender;
 - (void)openIssueFeedback:(id)sender;
 - (void)checkForUpdates:(id)sender;
+- (BOOL)quickRhythmMatchesItemInfo:(NSArray *)itemInfo;
+- (BOOL)applyQuickRhythmToken:(NSString *)token detail:(NSString **)detail;
+- (void)applyQuickRhythm:(NSMenuItem *)sender;
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
 - (BOOL)handleAutomationURL:(NSURL *)url;
 - (void)copyAutomationURL:(NSMenuItem *)sender;
@@ -4028,6 +4031,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"打开设置", ERAutomationURLString(@"settings")],
         @[@"立即眼睛休息", ERAutomationURLString(@"rest/eye")],
         @[@"立即站立", ERAutomationURLString(@"rest/stand")],
+        @[@"快速节奏：20-20-20", ERAutomationURLString(@"rhythm/202020")],
+        @[@"快速节奏：番茄", ERAutomationURLString(@"rhythm/pomodoro")],
+        @[@"快速节奏：调试", ERAutomationURLString(@"rhythm/debug")],
         @[@"暂停 30 分钟", ERAutomationURLString(@"pause/30m")],
         @[@"继续提醒", ERAutomationURLString(@"resume")],
         @[@"恢复 JSON", ERAutomationURLString(@"backup/import")],
@@ -4060,6 +4066,23 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMenuItem *pauseGroup = [[NSMenuItem alloc] initWithTitle:@"暂停提醒" action:nil keyEquivalent:@""];
     pauseGroup.submenu = pauseMenu;
     [self.menu addItem:pauseGroup];
+
+    NSMenu *quickRhythmMenu = [[NSMenu alloc] initWithTitle:@"快速节奏"];
+    NSArray<NSArray *> *quickRhythms = @[
+        @[@"20-20-20", @(20 * 60), @20, @(EREyeMode202020)],
+        @[@"番茄 25/5", @(25 * 60), @(5 * 60), @(EREyeModePomodoro)],
+        @[@"调试 10 秒", @10, @10, @(EREyeModeCustom)]
+    ];
+    for (NSArray *itemInfo in quickRhythms) {
+        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:itemInfo[0] action:@selector(applyQuickRhythm:) keyEquivalent:@""];
+        item.target = self;
+        item.representedObject = itemInfo;
+        [quickRhythmMenu addItem:item];
+    }
+    NSMenuItem *quickRhythmGroup = [[NSMenuItem alloc] initWithTitle:@"快速节奏" action:nil keyEquivalent:@""];
+    quickRhythmGroup.submenu = quickRhythmMenu;
+    quickRhythmGroup.tag = 111;
+    [self.menu addItem:quickRhythmGroup];
 
     [self.menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *eyeNow = [[NSMenuItem alloc] initWithTitle:@"眼睛：现在休息" action:@selector(restEyeNow:) keyEquivalent:@"e"];
@@ -4795,6 +4818,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMenuItem *topmostWindow = [self.menu itemWithTag:110];
     topmostWindow.state = self.settings.restWindowTopmost ? NSControlStateValueOn : NSControlStateValueOff;
     topmostWindow.enabled = self.settings.showRestWindow;
+
+    NSMenuItem *quickRhythmGroup = [self.menu itemWithTag:111];
+    for (NSMenuItem *item in quickRhythmGroup.submenu.itemArray) {
+        NSArray *itemInfo = [item.representedObject isKindOfClass:NSArray.class] ? item.representedObject : nil;
+        item.state = [self quickRhythmMatchesItemInfo:itemInfo] ? NSControlStateValueOn : NSControlStateValueOff;
+    }
 }
 
 - (void)userNotificationCenter:(UNUserNotificationCenter *)center
@@ -4864,6 +4893,48 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.pauseStartedAt = now;
     self.pausedUntil = [calendar dateFromComponents:components];
     [self publishState];
+}
+
+- (BOOL)quickRhythmMatchesItemInfo:(NSArray *)itemInfo {
+    if (itemInfo.count < 4) return NO;
+    return self.settings.eyeEnabled &&
+        self.settings.eyeFocusSeconds == [itemInfo[1] integerValue] &&
+        self.settings.eyeRestSeconds == [itemInfo[2] integerValue] &&
+        self.settings.eyeMode == EREyeModeFromObject(itemInfo[3], EREyeModeCustom);
+}
+
+- (BOOL)applyQuickRhythmToken:(NSString *)token detail:(NSString **)detail {
+    NSString *rhythm = token.lowercaseString ?: @"";
+    NSArray *itemInfo = nil;
+    if ([rhythm isEqualToString:@"202020"] || [rhythm isEqualToString:@"20-20-20"] || [rhythm isEqualToString:@"default"]) {
+        itemInfo = @[@"20-20-20", @(20 * 60), @20, @(EREyeMode202020)];
+    } else if ([rhythm isEqualToString:@"pomodoro"] || [rhythm isEqualToString:@"tomato"]) {
+        itemInfo = @[@"番茄 25/5", @(25 * 60), @(5 * 60), @(EREyeModePomodoro)];
+    } else if ([rhythm isEqualToString:@"debug"] || [rhythm isEqualToString:@"10s"]) {
+        itemInfo = @[@"调试 10 秒", @10, @10, @(EREyeModeCustom)];
+    } else {
+        return NO;
+    }
+
+    self.settings.eyeEnabled = YES;
+    self.settings.eyeFocusSeconds = ERClampInteger([itemInfo[1] integerValue], 10, 8 * 60 * 60);
+    self.settings.eyeRestSeconds = ERClampInteger([itemInfo[2] integerValue], 10, 60 * 60);
+    self.settings.eyeMode = EREyeModeFromObject(itemInfo[3], EREyeModeCustom);
+    [self.settings save];
+    [self.settingsWindowController refreshControls];
+    if (detail) *detail = [NSString stringWithFormat:@"快速节奏 %@", itemInfo[0]];
+    [self settingsDidChangeShouldReset:YES];
+    return YES;
+}
+
+- (void)applyQuickRhythm:(NSMenuItem *)sender {
+    NSArray *itemInfo = [sender.representedObject isKindOfClass:NSArray.class] ? sender.representedObject : nil;
+    if (itemInfo.count < 4) return;
+    NSString *detail = nil;
+    if ([self applyQuickRhythmToken:[itemInfo[0] isEqualToString:@"20-20-20"] ? @"202020" : ([itemInfo[0] hasPrefix:@"番茄"] ? @"pomodoro" : @"debug") detail:&detail]) {
+        [self noteRecoveryEventTitle:@"快速节奏" detail:[NSString stringWithFormat:@"已切换为 %@", itemInfo[0]]];
+        [self publishState];
+    }
 }
 
 - (void)restEyeNow:(id)sender {
@@ -5202,6 +5273,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else {
             return NO;
         }
+    } else if ([command isEqualToString:@"rhythm"] || [command isEqualToString:@"preset"]) {
+        if (![self applyQuickRhythmToken:argument detail:&detail]) return NO;
     } else if ([command isEqualToString:@"diagnostics"] || [command isEqualToString:@"diagnostic"] || [command isEqualToString:@"recovery"]) {
         if ([argument isEqualToString:@"recovery-stress"] || [argument isEqualToString:@"stress"]) {
             [self runRecoveryStressTest:nil];

@@ -113,6 +113,11 @@ history_contains '暂停 00:10' '\\U6682\\U505c 00:10' || fail "pause/10s did no
 open "$URL_SCHEME://resume"
 sleep 1
 history_contains '继续提醒' '\\U7ee7\\U7eed\\U63d0\\U9192' || fail "resume did not record success"
+open "$URL_SCHEME://rhythm/debug"
+sleep 1
+history_contains '快速节奏 调试 10 秒' '\\U5feb\\U901f\\U8282\\U594f \\U8c03\\U8bd5 10 \\U79d2' || fail "rhythm/debug did not record success"
+[[ "$(/usr/bin/defaults read "$BUNDLE_ID" eyeFocusSeconds 2>/dev/null || true)" == "10" ]] || fail "rhythm/debug did not set eyeFocusSeconds to 10"
+[[ "$(/usr/bin/defaults read "$BUNDLE_ID" eyeRestSeconds 2>/dev/null || true)" == "10" ]] || fail "rhythm/debug did not set eyeRestSeconds to 10"
 
 echo "==> Checking recovery stress URL"
 open "$URL_SCHEME://diagnostics/recovery-stress"
