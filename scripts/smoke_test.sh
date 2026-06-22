@@ -6,6 +6,9 @@ APP_TARGET="/Applications/松一下.app"
 BINARY="$APP_TARGET/Contents/MacOS/EyeRest"
 BUNDLE_ID="local.codex.eyerest"
 URL_SCHEME="songyixia"
+PREF_BACKUP="$(mktemp "${TMPDIR:-/tmp}/songyixia-smoke-prefs.XXXXXX.plist")"
+HAD_PREFS=0
+APP_WAS_RUNNING=0
 
 cd "$ROOT_DIR"
 
@@ -13,6 +16,39 @@ fail() {
   echo "smoke_test: $*" >&2
   exit 1
 }
+
+if pgrep -f "$BINARY" >/dev/null 2>&1; then
+  APP_WAS_RUNNING=1
+fi
+
+if /usr/bin/defaults export "$BUNDLE_ID" "$PREF_BACKUP" >/dev/null 2>&1; then
+  HAD_PREFS=1
+else
+  rm -f "$PREF_BACKUP"
+fi
+
+cleanup() {
+  local status="$?"
+  set +e
+
+  pkill -f "$BINARY" 2>/dev/null
+  pkill -x EyeRest 2>/dev/null
+
+  if [[ "$HAD_PREFS" == "1" && -f "$PREF_BACKUP" ]]; then
+    /usr/bin/defaults import "$BUNDLE_ID" "$PREF_BACKUP" >/dev/null 2>&1
+    rm -f "$PREF_BACKUP"
+  else
+    /usr/bin/defaults delete "$BUNDLE_ID" >/dev/null 2>&1
+  fi
+
+  if [[ "$APP_WAS_RUNNING" == "1" ]]; then
+    open "$APP_TARGET" >/dev/null 2>&1
+  fi
+
+  exit "$status"
+}
+
+trap cleanup EXIT
 
 wait_for_process() {
   local attempt
