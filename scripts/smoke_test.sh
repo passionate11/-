@@ -177,6 +177,16 @@ history_contains '显示边界压测' '\\U663e\\U793a\\U8fb9\\U754c\\U538b\\U6d4
 history_contains '窗口已贴合屏幕' '\\U7a97\\U53e3\\U5df2\\U8d34\\U5408\\U5c4f\\U5e55' || fail "display bounds stress did not refit window"
 history_contains '内容已重排' '\\U5185\\U5bb9\\U5df2\\U91cd\\U6392' || fail "display bounds stress did not relayout content"
 
+echo "==> Checking display diagnostic URL"
+open "$URL_SCHEME://diagnostics/display-real"
+sleep 1
+history_contains '已复制显示环境诊断' '\\U5df2\\U590d\\U5236\\U663e\\U793a\\U73af\\U5883\\U8bca\\U65ad' || fail "display diagnostic URL did not record success"
+display_diagnostic="$(/usr/bin/pbpaste)"
+[[ "$display_diagnostic" == *"displayDiagnostic=1"* ]] || fail "display diagnostic missing marker"
+[[ "$display_diagnostic" == *"screenCount="* ]] || fail "display diagnostic missing screen count"
+[[ "$display_diagnostic" == *"restWindow="* ]] || fail "display diagnostic missing rest window state"
+[[ "$display_diagnostic" == *"settingsWindow="* ]] || fail "display diagnostic missing settings window state"
+
 echo "==> Checking live display URL"
 open "$URL_SCHEME://diagnostics/display-live"
 sleep 4

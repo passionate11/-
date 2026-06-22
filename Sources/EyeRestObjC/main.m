@@ -1512,8 +1512,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSArray<NSString *> *)recoveryHistoryLines;
 - (NSString *)detailedRecoveryDiagnosticText;
 - (NSString *)applicationDiagnosticText;
+- (NSString *)displayDiagnosticText;
 - (void)copyRecoveryDiagnostic:(id)sender;
 - (void)copyApplicationDiagnostic:(id)sender;
+- (void)copyDisplayDiagnostic:(id)sender;
 - (void)runRecoverySelfCheck:(id)sender;
 - (void)runRecoveryStressTest:(id)sender;
 - (void)handleRecoveryStressTestRequest:(NSNotification *)notification;
@@ -4268,6 +4270,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     copyAppDiagnostic.target = self;
     [self.menu addItem:copyAppDiagnostic];
 
+    NSMenuItem *copyDisplayDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制显示环境诊断" action:@selector(copyDisplayDiagnostic:) keyEquivalent:@""];
+    copyDisplayDiagnostic.target = self;
+    [self.menu addItem:copyDisplayDiagnostic];
+
     NSMenuItem *recoverySelfCheck = [[NSMenuItem alloc] initWithTitle:@"运行恢复自检" action:@selector(runRecoverySelfCheck:) keyEquivalent:@""];
     recoverySelfCheck.target = self;
     [self.menu addItem:recoverySelfCheck];
@@ -4367,6 +4373,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"运行长离开恢复压测", ERAutomationURLString(@"diagnostics/long-away-recovery")],
         @[@"运行显示恢复压测", ERAutomationURLString(@"diagnostics/display-recovery")],
         @[@"运行显示边界压测", ERAutomationURLString(@"diagnostics/display-bounds")],
+        @[@"复制显示环境诊断", ERAutomationURLString(@"diagnostics/display-real")],
         @[@"运行真实显示环境自检", ERAutomationURLString(@"diagnostics/display-live")],
         @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")],
         @[@"运行窗口层级压测", ERAutomationURLString(@"diagnostics/window-layer")],
@@ -4879,6 +4886,92 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     return [lines componentsJoinedByString:@"\n"];
 }
 
+- (NSString *)displayDiagnosticText {
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    [lines addObject:[NSString stringWithFormat:@"%@ 显示环境诊断", ERBrandName]];
+    [lines addObject:[NSString stringWithFormat:@"生成时间：%@", ERFormatClockTime(NSDate.date)]];
+    [lines addObject:[NSString stringWithFormat:@"屏幕摘要：%@", ERScreenDiagnosticSummary()]];
+
+    NSArray<NSScreen *> *screens = NSScreen.screens;
+    [lines addObject:@"displayDiagnostic=1"];
+    [lines addObject:[NSString stringWithFormat:@"screenCount=%ld", (long)screens.count]];
+    for (NSInteger index = 0; index < screens.count; index++) {
+        NSScreen *screen = screens[index];
+        NSRect frame = screen.frame;
+        NSRect visible = screen.visibleFrame;
+        CGFloat scale = screen.backingScaleFactor;
+        NSDictionary<NSDeviceDescriptionKey, id> *deviceDescription = screen.deviceDescription;
+        id screenNumber = deviceDescription[@"NSScreenNumber"];
+        [lines addObject:[NSString stringWithFormat:@"屏幕 %ld：%@frame %.0f,%.0f %.0fx%.0f · visible %.0f,%.0f %.0fx%.0f · scale %.1f · id %@",
+                          (long)index + 1,
+                          screen == NSScreen.mainScreen ? @"主屏 · " : @"",
+                          frame.origin.x,
+                          frame.origin.y,
+                          frame.size.width,
+                          frame.size.height,
+                          visible.origin.x,
+                          visible.origin.y,
+                          visible.size.width,
+                          visible.size.height,
+                          scale,
+                          screenNumber ?: @"未知"]];
+    }
+    if (screens.count == 0) {
+        [lines addObject:@"屏幕：未读取到 NSScreen"];
+    }
+
+    NSWindow *restWindow = self.restWindowController.window;
+    [lines addObject:[NSString stringWithFormat:@"restWindow=%@", restWindow ? @"present" : @"none"]];
+    if (restWindow) {
+        NSRect frame = restWindow.frame;
+        NSRect contentFrame = restWindow.contentView.frame;
+        NSRect screenFrame = restWindow.screen ? restWindow.screen.frame : NSZeroRect;
+        [lines addObject:[NSString stringWithFormat:@"休息页窗口：%@ · %@ · frame %.0f,%.0f %.0fx%.0f · content %.0fx%.0f · level %ld · behavior %lu · %@ · %@",
+                          restWindow.visible ? @"可见" : @"不可见",
+                          restWindow.screen ? @"有屏幕" : @"无屏幕",
+                          frame.origin.x,
+                          frame.origin.y,
+                          frame.size.width,
+                          frame.size.height,
+                          contentFrame.size.width,
+                          contentFrame.size.height,
+                          (long)restWindow.level,
+                          (unsigned long)restWindow.collectionBehavior,
+                          restWindow.screen ? (NSEqualRects(NSIntegralRect(frame), NSIntegralRect(screenFrame)) ? @"贴合屏幕" : @"未贴合屏幕") : @"无法判断贴合",
+                          [self.restWindowController hasHealthyActionBindings] ? @"按钮正常" : @"按钮异常"]];
+    } else {
+        [lines addObject:@"休息页窗口：无"];
+    }
+
+    NSWindow *settingsWindow = self.settingsWindowController.window;
+    [lines addObject:[NSString stringWithFormat:@"settingsWindow=%@", settingsWindow ? @"present" : @"none"]];
+    if (settingsWindow) {
+        NSRect frame = settingsWindow.frame;
+        [lines addObject:[NSString stringWithFormat:@"设置窗口：%@ · %@ · frame %.0f,%.0f %.0fx%.0f · level %ld",
+                          settingsWindow.visible ? @"可见" : @"不可见",
+                          settingsWindow.screen ? @"有屏幕" : @"无屏幕",
+                          frame.origin.x,
+                          frame.origin.y,
+                          frame.size.width,
+                          frame.size.height,
+                          (long)settingsWindow.level]];
+    } else {
+        [lines addObject:@"设置窗口：无"];
+    }
+
+    [lines addObject:[self recoveryWindowDiagnosticLine]];
+    [lines addObject:[self recoveryDiagnosticText]];
+    [lines addObject:[NSString stringWithFormat:@"状态：eyeResting=%@ standResting=%@ yielded=%@ topmost=%@ showWindow=%@ lightDistraction=%@ presentation=%@",
+                      self.eyeResting ? @"YES" : @"NO",
+                      self.standResting ? @"YES" : @"NO",
+                      self.restOverlayYielded ? @"YES" : @"NO",
+                      self.settings.restWindowTopmost ? @"YES" : @"NO",
+                      self.settings.showRestWindow ? @"YES" : @"NO",
+                      [self isLightDistractionModeActive] ? @"YES" : @"NO",
+                      self.presentationFocusActive ? @"YES" : @"NO"]];
+    return [lines componentsJoinedByString:@"\n"];
+}
+
 - (void)evaluateReminderKind:(ERReminderKind)kind {
     BOOL enabled = kind == ERReminderKindEye ? self.settings.eyeEnabled : self.settings.standEnabled;
     if (!enabled) return;
@@ -5369,6 +5462,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [pasteboard clearContents];
     [pasteboard setString:[self applicationDiagnosticText] forType:NSPasteboardTypeString];
     [self noteRecoveryEventTitle:@"诊断" detail:@"已复制应用诊断"];
+    [self publishState];
+}
+
+- (void)copyDisplayDiagnostic:(id)sender {
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:[self displayDiagnosticText] forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"诊断" detail:@"已复制显示环境诊断"];
     [self publishState];
 }
 
@@ -7249,9 +7350,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"display-bounds"] || [argument isEqualToString:@"bounds"] || [argument isEqualToString:@"screen-bounds"]) {
             [self runDisplayBoundsStressTest:nil];
             detail = @"运行显示边界压测";
-        } else if ([argument isEqualToString:@"display-live"] || [argument isEqualToString:@"screen-live"] || [argument isEqualToString:@"display-real"]) {
+        } else if ([argument isEqualToString:@"display-live"] || [argument isEqualToString:@"screen-live"]) {
             [self runRealDisplayCheck:nil];
             detail = @"运行真实显示环境自检";
+        } else if ([argument isEqualToString:@"display-real"] || [argument isEqualToString:@"display-diagnostic"] || [argument isEqualToString:@"screen-diagnostic"] || [argument isEqualToString:@"screen-real"]) {
+            [self copyDisplayDiagnostic:nil];
+            detail = @"复制显示环境诊断";
         } else if ([argument isEqualToString:@"overlay-yield"] || [argument isEqualToString:@"yield"] || [argument isEqualToString:@"window-yield"]) {
             [self runOverlayYieldStressTest:nil];
             detail = @"运行窗口让开压测";
@@ -7324,6 +7428,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"- 专注联动模板：%@", ERAutomationURLString(@"automation/focus-template")]];
     [lines addObject:[NSString stringWithFormat:@"- 暂停 30 分钟：%@", ERAutomationURLString(@"pause/30m")]];
     [lines addObject:[NSString stringWithFormat:@"- 继续提醒：%@", ERAutomationURLString(@"resume")]];
+    [lines addObject:[NSString stringWithFormat:@"- 显示环境诊断：%@", ERAutomationURLString(@"diagnostics/display-real")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实显示环境自检：%@", ERAutomationURLString(@"diagnostics/display-live")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实演示联动自检：%@", ERAutomationURLString(@"diagnostics/presentation-live")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实日历诊断：%@", ERAutomationURLString(@"diagnostics/calendar-real")]];

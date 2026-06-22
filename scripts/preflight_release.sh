@@ -53,7 +53,7 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText toggleRestWindowTopmost:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText toggleRestWindowTopmost:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
@@ -101,6 +101,13 @@ check_contains "$SOURCE_CONTENT" "diagnostics/display-bounds" "display bounds au
 check_contains "$README_CONTENT" "songyixia://diagnostics/display-bounds" "display bounds docs"
 check_contains "$SOURCE_CONTENT" "显示边界压测" "display bounds diagnostics"
 check_contains "$SOURCE_CONTENT" "runRealDisplayCheck:" "real display check action"
+check_contains "$SOURCE_CONTENT" "copyDisplayDiagnostic:" "display diagnostic action"
+check_contains "$SOURCE_CONTENT" "displayDiagnosticText" "display diagnostic text helper"
+check_contains "$SOURCE_CONTENT" "diagnostics/display-real" "real display diagnostic automation URL"
+check_contains "$README_CONTENT" "songyixia://diagnostics/display-real" "real display diagnostic docs"
+check_contains "$SOURCE_CONTENT" "显示环境诊断" "real display diagnostic title"
+check_contains "$SOURCE_CONTENT" "displayDiagnostic=1" "real display diagnostic machine marker"
+check_contains "$SOURCE_CONTENT" "screenCount=" "real display diagnostic screen count"
 check_contains "$SOURCE_CONTENT" "diagnostics/display-live" "real display check automation URL"
 check_contains "$README_CONTENT" "songyixia://diagnostics/display-live" "real display check docs"
 check_contains "$SOURCE_CONTENT" "真实显示环境自检" "real display diagnostics"
