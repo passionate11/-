@@ -612,6 +612,30 @@ static BOOL ERPresentationModeDetected(void) {
     return (options & mask) != 0;
 }
 
+static NSString *ERScreenDiagnosticSummary(void) {
+    NSMutableArray<NSString *> *parts = [NSMutableArray array];
+    NSArray<NSScreen *> *screens = NSScreen.screens;
+    [parts addObject:[NSString stringWithFormat:@"屏幕 %ld", (long)screens.count]];
+    for (NSInteger index = 0; index < screens.count; index++) {
+        NSScreen *screen = screens[index];
+        NSRect frame = screen.frame;
+        NSRect visible = screen.visibleFrame;
+        BOOL main = screen == NSScreen.mainScreen;
+        [parts addObject:[NSString stringWithFormat:@"%@%ld %.0f,%.0f %.0fx%.0f 可见 %.0f,%.0f %.0fx%.0f",
+                          main ? @"主" : @"屏",
+                          (long)index + 1,
+                          frame.origin.x,
+                          frame.origin.y,
+                          frame.size.width,
+                          frame.size.height,
+                          visible.origin.x,
+                          visible.origin.y,
+                          visible.size.width,
+                          visible.size.height]];
+    }
+    return [parts componentsJoinedByString:@"；"];
+}
+
 static NSString *ERRestStyleHint(ERRestStyle style) {
     switch (style) {
         case ERRestStyleBreath: return @"慢一点，屏幕会等你回来。";
@@ -1446,6 +1470,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSUInteger sleepHiddenRecoveryStressTestGeneration;
 @property(nonatomic) NSUInteger displayRecoveryStressTestGeneration;
 @property(nonatomic) NSUInteger displayBoundsStressTestGeneration;
+@property(nonatomic) NSUInteger realDisplayCheckGeneration;
 @property(nonatomic) NSUInteger overlayYieldStressTestGeneration;
 @property(nonatomic) NSUInteger windowLayerPolicyStressTestGeneration;
 @property(nonatomic) NSUInteger automationPolicyStressTestGeneration;
@@ -1501,6 +1526,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runDisplayRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runDisplayBoundsStressTest:(id)sender;
 - (void)runDisplayBoundsStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
+- (void)runRealDisplayCheck:(id)sender;
+- (void)runRealDisplayCheckPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousEyeDueAt:(NSDate *)previousEyeDueAt previousEyeRestEndsAt:(NSDate *)previousEyeRestEndsAt previousEyeResting:(BOOL)previousEyeResting previousStandDueAt:(NSDate *)previousStandDueAt previousStandRestEndsAt:(NSDate *)previousStandRestEndsAt previousStandResting:(BOOL)previousStandResting previousRestOverlayYielded:(BOOL)previousRestOverlayYielded;
 - (void)runOverlayYieldStressTest:(id)sender;
 - (void)runOverlayYieldStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runWindowLayerPolicyStressTest:(id)sender;
@@ -4269,6 +4296,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     displayBoundsStressTest.target = self;
     [self.menu addItem:displayBoundsStressTest];
 
+    NSMenuItem *realDisplayCheck = [[NSMenuItem alloc] initWithTitle:@"运行真实显示环境自检" action:@selector(runRealDisplayCheck:) keyEquivalent:@""];
+    realDisplayCheck.target = self;
+    [self.menu addItem:realDisplayCheck];
+
     NSMenuItem *overlayYieldStressTest = [[NSMenuItem alloc] initWithTitle:@"运行窗口让开压测" action:@selector(runOverlayYieldStressTest:) keyEquivalent:@""];
     overlayYieldStressTest.target = self;
     [self.menu addItem:overlayYieldStressTest];
@@ -4336,6 +4367,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"运行长离开恢复压测", ERAutomationURLString(@"diagnostics/long-away-recovery")],
         @[@"运行显示恢复压测", ERAutomationURLString(@"diagnostics/display-recovery")],
         @[@"运行显示边界压测", ERAutomationURLString(@"diagnostics/display-bounds")],
+        @[@"运行真实显示环境自检", ERAutomationURLString(@"diagnostics/display-live")],
         @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")],
         @[@"运行窗口层级压测", ERAutomationURLString(@"diagnostics/window-layer")],
         @[@"运行自动化策略压测", ERAutomationURLString(@"diagnostics/automation-policy")],
@@ -5813,6 +5845,112 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self publishState];
 }
 
+- (void)runRealDisplayCheck:(id)sender {
+    if (!self.settings.eyeEnabled || !self.settings.showRestWindow) {
+        [self noteRecoveryEventTitle:@"真实显示环境自检" detail:@"眼睛提醒或休息页已关闭，跳过"];
+        [self publishState];
+        return;
+    }
+
+    self.realDisplayCheckGeneration += 1;
+    NSUInteger generation = self.realDisplayCheckGeneration;
+    NSInteger total = 3;
+    NSDate *previousEyeDueAt = self.eyeDueAt;
+    NSDate *previousEyeRestEndsAt = self.eyeRestEndsAt;
+    BOOL previousEyeResting = self.eyeResting;
+    NSDate *previousStandDueAt = self.standDueAt;
+    NSDate *previousStandRestEndsAt = self.standRestEndsAt;
+    BOOL previousStandResting = self.standResting;
+    BOOL previousRestOverlayYielded = self.restOverlayYielded;
+
+    self.paused = NO;
+    self.pausedUntil = nil;
+    self.autoPauseActive = NO;
+    self.focusModeEnabled = NO;
+    self.eyeResting = YES;
+    self.eyeRestEndsAt = [NSDate dateWithTimeIntervalSinceNow:MAX(30, self.settings.eyeRestSeconds)];
+    self.standResting = NO;
+    self.standRestEndsAt = nil;
+    self.restOverlayYielded = NO;
+    [self ensureRestWindowForKind:ERReminderKindEye remaining:[self remainingUntil:self.eyeRestEndsAt]];
+
+    [self noteRecoveryEventTitle:@"真实显示环境自检" detail:[NSString stringWithFormat:@"%@，开始复查", ERScreenDiagnosticSummary()]];
+    [self publishState];
+
+    NSArray<NSNumber *> *delays = @[@0.0, @0.5, @1.4];
+    for (NSInteger index = 0; index < delays.count; index++) {
+        NSTimeInterval delay = delays[index].doubleValue;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self runRealDisplayCheckPass:index + 1
+                                    total:total
+                               generation:generation
+                         previousEyeDueAt:previousEyeDueAt
+                    previousEyeRestEndsAt:previousEyeRestEndsAt
+                       previousEyeResting:previousEyeResting
+                        previousStandDueAt:previousStandDueAt
+                   previousStandRestEndsAt:previousStandRestEndsAt
+                      previousStandResting:previousStandResting
+                 previousRestOverlayYielded:previousRestOverlayYielded];
+        });
+    }
+}
+
+- (void)runRealDisplayCheckPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousEyeDueAt:(NSDate *)previousEyeDueAt previousEyeRestEndsAt:(NSDate *)previousEyeRestEndsAt previousEyeResting:(BOOL)previousEyeResting previousStandDueAt:(NSDate *)previousStandDueAt previousStandRestEndsAt:(NSDate *)previousStandRestEndsAt previousStandResting:(BOOL)previousStandResting previousRestOverlayYielded:(BOOL)previousRestOverlayYielded {
+    if (generation != self.realDisplayCheckGeneration) return;
+
+    [self repairRestOverlayAfterSystemEvent:nil];
+    NSInteger orphaned = [self closeOrphanRestWindows];
+
+    NSWindow *window = self.restWindowController.window;
+    NSScreen *screen = window.screen ?: NSScreen.mainScreen ?: NSScreen.screens.firstObject;
+    NSRect expectedFrame = screen ? screen.frame : NSMakeRect(0, 0, 1280, 800);
+    BOOL frameMatches = window && NSEqualRects(NSIntegralRect(window.frame), NSIntegralRect(expectedFrame));
+    BOOL contentMatches = window && NSEqualRects(NSIntegralRect(window.contentView.frame), NSIntegralRect(NSMakeRect(0, 0, expectedFrame.size.width, expectedFrame.size.height)));
+    BOOL actionBindings = self.restWindowController && [self.restWindowController hasHealthyActionBindings];
+    BOOL onScreen = window && screen && NSIntersectsRect(window.frame, screen.frame);
+
+    NSMutableArray<NSString *> *details = [NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%@ %ld/%ld",
+                                                                           pass == total ? @"完成" : @"复查",
+                                                                           (long)pass,
+                                                                           (long)total]];
+    [details addObject:onScreen ? @"真实窗口在屏幕内" : @"真实窗口不在屏幕内"];
+    [details addObject:frameMatches ? @"真实窗口贴合屏幕" : @"真实窗口尺寸异常"];
+    [details addObject:contentMatches ? @"真实内容已重排" : @"真实内容仍需重排"];
+    [details addObject:actionBindings ? @"按钮正常" : @"按钮异常"];
+    [details addObject:ERScreenDiagnosticSummary()];
+    if (window) {
+        [details addObject:[NSString stringWithFormat:@"frame %.0f,%.0f %.0fx%.0f",
+                            window.frame.origin.x,
+                            window.frame.origin.y,
+                            window.frame.size.width,
+                            window.frame.size.height]];
+    } else {
+        [details addObject:@"无休息页"];
+    }
+    if (orphaned > 0) {
+        [details addObject:[NSString stringWithFormat:@"清理残留 %ld 个", (long)orphaned]];
+    }
+
+    if (pass == total) {
+        self.eyeDueAt = previousEyeDueAt ?: (self.settings.eyeEnabled ? [NSDate dateWithTimeIntervalSinceNow:self.settings.eyeFocusSeconds] : nil);
+        self.eyeRestEndsAt = previousEyeRestEndsAt;
+        self.eyeResting = previousEyeResting;
+        self.standDueAt = previousStandDueAt ?: (self.settings.standEnabled ? [NSDate dateWithTimeIntervalSinceNow:self.settings.standIntervalSeconds] : nil);
+        self.standRestEndsAt = previousStandRestEndsAt;
+        self.standResting = previousStandResting;
+        self.restOverlayYielded = previousRestOverlayYielded;
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
+        [self closeOrphanRestWindows];
+        [details addObject:@"测试状态已还原"];
+    }
+
+    [self noteRecoveryEventTitle:@"真实显示环境自检" detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
+}
+
 - (void)runOverlayYieldStressTest:(id)sender {
     if (!self.settings.eyeEnabled || !self.settings.showRestWindow) {
         [self noteRecoveryEventTitle:@"窗口让开压测" detail:@"眼睛提醒或休息页已关闭，跳过"];
@@ -7111,6 +7249,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"display-bounds"] || [argument isEqualToString:@"bounds"] || [argument isEqualToString:@"screen-bounds"]) {
             [self runDisplayBoundsStressTest:nil];
             detail = @"运行显示边界压测";
+        } else if ([argument isEqualToString:@"display-live"] || [argument isEqualToString:@"screen-live"] || [argument isEqualToString:@"display-real"]) {
+            [self runRealDisplayCheck:nil];
+            detail = @"运行真实显示环境自检";
         } else if ([argument isEqualToString:@"overlay-yield"] || [argument isEqualToString:@"yield"] || [argument isEqualToString:@"window-yield"]) {
             [self runOverlayYieldStressTest:nil];
             detail = @"运行窗口让开压测";
@@ -7183,6 +7324,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"- 专注联动模板：%@", ERAutomationURLString(@"automation/focus-template")]];
     [lines addObject:[NSString stringWithFormat:@"- 暂停 30 分钟：%@", ERAutomationURLString(@"pause/30m")]];
     [lines addObject:[NSString stringWithFormat:@"- 继续提醒：%@", ERAutomationURLString(@"resume")]];
+    [lines addObject:[NSString stringWithFormat:@"- 真实显示环境自检：%@", ERAutomationURLString(@"diagnostics/display-live")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实演示联动自检：%@", ERAutomationURLString(@"diagnostics/presentation-live")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实日历诊断：%@", ERAutomationURLString(@"diagnostics/calendar-real")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实日历联动自检：%@", ERAutomationURLString(@"diagnostics/calendar-live")]];

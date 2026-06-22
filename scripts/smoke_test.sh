@@ -177,6 +177,15 @@ history_contains '显示边界压测' '\\U663e\\U793a\\U8fb9\\U754c\\U538b\\U6d4
 history_contains '窗口已贴合屏幕' '\\U7a97\\U53e3\\U5df2\\U8d34\\U5408\\U5c4f\\U5e55' || fail "display bounds stress did not refit window"
 history_contains '内容已重排' '\\U5185\\U5bb9\\U5df2\\U91cd\\U6392' || fail "display bounds stress did not relayout content"
 
+echo "==> Checking live display URL"
+open "$URL_SCHEME://diagnostics/display-live"
+sleep 4
+history_contains '真实显示环境自检' '\\U771f\\U5b9e\\U663e\\U793a\\U73af\\U5883\\U81ea\\U68c0' || fail "live display check did not run"
+history_contains '真实窗口在屏幕内' '\\U771f\\U5b9e\\U7a97\\U53e3\\U5728\\U5c4f\\U5e55\\U5185' || fail "live display check did not keep window onscreen"
+history_contains '真实窗口贴合屏幕' '\\U771f\\U5b9e\\U7a97\\U53e3\\U8d34\\U5408\\U5c4f\\U5e55' || fail "live display check did not fit screen"
+history_contains '真实内容已重排' '\\U771f\\U5b9e\\U5185\\U5bb9\\U5df2\\U91cd\\U6392' || fail "live display check did not relayout content"
+history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "live display check did not restore state"
+
 echo "==> Checking overlay yield URL"
 open "$URL_SCHEME://diagnostics/overlay-yield"
 sleep 3
