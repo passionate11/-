@@ -195,6 +195,7 @@ songyixia://diagnostics/overlay-yield
 songyixia://diagnostics/window-layer
 songyixia://diagnostics/automation-policy
 songyixia://diagnostics/presentation-policy
+songyixia://diagnostics/calendar-policy
 ```
 
 ## 说明
@@ -255,6 +256,7 @@ songyixia://diagnostics/presentation-policy
 - 窗口层级压测：可验证设置页保持普通窗口层级、普通休息页让开后不弹回，且只有“置顶强提醒”才使用高层级。
 - 自动化策略压测：可模拟安静时段和自动暂停，验证只发通知、关闭休息页和顺延提醒时间。
 - 演示策略压测：可模拟全屏/演示轻打扰，验证到点只发通知、已有休息页会关闭、恢复自检不会重新弹窗。
+- 日历策略压测：可模拟日历会议只通知和日程暂停，验证不弹休息页、暂停会关闭休息页并顺延提醒时间。
 - 本机诊断脚本：一键输出安装包、签名、进程、窗口和关键偏好状态，方便排查置顶、卡住、多实例和安装异常。
 - 发布前检查脚本：统一本地和 CI 的构建、签名、打包、版本、变更记录和包体校验。
 - GitHub Release 自动化：推送 `v*` 标签后自动运行发布前检查，并上传 macOS zip 到 Releases。
@@ -282,6 +284,7 @@ songyixia://diagnostics/presentation-policy
 - 勿扰/专注模式联动：已加入公开的 `songyixia://` 外部自动化入口，可由快捷指令等工具在专注/勿扰流程开始和结束时切换轻打扰；后续如果 macOS 提供稳定公开接口，再接入自动读取系统专注状态。
 - 自动化策略压测：已加入安静时段和自动暂停验证；后续继续覆盖真实日历事件和更多演示/全屏组合。
 - 演示/全屏策略压测：已加入模拟演示命中校验；后续继续结合真实系统全屏应用组合做实机验证。
+- 日历策略压测：已加入模拟会议只通知和日程暂停校验；后续继续覆盖真实日历授权和真实事件组合。
 
 ### 后续可以探索
 

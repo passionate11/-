@@ -1437,10 +1437,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSUInteger windowLayerPolicyStressTestGeneration;
 @property(nonatomic) NSUInteger automationPolicyStressTestGeneration;
 @property(nonatomic) NSUInteger presentationPolicyStressTestGeneration;
+@property(nonatomic) NSUInteger calendarPolicyStressTestGeneration;
 @property(nonatomic) NSUInteger longAwayRecoveryStressTestGeneration;
 @property(nonatomic, strong) NSDictionary<NSString *, NSNumber *> *longAwayRecoveryStatsSnapshot;
 @property(nonatomic, strong) NSDictionary<NSString *, NSNumber *> *automationPolicyStatsSnapshot;
 @property(nonatomic, strong) NSDictionary<NSString *, NSNumber *> *presentationPolicyStatsSnapshot;
+@property(nonatomic, strong) NSDictionary<NSString *, NSNumber *> *calendarPolicyStatsSnapshot;
 @property(nonatomic, strong) ERRestWindowController *restWindowController;
 @property(nonatomic, strong) ERSettingsWindowController *settingsWindowController;
 @property(nonatomic) BOOL restOverlayYielded;
@@ -1490,6 +1492,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runAutomationPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousSettings:(NSDictionary<NSString *, id> *)previousSettings previousEyeDueAt:(NSDate *)previousEyeDueAt;
 - (void)runPresentationPolicyStressTest:(id)sender;
 - (void)runPresentationPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousSettings:(NSDictionary<NSString *, id> *)previousSettings previousEyeDueAt:(NSDate *)previousEyeDueAt;
+- (void)runCalendarPolicyStressTest:(id)sender;
+- (void)runCalendarPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousSettings:(NSDictionary<NSString *, id> *)previousSettings previousEyeDueAt:(NSDate *)previousEyeDueAt;
 - (void)runLongAwayRecoveryStressTest:(id)sender;
 - (void)runLongAwayRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (NSString *)recoveryWindowDiagnosticLine;
@@ -4191,6 +4195,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     presentationPolicyStressTest.target = self;
     [self.menu addItem:presentationPolicyStressTest];
 
+    NSMenuItem *calendarPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行日历策略压测" action:@selector(runCalendarPolicyStressTest:) keyEquivalent:@""];
+    calendarPolicyStressTest.target = self;
+    [self.menu addItem:calendarPolicyStressTest];
+
     [self.menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *settings = [[NSMenuItem alloc] initWithTitle:@"打开设置..." action:@selector(openSettings:) keyEquivalent:@","];
     settings.target = self;
@@ -4229,7 +4237,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")],
         @[@"运行窗口层级压测", ERAutomationURLString(@"diagnostics/window-layer")],
         @[@"运行自动化策略压测", ERAutomationURLString(@"diagnostics/automation-policy")],
-        @[@"运行演示策略压测", ERAutomationURLString(@"diagnostics/presentation-policy")]
+        @[@"运行演示策略压测", ERAutomationURLString(@"diagnostics/presentation-policy")],
+        @[@"运行日历策略压测", ERAutomationURLString(@"diagnostics/calendar-policy")]
     ];
     for (NSArray<NSString *> *itemInfo in automationURLs) {
         NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"复制%@", itemInfo[0]]
@@ -5979,9 +5988,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [details addObject:self.quietHoursActive ? @"安静命中" : @"安静未命中"];
     } else if (pass == 2) {
         self.settings.quietHoursEnabled = NO;
-        self.settings.autoPauseAppTokens = @[NSRunningApplication.currentApplication.bundleIdentifier ?: @"local.codex.eyerest"];
+        self.settings.autoPauseAppTokens = @[@"com.songyixia.diagnostic.autopause"];
         [self.settings save];
-        [self refreshFocusModeState];
         self.autoPauseActive = NO;
         self.appAutoPauseActive = NO;
         self.autoPauseSessionActive = NO;
@@ -5993,7 +6001,22 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [details addObject:windowVisible ? @"自动暂停前休息页已显示" : @"自动暂停前休息页未显示"];
     } else {
         NSDate *beforeDue = self.eyeDueAt;
-        [self tick:nil];
+        self.frontmostAppBundleIdentifier = @"com.songyixia.diagnostic.autopause";
+        self.frontmostAppName = @"诊断自动暂停";
+        self.autoPauseActive = YES;
+        self.appAutoPauseActive = YES;
+        self.autoFocusActive = NO;
+        if (!self.autoPauseSessionActive) {
+            self.todayAutoPauseSessions += 1;
+            self.autoPauseSessionActive = YES;
+        }
+        [self shiftReminderDatesBySeconds:1];
+        self.todayAutoPauseSeconds += 1;
+        [self saveTodayStats];
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
         BOOL shifted = beforeDue && self.eyeDueAt && [self.eyeDueAt timeIntervalSinceDate:beforeDue] >= 0.5;
         BOOL windowClosed = self.restWindowController == nil;
         [details addObject:self.autoPauseActive ? @"自动暂停命中" : @"自动暂停未命中"];
@@ -6204,6 +6227,181 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
 
     [self noteRecoveryEventTitle:@"演示策略压测" detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
+}
+
+- (void)runCalendarPolicyStressTest:(id)sender {
+    if (!self.settings.eyeEnabled || !self.settings.showRestWindow) {
+        [self noteRecoveryEventTitle:@"日历策略压测" detail:@"眼睛提醒或休息页已关闭，跳过"];
+        [self publishState];
+        return;
+    }
+
+    self.calendarPolicyStressTestGeneration += 1;
+    NSUInteger generation = self.calendarPolicyStressTestGeneration;
+    NSInteger total = 3;
+    NSDictionary<NSString *, id> *previousSettings = @{
+        @"autoFocusModeEnabled": @(self.settings.autoFocusModeEnabled),
+        @"calendarFocusModeEnabled": @(self.settings.calendarFocusModeEnabled)
+    };
+    NSDate *previousEyeDueAt = self.eyeDueAt;
+    self.calendarPolicyStatsSnapshot = @{
+        @"eye": @(self.todayEyeDone),
+        @"stand": @(self.todayStandDone),
+        @"standSeconds": @(self.todayStandSeconds),
+        @"snoozed": @(self.todaySnoozed),
+        @"skipped": @(self.todaySkipped),
+        @"manualDone": @(self.todayManualDone),
+        @"notificationOnly": @(self.todayNotificationOnly),
+        @"autoPauseSessions": @(self.todayAutoPauseSessions),
+        @"autoPauseSeconds": @(self.todayAutoPauseSeconds)
+    };
+
+    self.settings.autoFocusModeEnabled = YES;
+    self.settings.calendarFocusModeEnabled = YES;
+    [self.settings save];
+    self.paused = NO;
+    self.pausedUntil = nil;
+    self.focusModeEnabled = NO;
+    self.autoPauseActive = NO;
+    self.autoPauseSessionActive = NO;
+    self.autoIgnoreActive = NO;
+    self.appAutoPauseActive = NO;
+    self.presentationFocusActive = NO;
+    self.quietHoursActive = NO;
+    self.calendarFocusActive = YES;
+    self.calendarAutoPauseActive = NO;
+    self.autoFocusActive = YES;
+    self.currentCalendarEventTitle = @"诊断会议";
+    self.restOverlayYielded = NO;
+    self.eyeResting = NO;
+    self.eyeRestEndsAt = nil;
+    self.eyeDueAt = [NSDate dateWithTimeIntervalSinceNow:-1];
+    self.standResting = NO;
+    self.standRestEndsAt = nil;
+    if (self.restWindowController) {
+        [self.restWindowController close];
+        self.restWindowController = nil;
+    }
+    [self closeOrphanRestWindows];
+    [self.settingsWindowController refreshControls];
+
+    [self noteRecoveryEventTitle:@"日历策略压测" detail:@"已模拟日历会议和日程暂停，开始复查"];
+    [self publishState];
+
+    NSArray<NSNumber *> *delays = @[@0.0, @0.8, @1.7];
+    for (NSInteger index = 0; index < delays.count; index++) {
+        NSTimeInterval delay = delays[index].doubleValue;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (generation != self.calendarPolicyStressTestGeneration) return;
+            [self runCalendarPolicyStressTestPass:index + 1 total:total generation:generation previousSettings:previousSettings previousEyeDueAt:previousEyeDueAt];
+        });
+    }
+}
+
+- (void)runCalendarPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousSettings:(NSDictionary<NSString *, id> *)previousSettings previousEyeDueAt:(NSDate *)previousEyeDueAt {
+    if (generation != self.calendarPolicyStressTestGeneration) return;
+
+    NSMutableArray<NSString *> *details = [NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%@ %ld/%ld",
+                                                                           pass == total ? @"完成" : @"复查",
+                                                                           (long)pass,
+                                                                           (long)total]];
+
+    if (pass == 1) {
+        self.calendarFocusActive = YES;
+        self.calendarAutoPauseActive = NO;
+        self.autoPauseActive = NO;
+        self.autoFocusActive = YES;
+        self.currentCalendarEventTitle = @"诊断会议";
+        self.eyeDueAt = [NSDate dateWithTimeIntervalSinceNow:-1];
+        [self evaluateReminderKind:ERReminderKindEye];
+        [self repairRestStateIfNeeded];
+        BOOL notificationOnly = self.restWindowController == nil && self.todayNotificationOnly > self.calendarPolicyStatsSnapshot[@"notificationOnly"].integerValue;
+        [details addObject:notificationOnly ? @"日历会议只发通知" : @"日历会议仍弹窗"];
+        [details addObject:self.calendarFocusActive ? @"会议命中" : @"会议未命中"];
+    } else if (pass == 2) {
+        self.calendarFocusActive = NO;
+        self.calendarAutoPauseActive = NO;
+        self.autoFocusActive = NO;
+        self.autoPauseActive = NO;
+        self.eyeResting = YES;
+        self.eyeRestEndsAt = [NSDate dateWithTimeIntervalSinceNow:MAX(30, self.settings.eyeRestSeconds)];
+        self.eyeDueAt = [NSDate dateWithTimeIntervalSinceNow:MAX(30, self.settings.eyeFocusSeconds)];
+        self.restOverlayYielded = NO;
+        [self ensureRestWindowForKind:ERReminderKindEye remaining:[self remainingUntil:self.eyeRestEndsAt]];
+        BOOL windowVisible = self.restWindowController && self.restWindowController.window.visible;
+        self.calendarAutoPauseActive = YES;
+        self.calendarFocusActive = NO;
+        self.autoPauseActive = YES;
+        self.autoFocusActive = NO;
+        self.currentCalendarEventTitle = @"诊断录制";
+        NSDate *beforeDue = self.eyeDueAt;
+        [self shiftReminderDatesBySeconds:1];
+        self.todayAutoPauseSeconds += 1;
+        [self saveTodayStats];
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
+        BOOL shifted = beforeDue && self.eyeDueAt && [self.eyeDueAt timeIntervalSinceDate:beforeDue] >= 0.5;
+        BOOL windowClosed = self.restWindowController == nil;
+        [details addObject:windowVisible ? @"日程暂停前休息页已显示" : @"日程暂停前休息页未显示"];
+        [details addObject:self.autoPauseActive ? @"日程暂停命中" : @"日程暂停未命中"];
+        [details addObject:windowClosed ? @"日程暂停已关闭休息页" : @"日程暂停仍有休息页"];
+        [details addObject:shifted ? @"提醒时间已顺延" : @"提醒时间未顺延"];
+    } else {
+        [details addObject:@"等待还原统计"];
+    }
+
+    NSInteger orphaned = [self closeOrphanRestWindows];
+    if (orphaned > 0) {
+        [details addObject:[NSString stringWithFormat:@"清理残留 %ld 个", (long)orphaned]];
+    }
+
+    if (pass == total) {
+        self.settings.autoFocusModeEnabled = [previousSettings[@"autoFocusModeEnabled"] boolValue];
+        self.settings.calendarFocusModeEnabled = [previousSettings[@"calendarFocusModeEnabled"] boolValue];
+        [self.settings save];
+        NSDictionary<NSString *, NSNumber *> *snapshot = self.calendarPolicyStatsSnapshot;
+        if (snapshot) {
+            self.todayEyeDone = snapshot[@"eye"].integerValue;
+            self.todayStandDone = snapshot[@"stand"].integerValue;
+            self.todayStandSeconds = snapshot[@"standSeconds"].integerValue;
+            self.todaySnoozed = snapshot[@"snoozed"].integerValue;
+            self.todaySkipped = snapshot[@"skipped"].integerValue;
+            self.todayManualDone = snapshot[@"manualDone"].integerValue;
+            self.todayNotificationOnly = snapshot[@"notificationOnly"].integerValue;
+            self.todayAutoPauseSessions = snapshot[@"autoPauseSessions"].integerValue;
+            self.todayAutoPauseSeconds = snapshot[@"autoPauseSeconds"].integerValue;
+            [self saveTodayStats];
+        }
+        self.calendarPolicyStatsSnapshot = nil;
+        self.paused = NO;
+        self.pausedUntil = nil;
+        self.autoPauseActive = NO;
+        self.autoPauseSessionActive = NO;
+        self.appAutoPauseActive = NO;
+        self.calendarFocusActive = NO;
+        self.calendarAutoPauseActive = NO;
+        self.autoFocusActive = NO;
+        self.currentCalendarEventTitle = nil;
+        self.eyeResting = NO;
+        self.eyeRestEndsAt = nil;
+        self.eyeDueAt = previousEyeDueAt ?: (self.settings.eyeEnabled ? [NSDate dateWithTimeIntervalSinceNow:self.settings.eyeFocusSeconds] : nil);
+        self.restOverlayYielded = NO;
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
+        [self closeOrphanRestWindows];
+        [self.settingsWindowController refreshControls];
+        BOOL restoredNotification = snapshot && self.todayNotificationOnly == snapshot[@"notificationOnly"].integerValue;
+        BOOL restoredAutoPauseSeconds = snapshot && self.todayAutoPauseSeconds == snapshot[@"autoPauseSeconds"].integerValue;
+        [details addObject:(restoredNotification && restoredAutoPauseSeconds) ? @"统计已还原" : @"统计仍需还原"];
+        [details addObject:@"测试状态已还原"];
+    }
+
+    [self noteRecoveryEventTitle:@"日历策略压测" detail:[details componentsJoinedByString:@"，"]];
     [self publishState];
 }
 
@@ -6475,6 +6673,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"presentation-policy"] || [argument isEqualToString:@"presentation"] || [argument isEqualToString:@"fullscreen-policy"]) {
             [self runPresentationPolicyStressTest:nil];
             detail = @"运行演示策略压测";
+        } else if ([argument isEqualToString:@"calendar-policy"] || [argument isEqualToString:@"calendar"] || [argument isEqualToString:@"calendar-focus"]) {
+            [self runCalendarPolicyStressTest:nil];
+            detail = @"运行日历策略压测";
         } else {
             [self copyRecoveryDiagnostic:nil];
             detail = @"复制恢复诊断";

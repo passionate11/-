@@ -214,4 +214,15 @@ history_contains '演示命中已关闭休息页' '\\U6f14\\U793a\\U547d\\U4e2d\
 history_contains '恢复自检不弹休息页' '\\U6062\\U590d\\U81ea\\U68c0\\U4e0d\\U5f39\\U4f11\\U606f\\U9875' || fail "presentation policy recovery check popped rest window"
 history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "presentation policy did not restore test state"
 
+echo "==> Checking calendar policy URL"
+open "$URL_SCHEME://diagnostics/calendar-policy"
+sleep 4
+history_contains '日历策略压测' '\\U65e5\\U5386\\U7b56\\U7565\\U538b\\U6d4b' || fail "calendar policy stress did not run"
+history_contains '日历会议只发通知' '\\U65e5\\U5386\\U4f1a\\U8bae\\U53ea\\U53d1\\U901a\\U77e5' || fail "calendar policy did not keep meeting notification-only"
+history_contains '日程暂停命中' '\\U65e5\\U7a0b\\U6682\\U505c\\U547d\\U4e2d' || fail "calendar policy did not hit calendar auto-pause"
+history_contains '日程暂停已关闭休息页' '\\U65e5\\U7a0b\\U6682\\U505c\\U5df2\\U5173\\U95ed\\U4f11\\U606f\\U9875' || fail "calendar policy did not close rest window"
+history_contains '提醒时间已顺延' '\\U63d0\\U9192\\U65f6\\U95f4\\U5df2\\U987a\\U5ef6' || fail "calendar policy did not shift reminder time"
+history_contains '统计已还原' '\\U7edf\\U8ba1\\U5df2\\U8fd8\\U539f' || fail "calendar policy did not restore stats"
+history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "calendar policy did not restore test state"
+
 echo "==> Smoke test passed"
