@@ -1406,6 +1406,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSMutableArray<NSDictionary<NSString *, id> *> *recoveryEventHistory;
 @property(nonatomic) NSUInteger recoveryFollowUpGeneration;
 @property(nonatomic) NSUInteger recoveryStressTestGeneration;
+@property(nonatomic) NSUInteger lunchRecoveryStressTestGeneration;
 @property(nonatomic, strong) ERRestWindowController *restWindowController;
 @property(nonatomic, strong) ERSettingsWindowController *settingsWindowController;
 @property(nonatomic) BOOL restOverlayYielded;
@@ -1436,6 +1437,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runRecoveryStressTest:(id)sender;
 - (void)handleRecoveryStressTestRequest:(NSNotification *)notification;
 - (void)runRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
+- (void)runLunchRecoveryStressTest:(id)sender;
+- (void)runLunchRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (NSString *)recoveryWindowDiagnosticLine;
 - (void)yieldRestOverlayForUserFocusChange;
 - (void)showAbout:(id)sender;
@@ -4054,6 +4057,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     recoveryStressTest.target = self;
     [self.menu addItem:recoveryStressTest];
 
+    NSMenuItem *lunchRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行午休恢复压测" action:@selector(runLunchRecoveryStressTest:) keyEquivalent:@""];
+    lunchRecoveryStressTest.target = self;
+    [self.menu addItem:lunchRecoveryStressTest];
+
     [self.menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *settings = [[NSMenuItem alloc] initWithTitle:@"打开设置..." action:@selector(openSettings:) keyEquivalent:@","];
     settings.target = self;
@@ -4083,7 +4090,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"暂停 30 分钟", ERAutomationURLString(@"pause/30m")],
         @[@"继续提醒", ERAutomationURLString(@"resume")],
         @[@"恢复 JSON", ERAutomationURLString(@"backup/import")],
-        @[@"运行恢复压测", ERAutomationURLString(@"diagnostics/recovery-stress")]
+        @[@"运行恢复压测", ERAutomationURLString(@"diagnostics/recovery-stress")],
+        @[@"运行午休恢复压测", ERAutomationURLString(@"diagnostics/lunch-recovery")]
     ];
     for (NSArray<NSString *> *itemInfo in automationURLs) {
         NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"复制%@", itemInfo[0]]
@@ -5125,6 +5133,64 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self publishState];
 }
 
+- (void)runLunchRecoveryStressTest:(id)sender {
+    self.lunchRecoveryStressTestGeneration += 1;
+    NSUInteger generation = self.lunchRecoveryStressTestGeneration;
+    NSInteger total = 3;
+
+    self.paused = NO;
+    self.pausedUntil = nil;
+    self.autoPauseActive = NO;
+    self.focusModeEnabled = NO;
+    self.standResting = YES;
+    self.standRestEndsAt = [NSDate dateWithTimeIntervalSinceNow:-90];
+    self.standDueAt = nil;
+    self.eyeResting = NO;
+    self.eyeRestEndsAt = nil;
+    self.restOverlayYielded = NO;
+
+    if (self.restWindowController) {
+        [self.restWindowController close];
+        self.restWindowController = nil;
+    }
+    [self closeOrphanRestWindows];
+
+    [self noteRecoveryEventTitle:@"午休恢复压测" detail:@"已模拟站立休息过期，开始复查"];
+    [self publishState];
+
+    NSArray<NSNumber *> *delays = @[@0.0, @0.5, @1.5];
+    for (NSInteger index = 0; index < delays.count; index++) {
+        NSTimeInterval delay = delays[index].doubleValue;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self runLunchRecoveryStressTestPass:index + 1 total:total generation:generation];
+        });
+    }
+}
+
+- (void)runLunchRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation {
+    if (generation != self.lunchRecoveryStressTestGeneration) return;
+
+    [self settleExpiredRests];
+    [self repairRestStateIfNeeded];
+    NSInteger orphaned = [self closeOrphanRestWindows];
+
+    BOOL resolved = !self.standResting && self.standRestEndsAt == nil && self.standDueAt != nil && self.restWindowController == nil;
+    NSMutableArray<NSString *> *details = [NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%@ %ld/%ld",
+                                                                           pass == total ? @"完成" : @"复查",
+                                                                           (long)pass,
+                                                                           (long)total]];
+    [details addObject:resolved ? @"站立过期已结算" : @"站立仍需复查"];
+    [details addObject:self.restWindowController ? @"仍有休息页" : @"无休息页"];
+    if (orphaned > 0) {
+        [details addObject:[NSString stringWithFormat:@"清理残留 %ld 个", (long)orphaned]];
+    }
+    [details addObject:[NSString stringWithFormat:@"下次站立 %@",
+                        self.standDueAt ? ERFormatDuration([self remainingUntil:self.standDueAt]) : @"未设置"]];
+
+    [self noteRecoveryEventTitle:@"午休恢复压测" detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
+}
+
 - (void)yieldRestOverlayForUserFocusChange {
     if (!self.restWindowController || self.settings.restWindowTopmost) return;
     self.restOverlayYielded = YES;
@@ -5351,6 +5417,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         if ([argument isEqualToString:@"recovery-stress"] || [argument isEqualToString:@"stress"]) {
             [self runRecoveryStressTest:nil];
             detail = @"运行恢复压测";
+        } else if ([argument isEqualToString:@"lunch-recovery"] || [argument isEqualToString:@"lunch"] || [argument isEqualToString:@"stand-expired"]) {
+            [self runLunchRecoveryStressTest:nil];
+            detail = @"运行午休恢复压测";
         } else {
             [self copyRecoveryDiagnostic:nil];
             detail = @"复制恢复诊断";
