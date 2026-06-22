@@ -58,6 +58,8 @@ scripts/package_app.sh
 dist/songyixia-0.1.0-1.zip
 ```
 
+解压后得到 `松一下.app`。
+
 GitHub Actions 也会上传同名构建 artifact，方便直接下载测试。
 
 ## 运行

@@ -39,12 +39,13 @@ jobs:
 
       - name: Verify package
         run: |
-          test -s dist/songyixia-0.1.0-1.zip
-          unzip -l dist/songyixia-0.1.0-1.zip | grep -q 'EyeRest.app/Contents/MacOS/EyeRest'
-          ! unzip -l dist/songyixia-0.1.0-1.zip | grep -q '/._'
+          archive="$(ls dist/songyixia-*.zip | head -1)"
+          test -s "$archive"
+          unzip -l "$archive" | grep -q '松一下.app/Contents/MacOS/EyeRest'
+          ! unzip -l "$archive" | grep -q '/._'
 
       - name: Upload app artifact
         uses: actions/upload-artifact@v4
         with:
           name: songyixia-macos
-          path: dist/songyixia-0.1.0-1.zip
+          path: dist/songyixia-*.zip
