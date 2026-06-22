@@ -76,6 +76,9 @@ check_contains "$SOURCE_CONTENT" "focus-template" "focus automation template URL
 check_contains "$SOURCE_CONTENT" "Hammerspoon 示例" "focus automation template content"
 check_contains "$SOURCE_CONTENT" "Raycast Script Command 示例" "raycast automation template content"
 check_contains "$README_CONTENT" "songyixia://automation/focus-template" "focus automation template docs"
+check_contains "$SOURCE_CONTENT" "copyAutomationDiagnostic:" "automation diagnostic action"
+check_contains "$SOURCE_CONTENT" "automationDiagnosticText" "automation diagnostic text helper"
+check_contains "$README_CONTENT" "songyixia://automation/diagnostic" "automation diagnostic docs"
 check_contains "$SOURCE_CONTENT" "runLunchRecoveryStressTest:" "lunch recovery stress action"
 check_contains "$SOURCE_CONTENT" "diagnostics/lunch-recovery" "lunch recovery automation URL"
 check_contains "$README_CONTENT" "songyixia://diagnostics/lunch-recovery" "lunch recovery docs"
@@ -93,6 +96,9 @@ check_contains "$SOURCE_CONTENT" "置顶强提醒" "topmost reminder setting"
 check_contains "$SOURCE_CONTENT" "restOverlayYielded" "yielded rest overlay state"
 check_contains "$SOURCE_CONTENT" "yieldRestOverlayForUserFocusChange" "rest overlay yield helper"
 check_contains "$SOURCE_CONTENT" "窗口让开" "rest overlay yield diagnostic"
+check_contains "$SOURCE_CONTENT" "applicationDidResignActive:" "rest overlay app resign yield"
+check_contains "$SOURCE_CONTENT" "NSArray<NSView *> *interactiveViews" "rest overlay blank-area yield"
+check_contains "$README_CONTENT" "卡片空白、背景" "non-topmost rest overlay docs"
 [[ "$SOURCE_CONTENT" == *"@interface ERSettingsWindow : NSWindow"* ]] || fail "settings window must remain a normal NSWindow"
 [[ "$SOURCE_CONTENT" == *"window.level = NSNormalWindowLevel;"* ]] || fail "settings window must use NSNormalWindowLevel"
 if [[ "$SOURCE_CONTENT" =~ NSFloatingWindowLevel|floatingPanel|NSWindowStyleMaskUtilityWindow|@interface\ ERSettingsPanel\ :\ NSPanel ]]; then
@@ -108,6 +114,14 @@ REST_INIT_BLOCK="$(awk '/- \(instancetype\)initWithAppDelegate:/{inside=1} insid
 check_contains "$REST_INIT_BLOCK" "window.collectionBehavior = NSWindowCollectionBehaviorManaged;" "rest overlay default collection behavior"
 if [[ "$REST_INIT_BLOCK" == *"NSWindowCollectionBehaviorCanJoinAllSpaces"* || "$REST_INIT_BLOCK" == *"NSWindowCollectionBehaviorFullScreenAuxiliary"* ]]; then
   fail "rest overlay must not join all spaces by default"
+fi
+ENSURE_REST_BLOCK="$(awk '/- \(void\)ensureRestWindowForKind:/{inside=1} inside && /^}/ {print; exit} inside{print}' "$SOURCE_FILE")"
+if [[ "$ENSURE_REST_BLOCK" == *"settingsWindowController close"* ]]; then
+  fail "rest overlay must not close settings window when presenting"
+fi
+BEGIN_REST_BLOCK="$(awk '/- \(void\)beginRestForKind:/{inside=1} inside && /^}/ {print; exit} inside{print}' "$SOURCE_FILE")"
+if [[ "$BEGIN_REST_BLOCK" == *"settingsWindowController close"* ]]; then
+  fail "manual rest must not close settings window when presenting"
 fi
 SETTINGS_PRESENT_BLOCK="$(awk '/- \(void\)presentSettingsWindow /{inside=1} inside && /}/{print; exit} inside{print}' "$SOURCE_FILE")"
 if [[ "$SETTINGS_PRESENT_BLOCK" == *"orderFrontRegardless"* ]]; then

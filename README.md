@@ -29,6 +29,7 @@
 - 支持安静时段：用户可设置固定时间段自动只发通知、不弹全屏休息页，用公开能力覆盖固定勿扰/专注场景。
 - 支持外部自动化链接：快捷指令、Raycast、Hammerspoon 等工具可打开 `songyixia://focus/on`、`songyixia://rhythm/debug` 等链接来联动专注/勿扰和快速节奏。
 - 菜单栏可复制专注联动脚本，直接生成快捷指令、Hammerspoon 和 Raycast 可用的轻打扰模板。
+- 菜单栏可复制自动化诊断，方便排查快捷指令、Raycast 或 Hammerspoon 联动问题。
 - 支持自定义轻打扰应用白名单。
 - 支持按应用和日程设置自动化策略：只发通知、自动暂停、或不处理。
 - 支持菜单栏显示模式：眼睛 + 站立、只显示眼睛、只显示站立、极简图标、智能轮换。
@@ -115,9 +116,11 @@ open outputs/EyeRest.app
 
 菜单栏里的 `复制专注联动脚本` 会把常用 `songyixia://` 链接、快捷指令说明、Hammerspoon 示例和 Raycast Script Command 示例复制到剪贴板。
 
+菜单栏里的 `复制自动化诊断` 会把 URL Scheme、常用联动链接、轻打扰状态、前台应用和策略数量复制到剪贴板。
+
 菜单栏里的 `反馈问题...` 会打开 GitHub Issue，并预填当前版本、系统和安装路径。遇到卡住、置顶、计时或自动化异常时，先点 `复制应用诊断`，再把诊断粘贴到 Issue 里。
 
-菜单栏里的 `置顶强提醒` 默认关闭。关闭时，休息窗口不会长期压在其他 App 前面，点击休息页卡片外背景或切到其他 App 会让它隐藏；打开后，休息页会用更强的置顶层级提醒你离屏。
+菜单栏里的 `置顶强提醒` 默认关闭。关闭时，休息窗口保持普通层级，不会长期压在其他 App 前面；点击休息页卡片空白、背景，或切到其他 App 时会让它隐藏。打开后，休息页会用更强的置顶层级提醒你离屏。
 
 如果 macOS 提示来自未验证开发者，可以在 Finder 中右键打开，或到系统设置里允许打开。
 
@@ -181,6 +184,7 @@ songyixia://pause/30m
 songyixia://resume
 songyixia://backup/import
 songyixia://automation/focus-template
+songyixia://automation/diagnostic
 songyixia://diagnostics/recovery-stress
 songyixia://diagnostics/lunch-recovery
 songyixia://diagnostics/display-recovery
@@ -224,6 +228,7 @@ songyixia://diagnostics/display-recovery
 - 安静时段：自动化设置页可设置固定时间段，在该时间内自动只发通知、不弹全屏休息页。
 - 外部自动化链接：注册 `songyixia://`，可由快捷指令或其他工具触发轻打扰、快速节奏、暂停、立即休息、打开设置和恢复压测。
 - 专注联动脚本模板：菜单栏可复制快捷指令、Hammerspoon 和 Raycast 示例，快速把系统专注或自定义热键接到轻打扰。
+- 自动化诊断：可复制自动化状态、常用联动链接、前台应用和策略数量，方便排查外部工具联动。
 - 自动化设置页：可开关自动策略、查看当前前台应用/日程命中状态，并编辑/恢复应用和日程关键词。
 - 自动化设置页精简：主页面保留状态、场景开关、安静时段和高级入口，应用/日程关键词移入独立编辑弹窗。
 - 更细的自动化策略：按应用选择只发通知、自动暂停或不处理，按日程关键词选择只发通知或自动暂停；不处理优先级最高，适合修正误命中。

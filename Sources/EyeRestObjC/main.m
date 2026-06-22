@@ -1423,6 +1423,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)repairRestOverlayAfterSystemEvent:(NSNotification *)notification;
 - (void)scheduleRecoveryFollowUpChecksWithTitle:(NSString *)eventTitle;
 - (void)runRecoveryFollowUpCheckWithTitle:(NSString *)eventTitle pass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
+- (void)applicationDidResignActive:(NSNotification *)notification;
 - (void)frontmostApplicationDidChange:(NSNotification *)notification;
 - (void)activeSpaceDidChange:(NSNotification *)notification;
 - (void)repairRestStateIfNeeded;
@@ -1455,6 +1456,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)copyAutomationURL:(NSMenuItem *)sender;
 - (NSString *)focusAutomationTemplateText;
 - (void)copyFocusAutomationTemplate:(id)sender;
+- (NSString *)automationDiagnosticText;
+- (void)copyAutomationDiagnostic:(id)sender;
 - (void)presentSettingsWindow;
 - (void)toggleRestWindowTopmost:(id)sender;
 - (NSTimeInterval)configuredRestDurationForKind:(ERReminderKind)kind;
@@ -3453,8 +3456,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (BOOL)er_shouldYieldForMouseDown:(NSEvent *)event {
     if (self.appDelegate.settings.restWindowTopmost) return NO;
     NSPoint location = event.locationInWindow;
-    NSPoint pointInCard = [self.focusCard convertPoint:location fromView:nil];
-    return !NSPointInRect(pointInCard, self.focusCard.bounds);
+    NSArray<NSView *> *interactiveViews = @[self.finishButton, self.snoozeButton, self.skipButton, self.extendButton];
+    for (NSView *view in interactiveViews) {
+        NSPoint point = [view convertPoint:location fromView:nil];
+        if (NSPointInRect(point, view.bounds)) {
+            return NO;
+        }
+    }
+    return YES;
 }
 
 - (void)er_yieldRestOverlayForUserFocusChange:(id)sender {
@@ -3533,6 +3542,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [NSNotificationCenter.defaultCenter addObserver:self
                                            selector:@selector(screenParametersChanged:)
                                                name:NSApplicationDidChangeScreenParametersNotification
+                                             object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self
+                                           selector:@selector(applicationDidResignActive:)
+                                               name:NSApplicationDidResignActiveNotification
                                              object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self
                                            selector:@selector(calendarStoreChanged:)
@@ -3895,6 +3908,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self publishState];
 }
 
+- (void)applicationDidResignActive:(NSNotification *)notification {
+    if (self.restWindowController && self.restWindowController.window.visible && !self.settings.restWindowTopmost) {
+        [self yieldRestOverlayForUserFocusChange];
+    }
+}
+
 - (void)repairRestOverlayAfterDisplayChange {
     [self repairRestOverlayAfterSystemEvent:nil];
 }
@@ -4119,6 +4138,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     automationTemplate.target = self;
     [self.menu addItem:automationTemplate];
 
+    NSMenuItem *automationDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制自动化诊断" action:@selector(copyAutomationDiagnostic:) keyEquivalent:@""];
+    automationDiagnostic.target = self;
+    [self.menu addItem:automationDiagnostic];
+
     NSMenu *pauseMenu = [[NSMenu alloc] initWithTitle:@"暂停提醒"];
     NSArray<NSArray *> *pauseItems = @[
         @[@"暂停 30 分钟", @(30 * 60), @"pauseFor:"],
@@ -4291,7 +4314,6 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)ensureRestWindowForKind:(ERReminderKind)kind remaining:(NSTimeInterval)remaining {
     if (!self.settings.showRestWindow || [self isLightDistractionModeActive] || remaining <= 0) return;
     if (self.restOverlayYielded && !self.settings.restWindowTopmost) return;
-    [self.settingsWindowController close];
     [self.restWindowController close];
     self.restWindowController = [[ERRestWindowController alloc] initWithAppDelegate:self];
     [self.restWindowController configureForKind:kind
@@ -4497,6 +4519,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [parts addObject:[self.restWindowController hasHealthyActionBindings] ? @"按钮正常" : @"按钮异常"];
         [parts addObject:[NSString stringWithFormat:@"level %ld", (long)self.restWindowController.window.level]];
         [parts addObject:[NSString stringWithFormat:@"behavior %lu", (unsigned long)self.restWindowController.window.collectionBehavior]];
+        [parts addObject:[NSString stringWithFormat:@"key %@ main %@",
+                          self.restWindowController.window.keyWindow ? @"YES" : @"NO",
+                          self.restWindowController.window.mainWindow ? @"YES" : @"NO"]];
         restWindowState = [parts componentsJoinedByString:@"/"];
     }
 
@@ -4624,7 +4649,6 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     [self showNotificationForKind:kind duration:duration];
     if (self.settings.showRestWindow && ![self isLightDistractionModeActive]) {
-        [self.settingsWindowController close];
         [self.restWindowController close];
         self.restWindowController = nil;
         self.restWindowController = [[ERRestWindowController alloc] initWithAppDelegate:self];
@@ -5526,6 +5550,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         if ([argument isEqualToString:@"focus-template"] || [argument isEqualToString:@"focus"] || [argument isEqualToString:@"script"]) {
             [self copyFocusAutomationTemplate:nil];
             detail = @"复制专注联动脚本";
+        } else if ([argument isEqualToString:@"diagnostic"] || [argument isEqualToString:@"diagnostics"] || [argument isEqualToString:@"status"]) {
+            [self copyAutomationDiagnostic:nil];
+            detail = @"复制自动化诊断";
         } else {
             return NO;
         }
@@ -5549,6 +5576,50 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
     [self publishState];
     return YES;
+}
+
+- (NSString *)automationDiagnosticText {
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    [lines addObject:[NSString stringWithFormat:@"%@ 自动化诊断", ERBrandName]];
+    [lines addObject:[NSString stringWithFormat:@"生成时间：%@", ERFormatClockTime(NSDate.date)]];
+    [lines addObject:[NSString stringWithFormat:@"URL Scheme：%@", ERAutomationURLScheme]];
+    [lines addObject:@"常用链接："];
+    [lines addObject:[NSString stringWithFormat:@"- 专注开始：%@", ERAutomationURLString(@"focus/on")]];
+    [lines addObject:[NSString stringWithFormat:@"- 专注结束：%@", ERAutomationURLString(@"focus/off")]];
+    [lines addObject:[NSString stringWithFormat:@"- 切换轻打扰：%@", ERAutomationURLString(@"focus/toggle")]];
+    [lines addObject:[NSString stringWithFormat:@"- 专注联动模板：%@", ERAutomationURLString(@"automation/focus-template")]];
+    [lines addObject:[NSString stringWithFormat:@"- 暂停 30 分钟：%@", ERAutomationURLString(@"pause/30m")]];
+    [lines addObject:[NSString stringWithFormat:@"- 继续提醒：%@", ERAutomationURLString(@"resume")]];
+    [lines addObject:[NSString stringWithFormat:@"自动化状态：%@", [self focusModeStatusText]]];
+    [lines addObject:[NSString stringWithFormat:@"轻打扰：manual=%@ auto=%@ autoPause=%@ ignored=%@ presentation=%@ quiet=%@ calendar=%@ calendarPause=%@",
+                      self.focusModeEnabled ? @"YES" : @"NO",
+                      self.autoFocusActive ? @"YES" : @"NO",
+                      self.autoPauseActive ? @"YES" : @"NO",
+                      self.autoIgnoreActive ? @"YES" : @"NO",
+                      self.presentationFocusActive ? @"YES" : @"NO",
+                      self.quietHoursActive ? @"YES" : @"NO",
+                      self.calendarFocusActive ? @"YES" : @"NO",
+                      self.calendarAutoPauseActive ? @"YES" : @"NO"]];
+    [lines addObject:[NSString stringWithFormat:@"前台应用：%@ · %@",
+                      self.frontmostAppName.length > 0 ? self.frontmostAppName : @"未知",
+                      self.frontmostAppBundleIdentifier.length > 0 ? self.frontmostAppBundleIdentifier : @"未知 bundle"]];
+    [lines addObject:[NSString stringWithFormat:@"安静时段：%@ %@-%@",
+                      self.settings.quietHoursEnabled ? @"开" : @"关",
+                      ERFormatClockMinute(self.settings.quietHoursStartMinute),
+                      ERFormatClockMinute(self.settings.quietHoursEndMinute)]];
+    [lines addObject:[NSString stringWithFormat:@"自动策略：%@ · 日历 %@ · 演示 %@",
+                      self.settings.autoFocusModeEnabled ? @"开" : @"关",
+                      self.settings.calendarFocusModeEnabled ? @"开" : @"关",
+                      self.settings.presentationFocusModeEnabled ? @"开" : @"关"]];
+    [lines addObject:[NSString stringWithFormat:@"应用策略数量：轻打扰 %ld · 自动暂停 %ld · 忽略 %ld",
+                      (long)self.settings.focusAppTokens.count,
+                      (long)self.settings.autoPauseAppTokens.count,
+                      (long)self.settings.ignoreAppTokens.count]];
+    [lines addObject:[NSString stringWithFormat:@"日程策略数量：只通知 %ld · 自动暂停 %ld",
+                      (long)self.settings.calendarFocusTokens.count,
+                      (long)self.settings.calendarAutoPauseTokens.count]];
+    [lines addObject:[self recoveryDiagnosticText]];
+    return [lines componentsJoinedByString:@"\n"];
 }
 
 - (NSString *)focusAutomationTemplateText {
@@ -5628,6 +5699,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [pasteboard clearContents];
     [pasteboard setString:[self focusAutomationTemplateText] forType:NSPasteboardTypeString];
     [self noteRecoveryEventTitle:@"外部自动化" detail:@"已复制专注联动脚本"];
+    [self publishState];
+}
+
+- (void)copyAutomationDiagnostic:(id)sender {
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:[self automationDiagnosticText] forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"外部自动化" detail:@"已复制自动化诊断"];
     [self publishState];
 }
 
