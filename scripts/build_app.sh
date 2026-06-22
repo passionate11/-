@@ -7,6 +7,8 @@ APP_DIR="$ROOT_DIR/outputs/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
+BUILD_NUMBER="${BUILD_NUMBER:-1}"
 
 cd "$ROOT_DIR"
 mkdir -p "$ROOT_DIR/.build"
@@ -41,9 +43,9 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>__VERSION__</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>__BUILD_NUMBER__</string>
   <key>LSMinimumSystemVersion</key>
   <string>13.0</string>
   <key>LSUIElement</key>
@@ -68,5 +70,10 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 </dict>
 </plist>
 PLIST
+
+/usr/bin/sed -i '' \
+  -e "s/__VERSION__/$VERSION/g" \
+  -e "s/__BUILD_NUMBER__/$BUILD_NUMBER/g" \
+  "$CONTENTS_DIR/Info.plist"
 
 echo "$APP_DIR"

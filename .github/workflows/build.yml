@@ -29,6 +29,7 @@ jobs:
           test -x outputs/EyeRest.app/Contents/MacOS/EyeRest
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' outputs/EyeRest.app/Contents/Info.plist | grep -q 'local.codex.eyerest'
           /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' outputs/EyeRest.app/Contents/Info.plist | grep -q '松一下'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' outputs/EyeRest.app/Contents/Info.plist)" = "$(cat VERSION)"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' outputs/EyeRest.app/Contents/Info.plist | grep -q 'songyixia'
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'handleAutomationURL:'
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'runRecoveryStressTest:'
