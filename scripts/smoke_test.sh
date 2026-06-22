@@ -202,6 +202,19 @@ display_diagnostic="$(/usr/bin/pbpaste)"
 [[ "$display_diagnostic" == *"restWindow="* ]] || fail "display diagnostic missing rest window state"
 [[ "$display_diagnostic" == *"settingsWindow="* ]] || fail "display diagnostic missing settings window state"
 
+echo "==> Checking issue bundle diagnostic URL"
+open "$URL_SCHEME://diagnostics/issue-bundle"
+sleep 1
+history_contains '已复制问题反馈包' '\\U5df2\\U590d\\U5236\\U95ee\\U9898\\U53cd\\U9988\\U5305' || fail "issue bundle URL did not record success"
+issue_bundle="$(/usr/bin/pbpaste)"
+[[ "$issue_bundle" == *"issueBundle=1"* ]] || fail "issue bundle missing marker"
+[[ "$issue_bundle" == *"issueTemplate=1"* ]] || fail "issue bundle missing issue template marker"
+[[ "$issue_bundle" == *"section=issue-template"* ]] || fail "issue bundle missing issue template section"
+[[ "$issue_bundle" == *"recoveryReport=1"* ]] || fail "issue bundle missing recovery report"
+[[ "$issue_bundle" == *"supportBundle=1"* ]] || fail "issue bundle missing support bundle"
+[[ "$issue_bundle" == *"section=recovery-report"* ]] || fail "issue bundle missing recovery report section"
+[[ "$issue_bundle" == *"section=support-bundle"* ]] || fail "issue bundle missing support bundle section"
+
 echo "==> Checking support bundle diagnostic URL"
 open "$URL_SCHEME://diagnostics/support-bundle"
 sleep 1

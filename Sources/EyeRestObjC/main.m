@@ -1525,12 +1525,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSString *)recoveryMatrixDiagnosticText;
 - (NSString *)recoveryReportDiagnosticText;
 - (NSString *)supportBundleDiagnosticText;
+- (NSString *)issueBundleDiagnosticText;
 - (void)copyRecoveryDiagnostic:(id)sender;
 - (void)copyApplicationDiagnostic:(id)sender;
 - (void)copyDisplayDiagnostic:(id)sender;
 - (void)copyRecoveryMatrixDiagnostic:(id)sender;
 - (void)copyRecoveryReportDiagnostic:(id)sender;
 - (void)copySupportBundleDiagnostic:(id)sender;
+- (void)copyIssueBundleDiagnostic:(id)sender;
 - (void)runRecoverySelfCheck:(id)sender;
 - (void)runRecoveryStressTest:(id)sender;
 - (void)handleRecoveryStressTestRequest:(NSNotification *)notification;
@@ -4337,105 +4339,123 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     recoveryStatus.enabled = NO;
     [self.menu addItem:recoveryStatus];
 
-    NSMenuItem *copyRecovery = [[NSMenuItem alloc] initWithTitle:@"复制恢复诊断" action:@selector(copyRecoveryDiagnostic:) keyEquivalent:@""];
-    copyRecovery.target = self;
-    [self.menu addItem:copyRecovery];
+    NSMenu *diagnosticMenu = [[NSMenu alloc] initWithTitle:@"排查中心"];
 
-    NSMenuItem *copyAppDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制应用诊断" action:@selector(copyApplicationDiagnostic:) keyEquivalent:@""];
-    copyAppDiagnostic.target = self;
-    [self.menu addItem:copyAppDiagnostic];
-
-    NSMenuItem *copyDisplayDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制显示环境诊断" action:@selector(copyDisplayDiagnostic:) keyEquivalent:@""];
-    copyDisplayDiagnostic.target = self;
-    [self.menu addItem:copyDisplayDiagnostic];
-
-    NSMenuItem *copyRecoveryMatrixDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制恢复场景矩阵" action:@selector(copyRecoveryMatrixDiagnostic:) keyEquivalent:@""];
-    copyRecoveryMatrixDiagnostic.target = self;
-    [self.menu addItem:copyRecoveryMatrixDiagnostic];
-
-    NSMenuItem *copyRecoveryReportDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制恢复问题报告" action:@selector(copyRecoveryReportDiagnostic:) keyEquivalent:@""];
-    copyRecoveryReportDiagnostic.target = self;
-    [self.menu addItem:copyRecoveryReportDiagnostic];
+    NSMenuItem *copyIssueBundleDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制问题反馈包" action:@selector(copyIssueBundleDiagnostic:) keyEquivalent:@""];
+    copyIssueBundleDiagnostic.target = self;
+    [diagnosticMenu addItem:copyIssueBundleDiagnostic];
 
     NSMenuItem *copySupportBundleDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制完整排查包" action:@selector(copySupportBundleDiagnostic:) keyEquivalent:@""];
     copySupportBundleDiagnostic.target = self;
-    [self.menu addItem:copySupportBundleDiagnostic];
+    [diagnosticMenu addItem:copySupportBundleDiagnostic];
 
-    NSMenuItem *displayChangeTraceSelfCheck = [[NSMenuItem alloc] initWithTitle:@"运行显示变化追踪自检" action:@selector(runDisplayChangeTraceSelfCheck:) keyEquivalent:@""];
-    displayChangeTraceSelfCheck.target = self;
-    [self.menu addItem:displayChangeTraceSelfCheck];
+    NSMenuItem *copyRecoveryReportDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制恢复问题报告" action:@selector(copyRecoveryReportDiagnostic:) keyEquivalent:@""];
+    copyRecoveryReportDiagnostic.target = self;
+    [diagnosticMenu addItem:copyRecoveryReportDiagnostic];
 
-    NSMenuItem *recoverySelfCheck = [[NSMenuItem alloc] initWithTitle:@"运行恢复自检" action:@selector(runRecoverySelfCheck:) keyEquivalent:@""];
-    recoverySelfCheck.target = self;
-    [self.menu addItem:recoverySelfCheck];
+    NSMenuItem *copyRecoveryMatrixDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制恢复场景矩阵" action:@selector(copyRecoveryMatrixDiagnostic:) keyEquivalent:@""];
+    copyRecoveryMatrixDiagnostic.target = self;
+    [diagnosticMenu addItem:copyRecoveryMatrixDiagnostic];
 
-    NSMenuItem *recoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行恢复压测" action:@selector(runRecoveryStressTest:) keyEquivalent:@""];
-    recoveryStressTest.target = self;
-    [self.menu addItem:recoveryStressTest];
+    [diagnosticMenu addItem:NSMenuItem.separatorItem];
 
-    NSMenuItem *lunchRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行午休恢复压测" action:@selector(runLunchRecoveryStressTest:) keyEquivalent:@""];
-    lunchRecoveryStressTest.target = self;
-    [self.menu addItem:lunchRecoveryStressTest];
+    NSMenuItem *copyAppDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制应用诊断" action:@selector(copyApplicationDiagnostic:) keyEquivalent:@""];
+    copyAppDiagnostic.target = self;
+    [diagnosticMenu addItem:copyAppDiagnostic];
 
-    NSMenuItem *sleepHiddenRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行睡眠隐藏恢复压测" action:@selector(runSleepHiddenRecoveryStressTest:) keyEquivalent:@""];
-    sleepHiddenRecoveryStressTest.target = self;
-    [self.menu addItem:sleepHiddenRecoveryStressTest];
+    NSMenuItem *copyRecovery = [[NSMenuItem alloc] initWithTitle:@"复制恢复诊断" action:@selector(copyRecoveryDiagnostic:) keyEquivalent:@""];
+    copyRecovery.target = self;
+    [diagnosticMenu addItem:copyRecovery];
 
-    NSMenuItem *longAwayRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行长离开恢复压测" action:@selector(runLongAwayRecoveryStressTest:) keyEquivalent:@""];
-    longAwayRecoveryStressTest.target = self;
-    [self.menu addItem:longAwayRecoveryStressTest];
-
-    NSMenuItem *displayRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行显示恢复压测" action:@selector(runDisplayRecoveryStressTest:) keyEquivalent:@""];
-    displayRecoveryStressTest.target = self;
-    [self.menu addItem:displayRecoveryStressTest];
-
-    NSMenuItem *settingsWindowRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行设置窗口恢复压测" action:@selector(runSettingsWindowRecoveryStressTest:) keyEquivalent:@""];
-    settingsWindowRecoveryStressTest.target = self;
-    [self.menu addItem:settingsWindowRecoveryStressTest];
-
-    NSMenuItem *displayBoundsStressTest = [[NSMenuItem alloc] initWithTitle:@"运行显示边界压测" action:@selector(runDisplayBoundsStressTest:) keyEquivalent:@""];
-    displayBoundsStressTest.target = self;
-    [self.menu addItem:displayBoundsStressTest];
-
-    NSMenuItem *realDisplayCheck = [[NSMenuItem alloc] initWithTitle:@"运行真实显示环境自检" action:@selector(runRealDisplayCheck:) keyEquivalent:@""];
-    realDisplayCheck.target = self;
-    [self.menu addItem:realDisplayCheck];
-
-    NSMenuItem *overlayYieldStressTest = [[NSMenuItem alloc] initWithTitle:@"运行窗口让开压测" action:@selector(runOverlayYieldStressTest:) keyEquivalent:@""];
-    overlayYieldStressTest.target = self;
-    [self.menu addItem:overlayYieldStressTest];
-
-    NSMenuItem *windowLayerPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行窗口层级压测" action:@selector(runWindowLayerPolicyStressTest:) keyEquivalent:@""];
-    windowLayerPolicyStressTest.target = self;
-    [self.menu addItem:windowLayerPolicyStressTest];
-
-    NSMenuItem *recoveryMatrixSuite = [[NSMenuItem alloc] initWithTitle:@"运行恢复矩阵套件" action:@selector(runRecoveryMatrixSuite:) keyEquivalent:@""];
-    recoveryMatrixSuite.target = self;
-    [self.menu addItem:recoveryMatrixSuite];
-
-    NSMenuItem *automationPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行自动化策略压测" action:@selector(runAutomationPolicyStressTest:) keyEquivalent:@""];
-    automationPolicyStressTest.target = self;
-    [self.menu addItem:automationPolicyStressTest];
-
-    NSMenuItem *presentationPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行演示策略压测" action:@selector(runPresentationPolicyStressTest:) keyEquivalent:@""];
-    presentationPolicyStressTest.target = self;
-    [self.menu addItem:presentationPolicyStressTest];
-
-    NSMenuItem *realPresentationPolicyCheck = [[NSMenuItem alloc] initWithTitle:@"运行真实演示联动自检" action:@selector(runRealPresentationPolicyCheck:) keyEquivalent:@""];
-    realPresentationPolicyCheck.target = self;
-    [self.menu addItem:realPresentationPolicyCheck];
-
-    NSMenuItem *calendarPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行日历策略压测" action:@selector(runCalendarPolicyStressTest:) keyEquivalent:@""];
-    calendarPolicyStressTest.target = self;
-    [self.menu addItem:calendarPolicyStressTest];
-
-    NSMenuItem *realCalendarPolicyCheck = [[NSMenuItem alloc] initWithTitle:@"运行真实日历联动自检" action:@selector(runRealCalendarPolicyCheck:) keyEquivalent:@""];
-    realCalendarPolicyCheck.target = self;
-    [self.menu addItem:realCalendarPolicyCheck];
+    NSMenuItem *copyDisplayDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制显示环境诊断" action:@selector(copyDisplayDiagnostic:) keyEquivalent:@""];
+    copyDisplayDiagnostic.target = self;
+    [diagnosticMenu addItem:copyDisplayDiagnostic];
 
     NSMenuItem *calendarDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制真实日历诊断" action:@selector(copyCalendarDiagnostic:) keyEquivalent:@""];
     calendarDiagnostic.target = self;
-    [self.menu addItem:calendarDiagnostic];
+    [diagnosticMenu addItem:calendarDiagnostic];
+
+    NSMenuItem *automationDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制自动化诊断" action:@selector(copyAutomationDiagnostic:) keyEquivalent:@""];
+    automationDiagnostic.target = self;
+    [diagnosticMenu addItem:automationDiagnostic];
+
+    [diagnosticMenu addItem:NSMenuItem.separatorItem];
+
+    NSMenuItem *recoverySelfCheck = [[NSMenuItem alloc] initWithTitle:@"运行恢复自检" action:@selector(runRecoverySelfCheck:) keyEquivalent:@""];
+    recoverySelfCheck.target = self;
+    [diagnosticMenu addItem:recoverySelfCheck];
+
+    NSMenuItem *recoveryMatrixSuite = [[NSMenuItem alloc] initWithTitle:@"运行恢复矩阵套件" action:@selector(runRecoveryMatrixSuite:) keyEquivalent:@""];
+    recoveryMatrixSuite.target = self;
+    [diagnosticMenu addItem:recoveryMatrixSuite];
+
+    NSMenuItem *recoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行恢复压测" action:@selector(runRecoveryStressTest:) keyEquivalent:@""];
+    recoveryStressTest.target = self;
+    [diagnosticMenu addItem:recoveryStressTest];
+
+    NSMenuItem *lunchRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行午休恢复压测" action:@selector(runLunchRecoveryStressTest:) keyEquivalent:@""];
+    lunchRecoveryStressTest.target = self;
+    [diagnosticMenu addItem:lunchRecoveryStressTest];
+
+    NSMenuItem *sleepHiddenRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行睡眠隐藏恢复压测" action:@selector(runSleepHiddenRecoveryStressTest:) keyEquivalent:@""];
+    sleepHiddenRecoveryStressTest.target = self;
+    [diagnosticMenu addItem:sleepHiddenRecoveryStressTest];
+
+    NSMenuItem *longAwayRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行长离开恢复压测" action:@selector(runLongAwayRecoveryStressTest:) keyEquivalent:@""];
+    longAwayRecoveryStressTest.target = self;
+    [diagnosticMenu addItem:longAwayRecoveryStressTest];
+
+    NSMenuItem *displayRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行显示恢复压测" action:@selector(runDisplayRecoveryStressTest:) keyEquivalent:@""];
+    displayRecoveryStressTest.target = self;
+    [diagnosticMenu addItem:displayRecoveryStressTest];
+
+    NSMenuItem *settingsWindowRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行设置窗口恢复压测" action:@selector(runSettingsWindowRecoveryStressTest:) keyEquivalent:@""];
+    settingsWindowRecoveryStressTest.target = self;
+    [diagnosticMenu addItem:settingsWindowRecoveryStressTest];
+
+    NSMenuItem *displayBoundsStressTest = [[NSMenuItem alloc] initWithTitle:@"运行显示边界压测" action:@selector(runDisplayBoundsStressTest:) keyEquivalent:@""];
+    displayBoundsStressTest.target = self;
+    [diagnosticMenu addItem:displayBoundsStressTest];
+
+    NSMenuItem *displayChangeTraceSelfCheck = [[NSMenuItem alloc] initWithTitle:@"运行显示变化追踪自检" action:@selector(runDisplayChangeTraceSelfCheck:) keyEquivalent:@""];
+    displayChangeTraceSelfCheck.target = self;
+    [diagnosticMenu addItem:displayChangeTraceSelfCheck];
+
+    NSMenuItem *realDisplayCheck = [[NSMenuItem alloc] initWithTitle:@"运行真实显示环境自检" action:@selector(runRealDisplayCheck:) keyEquivalent:@""];
+    realDisplayCheck.target = self;
+    [diagnosticMenu addItem:realDisplayCheck];
+
+    NSMenuItem *overlayYieldStressTest = [[NSMenuItem alloc] initWithTitle:@"运行窗口让开压测" action:@selector(runOverlayYieldStressTest:) keyEquivalent:@""];
+    overlayYieldStressTest.target = self;
+    [diagnosticMenu addItem:overlayYieldStressTest];
+
+    NSMenuItem *windowLayerPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行窗口层级压测" action:@selector(runWindowLayerPolicyStressTest:) keyEquivalent:@""];
+    windowLayerPolicyStressTest.target = self;
+    [diagnosticMenu addItem:windowLayerPolicyStressTest];
+
+    NSMenuItem *automationPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行自动化策略压测" action:@selector(runAutomationPolicyStressTest:) keyEquivalent:@""];
+    automationPolicyStressTest.target = self;
+    [diagnosticMenu addItem:automationPolicyStressTest];
+
+    NSMenuItem *presentationPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行演示策略压测" action:@selector(runPresentationPolicyStressTest:) keyEquivalent:@""];
+    presentationPolicyStressTest.target = self;
+    [diagnosticMenu addItem:presentationPolicyStressTest];
+
+    NSMenuItem *realPresentationPolicyCheck = [[NSMenuItem alloc] initWithTitle:@"运行真实演示联动自检" action:@selector(runRealPresentationPolicyCheck:) keyEquivalent:@""];
+    realPresentationPolicyCheck.target = self;
+    [diagnosticMenu addItem:realPresentationPolicyCheck];
+
+    NSMenuItem *calendarPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行日历策略压测" action:@selector(runCalendarPolicyStressTest:) keyEquivalent:@""];
+    calendarPolicyStressTest.target = self;
+    [diagnosticMenu addItem:calendarPolicyStressTest];
+
+    NSMenuItem *realCalendarPolicyCheck = [[NSMenuItem alloc] initWithTitle:@"运行真实日历联动自检" action:@selector(runRealCalendarPolicyCheck:) keyEquivalent:@""];
+    realCalendarPolicyCheck.target = self;
+    [diagnosticMenu addItem:realCalendarPolicyCheck];
+
+    NSMenuItem *diagnosticGroup = [[NSMenuItem alloc] initWithTitle:@"排查中心" action:nil keyEquivalent:@""];
+    diagnosticGroup.submenu = diagnosticMenu;
+    [self.menu addItem:diagnosticGroup];
 
     [self.menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *settings = [[NSMenuItem alloc] initWithTitle:@"打开设置..." action:@selector(openSettings:) keyEquivalent:@","];
@@ -4476,6 +4496,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"复制显示环境诊断", ERAutomationURLString(@"diagnostics/display-real")],
         @[@"复制恢复场景矩阵", ERAutomationURLString(@"diagnostics/recovery-matrix")],
         @[@"复制恢复问题报告", ERAutomationURLString(@"diagnostics/recovery-report")],
+        @[@"复制问题反馈包", ERAutomationURLString(@"diagnostics/issue-bundle")],
         @[@"复制完整排查包", ERAutomationURLString(@"diagnostics/support-bundle")],
         @[@"运行显示变化追踪自检", ERAutomationURLString(@"diagnostics/display-change-trace")],
         @[@"运行真实显示环境自检", ERAutomationURLString(@"diagnostics/display-live")],
@@ -4490,7 +4511,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"复制真实日历诊断", ERAutomationURLString(@"diagnostics/calendar-real")]
     ];
     for (NSArray<NSString *> *itemInfo in automationURLs) {
-        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"复制%@", itemInfo[0]]
+        NSString *itemTitle = [itemInfo[0] hasPrefix:@"复制"] ? itemInfo[0] : [NSString stringWithFormat:@"复制%@", itemInfo[0]];
+        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:itemTitle
                                                       action:@selector(copyAutomationURL:)
                                                keyEquivalent:@""];
         item.target = self;
@@ -4504,10 +4526,6 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMenuItem *automationTemplate = [[NSMenuItem alloc] initWithTitle:@"复制专注联动脚本" action:@selector(copyFocusAutomationTemplate:) keyEquivalent:@""];
     automationTemplate.target = self;
     [self.menu addItem:automationTemplate];
-
-    NSMenuItem *automationDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制自动化诊断" action:@selector(copyAutomationDiagnostic:) keyEquivalent:@""];
-    automationDiagnostic.target = self;
-    [self.menu addItem:automationDiagnostic];
 
     NSMenu *pauseMenu = [[NSMenu alloc] initWithTitle:@"暂停提醒"];
     NSArray<NSArray *> *pauseItems = @[
@@ -5309,6 +5327,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [sections addObject:[NSString stringWithFormat:@"生成时间：%@", ERFormatClockTime(NSDate.date)]];
     [sections addObject:[NSString stringWithFormat:@"URL Scheme：%@", ERAutomationURLScheme]];
     [sections addObject:@"排查入口："];
+    [sections addObject:[NSString stringWithFormat:@"- 问题反馈包：%@", ERAutomationURLString(@"diagnostics/issue-bundle")]];
     [sections addObject:[NSString stringWithFormat:@"- 显示环境诊断：%@", ERAutomationURLString(@"diagnostics/display-real")]];
     [sections addObject:[NSString stringWithFormat:@"- 恢复场景矩阵：%@", ERAutomationURLString(@"diagnostics/recovery-matrix")]];
     [sections addObject:[NSString stringWithFormat:@"- 恢复问题报告：%@", ERAutomationURLString(@"diagnostics/recovery-report")]];
@@ -5344,6 +5363,43 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [sections addObject:@"--- 日历诊断 ---"];
     [sections addObject:@"section=calendar"];
     [sections addObject:[self calendarDiagnosticText]];
+    return [sections componentsJoinedByString:@"\n"];
+}
+
+- (NSString *)issueBundleDiagnosticText {
+    NSBundle *bundle = NSBundle.mainBundle;
+    NSDictionary *info = bundle.infoDictionary;
+    NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"未知";
+    NSString *build = [info[@"CFBundleVersion"] isKindOfClass:NSString.class] ? info[@"CFBundleVersion"] : @"未知";
+
+    NSMutableArray<NSString *> *sections = [NSMutableArray array];
+    [sections addObject:[NSString stringWithFormat:@"%@ 问题反馈包", ERBrandName]];
+    [sections addObject:@"issueBundle=1"];
+    [sections addObject:@"issueTemplate=1"];
+    [sections addObject:[NSString stringWithFormat:@"生成时间：%@", ERFormatClockTime(NSDate.date)]];
+    [sections addObject:[NSString stringWithFormat:@"版本：%@ (%@)", version, build]];
+    [sections addObject:[NSString stringWithFormat:@"系统：%@", NSProcessInfo.processInfo.operatingSystemVersionString]];
+    [sections addObject:[NSString stringWithFormat:@"安装位置：%@", bundle.bundlePath ?: @"未知"]];
+    [sections addObject:@""];
+    [sections addObject:@"section=issue-template"];
+    [sections addObject:@"## 发生了什么？"];
+    [sections addObject:@"请在这里写现象，比如休息页卡住、按钮点不了、置顶异常、外接屏后不见了。"];
+    [sections addObject:@""];
+    [sections addObject:@"## 怎么复现？"];
+    [sections addObject:@"1. "];
+    [sections addObject:@"2. "];
+    [sections addObject:@"3. "];
+    [sections addObject:@""];
+    [sections addObject:@"## 期望行为"];
+    [sections addObject:@"请在这里写你希望它怎么表现。"];
+    [sections addObject:@""];
+    [sections addObject:@"## 快速结论"];
+    [sections addObject:@"section=recovery-report"];
+    [sections addObject:[self recoveryReportDiagnosticText]];
+    [sections addObject:@""];
+    [sections addObject:@"## 完整排查信息"];
+    [sections addObject:@"section=support-bundle"];
+    [sections addObject:[self supportBundleDiagnosticText]];
     return [sections componentsJoinedByString:@"\n"];
 }
 
@@ -5869,6 +5925,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [pasteboard clearContents];
     [pasteboard setString:[self supportBundleDiagnosticText] forType:NSPasteboardTypeString];
     [self noteRecoveryEventTitle:@"诊断" detail:@"已复制完整排查包"];
+    [self publishState];
+}
+
+- (void)copyIssueBundleDiagnostic:(id)sender {
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:[self issueBundleDiagnosticText] forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"诊断" detail:@"已复制问题反馈包"];
     [self publishState];
 }
 
@@ -7704,7 +7768,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSString *systemVersion = NSProcessInfo.processInfo.operatingSystemVersionString ?: @"未知";
     NSString *title = [NSString stringWithFormat:@"%@ 反馈：", ERBrandName];
     NSString *body = [NSString stringWithFormat:
-        @"## 发生了什么？\n\n\n\n## 期望行为\n\n\n\n## 诊断信息\n\n- 版本：%@ (%@)\n- 系统：%@\n- 安装位置：%@\n\n请先在菜单栏选择「复制应用诊断」，再把剪贴板内容粘贴到这里。\n",
+        @"## 发生了什么？\n\n\n\n## 期望行为\n\n\n\n## 诊断信息\n\n- 版本：%@ (%@)\n- 系统：%@\n- 安装位置：%@\n\n请先在菜单栏选择「排查中心」->「复制问题反馈包」，再把剪贴板内容粘贴到这里。\n",
         version,
         build,
         systemVersion,
@@ -7918,6 +7982,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"recovery-report"] || [argument isEqualToString:@"report"] || [argument isEqualToString:@"issue-report"] || [argument isEqualToString:@"summary-report"]) {
             [self copyRecoveryReportDiagnostic:nil];
             detail = @"复制恢复问题报告";
+        } else if ([argument isEqualToString:@"issue-bundle"] || [argument isEqualToString:@"feedback-bundle"] || [argument isEqualToString:@"issue"] || [argument isEqualToString:@"feedback"]) {
+            [self copyIssueBundleDiagnostic:nil];
+            detail = @"复制问题反馈包";
         } else if ([argument isEqualToString:@"support-bundle"] || [argument isEqualToString:@"support"] || [argument isEqualToString:@"bundle"] || [argument isEqualToString:@"full"]) {
             [self copySupportBundleDiagnostic:nil];
             detail = @"复制完整排查包";
@@ -8003,6 +8070,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"- 暂停 30 分钟：%@", ERAutomationURLString(@"pause/30m")]];
     [lines addObject:[NSString stringWithFormat:@"- 继续提醒：%@", ERAutomationURLString(@"resume")]];
     [lines addObject:[NSString stringWithFormat:@"- 设置窗口恢复压测：%@", ERAutomationURLString(@"diagnostics/settings-window")]];
+    [lines addObject:[NSString stringWithFormat:@"- 问题反馈包：%@", ERAutomationURLString(@"diagnostics/issue-bundle")]];
     [lines addObject:[NSString stringWithFormat:@"- 显示环境诊断：%@", ERAutomationURLString(@"diagnostics/display-real")]];
     [lines addObject:[NSString stringWithFormat:@"- 恢复场景矩阵：%@", ERAutomationURLString(@"diagnostics/recovery-matrix")]];
     [lines addObject:[NSString stringWithFormat:@"- 恢复问题报告：%@", ERAutomationURLString(@"diagnostics/recovery-report")]];

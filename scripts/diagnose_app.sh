@@ -139,6 +139,7 @@ else
 fi
 
 print_section "Display Recovery"
+print_kv "Issue bundle URL" "$URL_SCHEME://diagnostics/issue-bundle"
 print_kv "Display diagnostic URL" "$URL_SCHEME://diagnostics/display-real"
 print_kv "Display trace URL" "$URL_SCHEME://diagnostics/display-change-trace"
 print_kv "Settings recovery URL" "$URL_SCHEME://diagnostics/settings-window"
@@ -167,6 +168,7 @@ else
 fi
 
 print_section "Recovery Matrix"
+print_kv "Issue bundle" "$URL_SCHEME://diagnostics/issue-bundle"
 print_kv "Matrix URL" "$URL_SCHEME://diagnostics/recovery-matrix"
 print_kv "Recovery report" "$URL_SCHEME://diagnostics/recovery-report"
 print_kv "Matrix suite" "$URL_SCHEME://diagnostics/recovery-matrix-suite"

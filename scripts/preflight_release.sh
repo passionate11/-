@@ -53,7 +53,7 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText copyRecoveryReportDiagnostic: recoveryReportDiagnosticText runRecoveryMatrixSuite: runRecoveryMatrixSuiteStep: finishRecoveryMatrixSuiteWithTotal: copySupportBundleDiagnostic: supportBundleDiagnosticText toggleRestWindowTopmost:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText copyRecoveryReportDiagnostic: recoveryReportDiagnosticText runRecoveryMatrixSuite: runRecoveryMatrixSuiteStep: finishRecoveryMatrixSuiteWithTotal: copySupportBundleDiagnostic: supportBundleDiagnosticText copyIssueBundleDiagnostic: issueBundleDiagnosticText toggleRestWindowTopmost:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
@@ -139,6 +139,15 @@ check_contains "$SOURCE_CONTENT" "coverage=%ld/%ld" "recovery report coverage ma
 check_contains "$SOURCE_CONTENT" "missingScenarios=%@" "recovery report missing scenarios marker"
 check_contains "$SOURCE_CONTENT" "suggestionCount=%ld" "recovery report suggestion marker"
 check_contains "$SOURCE_CONTENT" "section=recovery-report" "support bundle recovery report section marker"
+check_contains "$SOURCE_CONTENT" "排查中心" "diagnostic center menu"
+check_contains "$SOURCE_CONTENT" "copyIssueBundleDiagnostic:" "issue bundle diagnostic action"
+check_contains "$SOURCE_CONTENT" "issueBundleDiagnosticText" "issue bundle diagnostic text helper"
+check_contains "$SOURCE_CONTENT" "diagnostics/issue-bundle" "issue bundle diagnostic URL"
+check_contains "$README_CONTENT" "songyixia://diagnostics/issue-bundle" "issue bundle diagnostic docs"
+check_contains "$SOURCE_CONTENT" "issueBundle=1" "issue bundle machine marker"
+check_contains "$SOURCE_CONTENT" "issueTemplate=1" "issue template machine marker"
+check_contains "$SOURCE_CONTENT" "section=issue-template" "issue template section marker"
+check_contains "$SOURCE_CONTENT" "请先在菜单栏选择「排查中心」->「复制问题反馈包」" "issue feedback template prompt"
 check_contains "$SOURCE_CONTENT" "copySupportBundleDiagnostic:" "support bundle diagnostic action"
 check_contains "$SOURCE_CONTENT" "supportBundleDiagnosticText" "support bundle diagnostic text helper"
 check_contains "$SOURCE_CONTENT" "diagnostics/support-bundle" "support bundle diagnostic URL"
@@ -249,6 +258,7 @@ CODESIGN_DETAILS="$(codesign -dv "$APP_BUNDLE" 2>&1 || true)"
 DIAGNOSE_OUTPUT="$(APP_TARGET="$APP_BUNDLE" scripts/diagnose_app.sh)"
 [[ "$DIAGNOSE_OUTPUT" =~ codesign[[:space:]]verify:[[:space:]]+ok ]] || fail "diagnostics did not confirm signature"
 [[ "$DIAGNOSE_OUTPUT" == *"== Display Recovery =="* ]] || fail "diagnostics missing display recovery section"
+[[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/issue-bundle"* ]] || fail "diagnostics missing issue bundle URL"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/display-real"* ]] || fail "diagnostics missing display diagnostic URL"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/settings-window"* ]] || fail "diagnostics missing settings recovery URL"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/display-change-trace"* ]] || fail "diagnostics missing display trace URL"
