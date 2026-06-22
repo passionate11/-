@@ -170,6 +170,13 @@ sleep 3
 history_contains '完成 3/3' '\\U5b8c\\U6210 3/3' || fail "display recovery stress did not complete"
 history_contains '窗口回到屏幕内' '\\U7a97\\U53e3\\U56de\\U5230\\U5c4f\\U5e55\\U5185' || fail "display recovery did not restore window onscreen"
 
+echo "==> Checking settings window recovery URL"
+open "$URL_SCHEME://diagnostics/settings-window"
+sleep 3
+history_contains '设置窗口恢复压测' '\\U8bbe\\U7f6e\\U7a97\\U53e3\\U6062\\U590d\\U538b\\U6d4b' || fail "settings window recovery stress did not run"
+history_contains '设置页回到屏幕内' '\\U8bbe\\U7f6e\\U9875\\U56de\\U5230\\U5c4f\\U5e55\\U5185' || fail "settings window recovery did not restore onscreen"
+history_contains '设置页可见' '\\U8bbe\\U7f6e\\U9875\\U53ef\\U89c1' || fail "settings window recovery did not keep settings visible"
+
 echo "==> Checking display bounds URL"
 open "$URL_SCHEME://diagnostics/display-bounds"
 sleep 3

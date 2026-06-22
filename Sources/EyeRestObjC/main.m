@@ -1474,6 +1474,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSUInteger sleepHiddenRecoveryStressTestGeneration;
 @property(nonatomic) NSUInteger displayRecoveryStressTestGeneration;
 @property(nonatomic) NSUInteger displayBoundsStressTestGeneration;
+@property(nonatomic) NSUInteger settingsWindowRecoveryStressTestGeneration;
 @property(nonatomic) NSUInteger realDisplayCheckGeneration;
 @property(nonatomic) NSUInteger overlayYieldStressTestGeneration;
 @property(nonatomic) NSUInteger windowLayerPolicyStressTestGeneration;
@@ -1501,6 +1502,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)settingsDidChangeShouldReset:(BOOL)shouldReset;
 - (void)settleExpiredRests;
 - (void)repairRestOverlayAfterDisplayChange;
+- (BOOL)repairSettingsWindowAfterDisplayChange;
 - (void)repairRestOverlayAfterSystemEvent:(NSNotification *)notification;
 - (void)scheduleRecoveryFollowUpChecksWithTitle:(NSString *)eventTitle;
 - (void)runRecoveryFollowUpCheckWithTitle:(NSString *)eventTitle pass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
@@ -1532,6 +1534,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runDisplayRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runDisplayBoundsStressTest:(id)sender;
 - (void)runDisplayBoundsStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
+- (void)runSettingsWindowRecoveryStressTest:(id)sender;
+- (void)runSettingsWindowRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runDisplayChangeTraceSelfCheck:(id)sender;
 - (void)runRealDisplayCheck:(id)sender;
 - (void)runRealDisplayCheckPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousEyeDueAt:(NSDate *)previousEyeDueAt previousEyeRestEndsAt:(NSDate *)previousEyeRestEndsAt previousEyeResting:(BOOL)previousEyeResting previousStandDueAt:(NSDate *)previousStandDueAt previousStandRestEndsAt:(NSDate *)previousStandRestEndsAt previousStandResting:(BOOL)previousStandResting previousRestOverlayYielded:(BOOL)previousRestOverlayYielded;
@@ -4127,6 +4131,46 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self repairRestOverlayAfterSystemEvent:nil];
 }
 
+- (BOOL)repairSettingsWindowAfterDisplayChange {
+    NSWindow *settingsWindow = self.settingsWindowController.window;
+    if (!settingsWindow) return NO;
+
+    settingsWindow.level = NSNormalWindowLevel;
+    settingsWindow.collectionBehavior = NSWindowCollectionBehaviorManaged;
+
+    NSScreen *screen = settingsWindow.screen ?: NSScreen.mainScreen ?: NSScreen.screens.firstObject;
+    if (!screen) return NO;
+
+    BOOL intersectsAnyScreen = NO;
+    for (NSScreen *candidate in NSScreen.screens) {
+        if (NSIntersectsRect(settingsWindow.frame, candidate.visibleFrame)) {
+            intersectsAnyScreen = YES;
+            screen = candidate;
+            break;
+        }
+    }
+
+    NSRect visibleFrame = screen.visibleFrame;
+    NSRect frame = settingsWindow.frame;
+    CGFloat width = MIN(frame.size.width, visibleFrame.size.width);
+    CGFloat height = MIN(frame.size.height, visibleFrame.size.height);
+    CGFloat x = frame.origin.x;
+    CGFloat y = frame.origin.y;
+    if (!intersectsAnyScreen) {
+        x = NSMidX(visibleFrame) - width / 2.0;
+        y = NSMidY(visibleFrame) - height / 2.0;
+    }
+    x = MIN(NSMaxX(visibleFrame) - width, MAX(NSMinX(visibleFrame), x));
+    y = MIN(NSMaxY(visibleFrame) - height, MAX(NSMinY(visibleFrame), y));
+
+    NSRect repairedFrame = NSIntegralRect(NSMakeRect(x, y, width, height));
+    BOOL changed = !NSEqualRects(NSIntegralRect(settingsWindow.frame), repairedFrame);
+    if (changed) {
+        [settingsWindow setFrame:repairedFrame display:YES animate:NO];
+    }
+    return changed;
+}
+
 - (void)repairRestOverlayAfterSystemEvent:(NSNotification *)notification {
     NSString *eventTitle = notification ? ERSystemEventTitle(notification.name) : @"显示恢复";
     NSDate *now = NSDate.date;
@@ -4140,6 +4184,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     [self settleExpiredRests];
     [self repairRestStateIfNeeded];
+    BOOL settingsWindowRepaired = [self repairSettingsWindowAfterDisplayChange];
+    if (settingsWindowRepaired) {
+        [details addObject:@"设置页回到屏幕内"];
+    }
     NSInteger orphaned = [self closeOrphanRestWindows];
     if (orphaned > 0) {
         [details addObject:[NSString stringWithFormat:@"关闭残留窗口 %ld 个", (long)orphaned]];
@@ -4317,6 +4365,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     displayRecoveryStressTest.target = self;
     [self.menu addItem:displayRecoveryStressTest];
 
+    NSMenuItem *settingsWindowRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行设置窗口恢复压测" action:@selector(runSettingsWindowRecoveryStressTest:) keyEquivalent:@""];
+    settingsWindowRecoveryStressTest.target = self;
+    [self.menu addItem:settingsWindowRecoveryStressTest];
+
     NSMenuItem *displayBoundsStressTest = [[NSMenuItem alloc] initWithTitle:@"运行显示边界压测" action:@selector(runDisplayBoundsStressTest:) keyEquivalent:@""];
     displayBoundsStressTest.target = self;
     [self.menu addItem:displayBoundsStressTest];
@@ -4391,6 +4443,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"运行睡眠隐藏恢复压测", ERAutomationURLString(@"diagnostics/sleep-hidden-recovery")],
         @[@"运行长离开恢复压测", ERAutomationURLString(@"diagnostics/long-away-recovery")],
         @[@"运行显示恢复压测", ERAutomationURLString(@"diagnostics/display-recovery")],
+        @[@"运行设置窗口恢复压测", ERAutomationURLString(@"diagnostics/settings-window")],
         @[@"运行显示边界压测", ERAutomationURLString(@"diagnostics/display-bounds")],
         @[@"复制显示环境诊断", ERAutomationURLString(@"diagnostics/display-real")],
         @[@"运行显示变化追踪自检", ERAutomationURLString(@"diagnostics/display-change-trace")],
@@ -5978,6 +6031,68 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self publishState];
 }
 
+- (void)runSettingsWindowRecoveryStressTest:(id)sender {
+    self.settingsWindowRecoveryStressTestGeneration += 1;
+    NSUInteger generation = self.settingsWindowRecoveryStressTestGeneration;
+    NSInteger total = 3;
+
+    [self presentSettingsWindow];
+    NSWindow *settingsWindow = self.settingsWindowController.window;
+    if (settingsWindow) {
+        NSScreen *screen = NSScreen.mainScreen ?: NSScreen.screens.firstObject;
+        NSRect visibleFrame = screen ? screen.visibleFrame : NSMakeRect(0, 0, 1280, 800);
+        NSRect frame = settingsWindow.frame;
+        frame.origin.x = NSMaxX(visibleFrame) + 280;
+        frame.origin.y = NSMaxY(visibleFrame) + 180;
+        [settingsWindow setFrame:frame display:NO animate:NO];
+    }
+
+    [self noteRecoveryEventTitle:@"设置窗口恢复压测" detail:@"已模拟设置窗口位于屏幕外，开始复查"];
+    [self publishState];
+
+    NSArray<NSNumber *> *delays = @[@0.0, @0.5, @1.5];
+    for (NSInteger index = 0; index < delays.count; index++) {
+        NSTimeInterval delay = delays[index].doubleValue;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self runSettingsWindowRecoveryStressTestPass:index + 1 total:total generation:generation];
+        });
+    }
+}
+
+- (void)runSettingsWindowRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation {
+    if (generation != self.settingsWindowRecoveryStressTestGeneration) return;
+
+    BOOL repaired = [self repairSettingsWindowAfterDisplayChange];
+    NSWindow *settingsWindow = self.settingsWindowController.window;
+    BOOL onScreen = NO;
+    for (NSScreen *screen in NSScreen.screens) {
+        if (settingsWindow && NSIntersectsRect(settingsWindow.frame, screen.visibleFrame)) {
+            onScreen = YES;
+            break;
+        }
+    }
+
+    NSMutableArray<NSString *> *details = [NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%@ %ld/%ld",
+                                                                           pass == total ? @"完成" : @"复查",
+                                                                           (long)pass,
+                                                                           (long)total]];
+    [details addObject:onScreen ? @"设置页回到屏幕内" : @"设置页仍在屏幕外"];
+    [details addObject:repaired ? @"已重新定位" : @"位置已正常"];
+    if (settingsWindow) {
+        [details addObject:[NSString stringWithFormat:@"frame %.0f,%.0f %.0fx%.0f",
+                            settingsWindow.frame.origin.x,
+                            settingsWindow.frame.origin.y,
+                            settingsWindow.frame.size.width,
+                            settingsWindow.frame.size.height]];
+        [details addObject:settingsWindow.visible ? @"设置页可见" : @"设置页隐藏"];
+    } else {
+        [details addObject:@"无设置页"];
+    }
+
+    [self noteRecoveryEventTitle:@"设置窗口恢复压测" detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
+}
+
 - (void)runDisplayChangeTraceSelfCheck:(id)sender {
     NSString *previousSummary = self.lastScreenDiagnosticSummary.length > 0 ? self.lastScreenDiagnosticSummary : @"自检前无基线";
     NSString *currentSummary = ERScreenDiagnosticSummary();
@@ -7391,6 +7506,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"display-recovery"] || [argument isEqualToString:@"display"] || [argument isEqualToString:@"screen"]) {
             [self runDisplayRecoveryStressTest:nil];
             detail = @"运行显示恢复压测";
+        } else if ([argument isEqualToString:@"settings-window"] || [argument isEqualToString:@"settings-recovery"] || [argument isEqualToString:@"settings-display"]) {
+            [self runSettingsWindowRecoveryStressTest:nil];
+            detail = @"运行设置窗口恢复压测";
         } else if ([argument isEqualToString:@"display-bounds"] || [argument isEqualToString:@"bounds"] || [argument isEqualToString:@"screen-bounds"]) {
             [self runDisplayBoundsStressTest:nil];
             detail = @"运行显示边界压测";
@@ -7475,6 +7593,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"- 专注联动模板：%@", ERAutomationURLString(@"automation/focus-template")]];
     [lines addObject:[NSString stringWithFormat:@"- 暂停 30 分钟：%@", ERAutomationURLString(@"pause/30m")]];
     [lines addObject:[NSString stringWithFormat:@"- 继续提醒：%@", ERAutomationURLString(@"resume")]];
+    [lines addObject:[NSString stringWithFormat:@"- 设置窗口恢复压测：%@", ERAutomationURLString(@"diagnostics/settings-window")]];
     [lines addObject:[NSString stringWithFormat:@"- 显示环境诊断：%@", ERAutomationURLString(@"diagnostics/display-real")]];
     [lines addObject:[NSString stringWithFormat:@"- 显示变化追踪自检：%@", ERAutomationURLString(@"diagnostics/display-change-trace")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实显示环境自检：%@", ERAutomationURLString(@"diagnostics/display-live")]];
@@ -7622,16 +7741,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSWindow *settingsWindow = self.settingsWindowController.window;
     settingsWindow.level = NSNormalWindowLevel;
     settingsWindow.collectionBehavior = NSWindowCollectionBehaviorManaged;
-    NSScreen *screen = NSScreen.mainScreen ?: NSScreen.screens.firstObject;
-    if (screen) {
-        NSRect visibleFrame = screen.visibleFrame;
-        NSRect windowFrame = settingsWindow.frame;
-        CGFloat x = NSMidX(visibleFrame) - windowFrame.size.width / 2.0;
-        CGFloat y = NSMidY(visibleFrame) - windowFrame.size.height / 2.0;
-        x = MIN(NSMaxX(visibleFrame) - windowFrame.size.width, MAX(NSMinX(visibleFrame), x));
-        y = MIN(NSMaxY(visibleFrame) - windowFrame.size.height, MAX(NSMinY(visibleFrame), y));
-        [settingsWindow setFrameOrigin:NSMakePoint(x, y)];
-    }
+    [self repairSettingsWindowAfterDisplayChange];
     [self.settingsWindowController showWindow:nil];
     [NSApp activateIgnoringOtherApps:YES];
     [settingsWindow makeKeyAndOrderFront:nil];
