@@ -177,6 +177,12 @@ history_contains '显示边界压测' '\\U663e\\U793a\\U8fb9\\U754c\\U538b\\U6d4
 history_contains '窗口已贴合屏幕' '\\U7a97\\U53e3\\U5df2\\U8d34\\U5408\\U5c4f\\U5e55' || fail "display bounds stress did not refit window"
 history_contains '内容已重排' '\\U5185\\U5bb9\\U5df2\\U91cd\\U6392' || fail "display bounds stress did not relayout content"
 
+echo "==> Checking display change trace URL"
+open "$URL_SCHEME://diagnostics/display-change-trace"
+sleep 1
+history_contains '显示变化追踪自检' '\\U663e\\U793a\\U53d8\\U5316\\U8ffd\\U8e2a\\U81ea\\U68c0' || fail "display change trace did not run"
+history_contains '已记录屏幕变化' '\\U5df2\\U8bb0\\U5f55\\U5c4f\\U5e55\\U53d8\\U5316' || fail "display change trace did not record transition"
+
 echo "==> Checking display diagnostic URL"
 open "$URL_SCHEME://diagnostics/display-real"
 sleep 1
@@ -184,6 +190,8 @@ history_contains '已复制显示环境诊断' '\\U5df2\\U590d\\U5236\\U663e\\U7
 display_diagnostic="$(/usr/bin/pbpaste)"
 [[ "$display_diagnostic" == *"displayDiagnostic=1"* ]] || fail "display diagnostic missing marker"
 [[ "$display_diagnostic" == *"screenCount="* ]] || fail "display diagnostic missing screen count"
+[[ "$display_diagnostic" == *"displayChangeFrom="* ]] || fail "display diagnostic missing display change source"
+[[ "$display_diagnostic" == *"displayChangeTo="* ]] || fail "display diagnostic missing display change target"
 [[ "$display_diagnostic" == *"restWindow="* ]] || fail "display diagnostic missing rest window state"
 [[ "$display_diagnostic" == *"settingsWindow="* ]] || fail "display diagnostic missing settings window state"
 

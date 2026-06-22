@@ -1463,6 +1463,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSDate *lastSystemEventAt;
 @property(nonatomic, copy) NSString *lastSystemEventTitle;
 @property(nonatomic, copy) NSString *lastRecoveryDetail;
+@property(nonatomic, copy) NSString *lastScreenDiagnosticSummary;
+@property(nonatomic, copy) NSString *lastDisplayChangePreviousSummary;
+@property(nonatomic, copy) NSString *lastDisplayChangeCurrentSummary;
+@property(nonatomic, strong) NSDate *lastDisplayChangeAt;
 @property(nonatomic, strong) NSMutableArray<NSDictionary<NSString *, id> *> *recoveryEventHistory;
 @property(nonatomic) NSUInteger recoveryFollowUpGeneration;
 @property(nonatomic) NSUInteger recoveryStressTestGeneration;
@@ -1528,6 +1532,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runDisplayRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runDisplayBoundsStressTest:(id)sender;
 - (void)runDisplayBoundsStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
+- (void)runDisplayChangeTraceSelfCheck:(id)sender;
 - (void)runRealDisplayCheck:(id)sender;
 - (void)runRealDisplayCheckPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousEyeDueAt:(NSDate *)previousEyeDueAt previousEyeRestEndsAt:(NSDate *)previousEyeRestEndsAt previousEyeResting:(BOOL)previousEyeResting previousStandDueAt:(NSDate *)previousStandDueAt previousStandRestEndsAt:(NSDate *)previousStandRestEndsAt previousStandResting:(BOOL)previousStandResting previousRestOverlayYielded:(BOOL)previousRestOverlayYielded;
 - (void)runOverlayYieldStressTest:(id)sender;
@@ -3596,6 +3601,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     [self loadTodayStats];
     [self loadRecoveryHistory];
+    self.lastScreenDiagnosticSummary = ERScreenDiagnosticSummary();
     [self rebuildMenu];
     [self resetAllTimers];
     [self applyPreferenceSideEffects];
@@ -4054,6 +4060,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)screenParametersChanged:(NSNotification *)notification {
+    NSString *previousSummary = self.lastScreenDiagnosticSummary.length > 0 ? self.lastScreenDiagnosticSummary : @"未知";
+    NSString *currentSummary = ERScreenDiagnosticSummary();
+    self.lastDisplayChangePreviousSummary = previousSummary;
+    self.lastDisplayChangeCurrentSummary = currentSummary;
+    self.lastDisplayChangeAt = NSDate.date;
+    self.lastScreenDiagnosticSummary = currentSummary;
     [self repairRestOverlayAfterSystemEvent:notification];
 }
 
@@ -4140,6 +4152,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [details addObject:@"休息页已恢复"];
     } else if (details.count == 0) {
         [details addObject:@"状态正常"];
+    }
+    if ([eventTitle isEqualToString:@"屏幕变化"] && self.lastDisplayChangePreviousSummary.length > 0 && self.lastDisplayChangeCurrentSummary.length > 0) {
+        [details addObject:[NSString stringWithFormat:@"屏幕 %@ -> %@", self.lastDisplayChangePreviousSummary, self.lastDisplayChangeCurrentSummary]];
     }
     [self noteRecoveryEventTitle:eventTitle detail:[details componentsJoinedByString:@"，"]];
     if (notification) {
@@ -4274,6 +4289,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     copyDisplayDiagnostic.target = self;
     [self.menu addItem:copyDisplayDiagnostic];
 
+    NSMenuItem *displayChangeTraceSelfCheck = [[NSMenuItem alloc] initWithTitle:@"运行显示变化追踪自检" action:@selector(runDisplayChangeTraceSelfCheck:) keyEquivalent:@""];
+    displayChangeTraceSelfCheck.target = self;
+    [self.menu addItem:displayChangeTraceSelfCheck];
+
     NSMenuItem *recoverySelfCheck = [[NSMenuItem alloc] initWithTitle:@"运行恢复自检" action:@selector(runRecoverySelfCheck:) keyEquivalent:@""];
     recoverySelfCheck.target = self;
     [self.menu addItem:recoverySelfCheck];
@@ -4374,6 +4393,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"运行显示恢复压测", ERAutomationURLString(@"diagnostics/display-recovery")],
         @[@"运行显示边界压测", ERAutomationURLString(@"diagnostics/display-bounds")],
         @[@"复制显示环境诊断", ERAutomationURLString(@"diagnostics/display-real")],
+        @[@"运行显示变化追踪自检", ERAutomationURLString(@"diagnostics/display-change-trace")],
         @[@"运行真实显示环境自检", ERAutomationURLString(@"diagnostics/display-live")],
         @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")],
         @[@"运行窗口层级压测", ERAutomationURLString(@"diagnostics/window-layer")],
@@ -4895,6 +4915,18 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSArray<NSScreen *> *screens = NSScreen.screens;
     [lines addObject:@"displayDiagnostic=1"];
     [lines addObject:[NSString stringWithFormat:@"screenCount=%ld", (long)screens.count]];
+    [lines addObject:[NSString stringWithFormat:@"currentDisplaySummary=%@", ERScreenDiagnosticSummary()]];
+    if (self.lastDisplayChangeAt && self.lastDisplayChangePreviousSummary.length > 0 && self.lastDisplayChangeCurrentSummary.length > 0) {
+        [lines addObject:[NSString stringWithFormat:@"上次屏幕变化：%@", ERFormatClockTime(self.lastDisplayChangeAt)]];
+        [lines addObject:[NSString stringWithFormat:@"变化前：%@", self.lastDisplayChangePreviousSummary]];
+        [lines addObject:[NSString stringWithFormat:@"变化后：%@", self.lastDisplayChangeCurrentSummary]];
+        [lines addObject:[NSString stringWithFormat:@"displayChangeFrom=%@", self.lastDisplayChangePreviousSummary]];
+        [lines addObject:[NSString stringWithFormat:@"displayChangeTo=%@", self.lastDisplayChangeCurrentSummary]];
+    } else {
+        [lines addObject:@"上次屏幕变化：暂无"];
+        [lines addObject:@"displayChangeFrom=none"];
+        [lines addObject:@"displayChangeTo=none"];
+    }
     for (NSInteger index = 0; index < screens.count; index++) {
         NSScreen *screen = screens[index];
         NSRect frame = screen.frame;
@@ -5943,6 +5975,18 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self cleanupDiagnosticEyeRest];
     }
     [self noteRecoveryEventTitle:@"显示边界压测" detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
+}
+
+- (void)runDisplayChangeTraceSelfCheck:(id)sender {
+    NSString *previousSummary = self.lastScreenDiagnosticSummary.length > 0 ? self.lastScreenDiagnosticSummary : @"自检前无基线";
+    NSString *currentSummary = ERScreenDiagnosticSummary();
+    self.lastDisplayChangePreviousSummary = previousSummary;
+    self.lastDisplayChangeCurrentSummary = currentSummary;
+    self.lastDisplayChangeAt = NSDate.date;
+    self.lastScreenDiagnosticSummary = currentSummary;
+    [self noteRecoveryEventTitle:@"显示变化追踪自检"
+                          detail:[NSString stringWithFormat:@"已记录屏幕变化 %@ -> %@", previousSummary, currentSummary]];
     [self publishState];
 }
 
@@ -7356,6 +7400,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"display-real"] || [argument isEqualToString:@"display-diagnostic"] || [argument isEqualToString:@"screen-diagnostic"] || [argument isEqualToString:@"screen-real"]) {
             [self copyDisplayDiagnostic:nil];
             detail = @"复制显示环境诊断";
+        } else if ([argument isEqualToString:@"display-change-trace"] || [argument isEqualToString:@"display-trace"] || [argument isEqualToString:@"screen-change-trace"]) {
+            [self runDisplayChangeTraceSelfCheck:nil];
+            detail = @"运行显示变化追踪自检";
         } else if ([argument isEqualToString:@"overlay-yield"] || [argument isEqualToString:@"yield"] || [argument isEqualToString:@"window-yield"]) {
             [self runOverlayYieldStressTest:nil];
             detail = @"运行窗口让开压测";
@@ -7429,6 +7476,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"- 暂停 30 分钟：%@", ERAutomationURLString(@"pause/30m")]];
     [lines addObject:[NSString stringWithFormat:@"- 继续提醒：%@", ERAutomationURLString(@"resume")]];
     [lines addObject:[NSString stringWithFormat:@"- 显示环境诊断：%@", ERAutomationURLString(@"diagnostics/display-real")]];
+    [lines addObject:[NSString stringWithFormat:@"- 显示变化追踪自检：%@", ERAutomationURLString(@"diagnostics/display-change-trace")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实显示环境自检：%@", ERAutomationURLString(@"diagnostics/display-live")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实演示联动自检：%@", ERAutomationURLString(@"diagnostics/presentation-live")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实日历诊断：%@", ERAutomationURLString(@"diagnostics/calendar-real")]];
