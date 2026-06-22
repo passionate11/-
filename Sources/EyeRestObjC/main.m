@@ -87,7 +87,15 @@ static NSString *const ERStatsHistoryKey = @"statsHistory";
 static NSString *const ERRecoveryHistoryKey = @"recoveryHistory";
 static NSString *const ERBrandName = @"松一下";
 static NSString *const ERRestOverlayWindowIdentifier = @"local.codex.eyerest.rest-overlay";
+static NSString *const EROpenSettingsNotificationName = @"local.codex.eyerest.open-settings";
 static int ERSingleInstanceLockFD = -1;
+
+static void ERPostOpenSettingsRequest(void) {
+    [NSDistributedNotificationCenter.defaultCenter postNotificationName:EROpenSettingsNotificationName
+                                                                 object:nil
+                                                               userInfo:nil
+                                                     deliverImmediately:YES];
+}
 
 static BOOL ERAcquireSingleInstanceLock(void) {
     const char *path = "/tmp/local.codex.eyerest.lock";
@@ -957,6 +965,21 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 @end
 
+@interface ERSettingsPanel : NSPanel
+@end
+
+@implementation ERSettingsPanel
+
+- (BOOL)canBecomeKeyWindow {
+    return YES;
+}
+
+- (BOOL)canBecomeMainWindow {
+    return YES;
+}
+
+@end
+
 @interface ERTimeInput : NSObject
 @property(nonatomic, strong) NSTextField *minutesField;
 @property(nonatomic, strong) NSTextField *secondsField;
@@ -1019,7 +1042,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)presentOverlay;
 @end
 
-@interface ERSettingsWindowController : NSWindowController
+@interface ERSettingsWindowController : NSWindowController <NSWindowDelegate>
 @property(nonatomic, weak) ERAppDelegate *appDelegate;
 @property(nonatomic, strong) ERSettings *settings;
 @property(nonatomic, strong) NSButton *eyeEnabledSwitch;
@@ -1175,6 +1198,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSString *)detailedRecoveryDiagnosticText;
 - (void)copyRecoveryDiagnostic:(id)sender;
 - (void)runRecoverySelfCheck:(id)sender;
+- (void)presentSettingsWindow;
 - (NSTimeInterval)configuredRestDurationForKind:(ERReminderKind)kind;
 - (NSDate *)restEndDateForKind:(ERReminderKind)kind;
 - (void)ensureRestWindowForKind:(ERReminderKind)kind remaining:(NSTimeInterval)remaining;
@@ -1200,18 +1224,21 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (instancetype)initWithSettings:(ERSettings *)settings appDelegate:(ERAppDelegate *)appDelegate {
     NSRect frame = NSMakeRect(0, 0, 780, 540);
-    NSWindow *window = [[NSWindow alloc] initWithContentRect:frame
-                                                   styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
-                                                     backing:NSBackingStoreBuffered
-                                                       defer:NO];
+    ERSettingsPanel *window = [[ERSettingsPanel alloc] initWithContentRect:frame
+                                                                 styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskUtilityWindow
+                                                                   backing:NSBackingStoreBuffered
+                                                                     defer:NO];
     self = [super initWithWindow:window];
     if (!self) return nil;
 
     self.settings = settings;
     self.appDelegate = appDelegate;
     window.title = [NSString stringWithFormat:@"%@ 设置", ERBrandName];
+    window.delegate = self;
     window.releasedWhenClosed = NO;
     window.level = NSFloatingWindowLevel;
+    window.hidesOnDeactivate = NO;
+    window.floatingPanel = YES;
     window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary;
     [window center];
 
@@ -1332,6 +1359,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self updateSelectedPage];
     [self refreshControls];
     return self;
+}
+
+- (void)windowWillClose:(NSNotification *)notification {
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
 }
 
 - (NSView *)pageViewWithTitle:(NSString *)titleText subtitle:(NSString *)subtitle {
@@ -1562,47 +1593,46 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)buildAutomationSectionInView:(NSView *)view {
     NSView *card = self.automationCard;
     [self addSettingRowsToCard:card frames:@[
-        [NSValue valueWithRect:NSMakeRect(14, 200, 500, 28)],
-        [NSValue valueWithRect:NSMakeRect(14, 170, 500, 28)],
-        [NSValue valueWithRect:NSMakeRect(14, 140, 500, 28)],
-        [NSValue valueWithRect:NSMakeRect(14, 112, 500, 26)],
-        [NSValue valueWithRect:NSMakeRect(14, 84, 500, 28)],
-        [NSValue valueWithRect:NSMakeRect(14, 56, 500, 28)],
-        [NSValue valueWithRect:NSMakeRect(14, 28, 500, 28)],
-        [NSValue valueWithRect:NSMakeRect(14, 0, 500, 22)]
-    ] dividerX:136 dividerWidth:354];
+        [NSValue valueWithRect:NSMakeRect(14, 170, 500, 52)],
+        [NSValue valueWithRect:NSMakeRect(14, 112, 500, 52)],
+        [NSValue valueWithRect:NSMakeRect(14, 58, 500, 48)],
+        [NSValue valueWithRect:NSMakeRect(14, 14, 500, 38)]
+    ] dividerX:24 dividerWidth:480];
 
-    self.autoFocusSwitch = [NSButton checkboxWithTitle:@"自动策略" target:self action:@selector(toggleOnly:)];
-    self.autoFocusSwitch.frame = NSMakeRect(24, 202, 120, 22);
+    [card addSubview:[self captionLabel:@"当前状态" frame:NSMakeRect(24, 199, 100, 16)]];
+    self.autoFocusSwitch = [NSButton checkboxWithTitle:@"启用自动策略" target:self action:@selector(toggleOnly:)];
+    self.autoFocusSwitch.frame = NSMakeRect(24, 179, 126, 22);
     [card addSubview:self.autoFocusSwitch];
 
     self.focusAppMatchLabel = [NSTextField wrappingLabelWithString:@""];
-    self.focusAppMatchLabel.frame = NSMakeRect(156, 198, 338, 20);
+    self.focusAppMatchLabel.frame = NSMakeRect(176, 177, 318, 34);
     self.focusAppMatchLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.focusAppMatchLabel.maximumNumberOfLines = 2;
     self.focusAppMatchLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.focusAppMatchLabel];
 
+    [card addSubview:[self captionLabel:@"场景模式" frame:NSMakeRect(24, 142, 100, 16)]];
     self.calendarFocusSwitch = [NSButton checkboxWithTitle:@"日历会议" target:self action:@selector(toggleOnly:)];
-    self.calendarFocusSwitch.frame = NSMakeRect(24, 173, 120, 22);
+    self.calendarFocusSwitch.frame = NSMakeRect(24, 120, 100, 22);
     [card addSubview:self.calendarFocusSwitch];
 
     self.presentationFocusSwitch = [NSButton checkboxWithTitle:@"全屏/演示" target:self action:@selector(toggleOnly:)];
-    self.presentationFocusSwitch.frame = NSMakeRect(108, 173, 120, 22);
+    self.presentationFocusSwitch.frame = NSMakeRect(128, 120, 120, 22);
     [card addSubview:self.presentationFocusSwitch];
 
     self.calendarStatusLabel = [NSTextField wrappingLabelWithString:@""];
-    self.calendarStatusLabel.frame = NSMakeRect(226, 168, 268, 30);
+    self.calendarStatusLabel.frame = NSMakeRect(266, 116, 228, 34);
     self.calendarStatusLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.calendarStatusLabel.maximumNumberOfLines = 2;
     self.calendarStatusLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.calendarStatusLabel];
 
+    [card addSubview:[self captionLabel:@"固定时段" frame:NSMakeRect(24, 88, 100, 16)]];
     self.quietHoursSwitch = [NSButton checkboxWithTitle:@"安静时段" target:self action:@selector(toggleOnly:)];
-    self.quietHoursSwitch.frame = NSMakeRect(24, 143, 108, 22);
+    self.quietHoursSwitch.frame = NSMakeRect(24, 66, 108, 22);
     [card addSubview:self.quietHoursSwitch];
 
-    self.quietHoursStartField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 140, 64, 24)];
+    self.quietHoursStartField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 65, 64, 24)];
     self.quietHoursStartField.font = [NSFont monospacedDigitSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.quietHoursStartField.bezelStyle = NSTextFieldRoundedBezel;
     self.quietHoursStartField.alignment = NSTextAlignmentCenter;
@@ -1612,11 +1642,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.quietHoursStartField];
 
     NSTextField *quietHoursToLabel = [NSTextField labelWithString:@"到"];
-    quietHoursToLabel.frame = NSMakeRect(212, 143, 20, 18);
+    quietHoursToLabel.frame = NSMakeRect(212, 68, 20, 18);
     quietHoursToLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:quietHoursToLabel];
 
-    self.quietHoursEndField = [[NSTextField alloc] initWithFrame:NSMakeRect(238, 140, 64, 24)];
+    self.quietHoursEndField = [[NSTextField alloc] initWithFrame:NSMakeRect(238, 65, 64, 24)];
     self.quietHoursEndField.font = [NSFont monospacedDigitSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.quietHoursEndField.bezelStyle = NSTextFieldRoundedBezel;
     self.quietHoursEndField.alignment = NSTextAlignmentCenter;
@@ -1626,66 +1656,27 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.quietHoursEndField];
 
     self.quietHoursStatusLabel = [NSTextField wrappingLabelWithString:@""];
-    self.quietHoursStatusLabel.frame = NSMakeRect(316, 137, 176, 30);
+    self.quietHoursStatusLabel.frame = NSMakeRect(316, 60, 176, 34);
     self.quietHoursStatusLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     self.quietHoursStatusLabel.maximumNumberOfLines = 2;
     self.quietHoursStatusLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.quietHoursStatusLabel];
 
-    [card addSubview:[self fieldLabel:@"应用通知：" frame:NSMakeRect(24, 116, 96, 22)]];
-    self.focusAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 113, 268, 24)];
-    self.focusAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
-    self.focusAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
-    self.focusAppTokensField.placeholderString = @"命中应用：通知 + 计时";
-    self.focusAppTokensField.target = self;
-    self.focusAppTokensField.action = @selector(applySettings:);
-    [card addSubview:self.focusAppTokensField];
-
-    [card addSubview:[self fieldLabel:@"应用暂停：" frame:NSMakeRect(24, 61, 96, 22)]];
-    self.autoPauseAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 59, 350, 24)];
-    self.autoPauseAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
-    self.autoPauseAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
-    self.autoPauseAppTokensField.placeholderString = @"视频/游戏：计时暂缓";
-    self.autoPauseAppTokensField.target = self;
-    self.autoPauseAppTokensField.action = @selector(applySettings:);
-    [card addSubview:self.autoPauseAppTokensField];
-
-    [card addSubview:[self fieldLabel:@"应用忽略：" frame:NSMakeRect(24, 32, 96, 22)]];
-    self.ignoreAppTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 30, 350, 24)];
-    self.ignoreAppTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
-    self.ignoreAppTokensField.bezelStyle = NSTextFieldRoundedBezel;
-    self.ignoreAppTokensField.placeholderString = @"误命中兜底：照常提醒";
-    self.ignoreAppTokensField.target = self;
-    self.ignoreAppTokensField.action = @selector(applySettings:);
-    [card addSubview:self.ignoreAppTokensField];
-
-    [card addSubview:[self fieldLabel:@"日程通知：" frame:NSMakeRect(24, 88, 96, 22)]];
-    self.calendarFocusTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 86, 350, 24)];
-    self.calendarFocusTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
-    self.calendarFocusTokensField.bezelStyle = NSTextFieldRoundedBezel;
-    self.calendarFocusTokensField.placeholderString = @"会议/站会：只发通知";
-    self.calendarFocusTokensField.target = self;
-    self.calendarFocusTokensField.action = @selector(applySettings:);
-    [card addSubview:self.calendarFocusTokensField];
-
-    [card addSubview:[self fieldLabel:@"日程暂停：" frame:NSMakeRect(24, 5, 96, 22)]];
-    self.calendarAutoPauseTokensField = [[NSTextField alloc] initWithFrame:NSMakeRect(140, 3, 350, 24)];
-    self.calendarAutoPauseTokensField.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
-    self.calendarAutoPauseTokensField.bezelStyle = NSTextFieldRoundedBezel;
-    self.calendarAutoPauseTokensField.placeholderString = @"录制/直播/面试：暂停计时";
-    self.calendarAutoPauseTokensField.target = self;
-    self.calendarAutoPauseTokensField.action = @selector(applySettings:);
-    [card addSubview:self.calendarAutoPauseTokensField];
+    [card addSubview:[self captionLabel:@"高级策略" frame:NSMakeRect(24, 35, 100, 16)]];
+    NSButton *editKeywordsButton = [NSButton buttonWithTitle:@"编辑策略关键词..." target:self action:@selector(editAutomationKeywords:)];
+    editKeywordsButton.frame = NSMakeRect(120, 19, 136, 28);
+    editKeywordsButton.bezelStyle = NSBezelStyleRounded;
+    [card addSubview:editKeywordsButton];
 
     self.focusAppResetButton = [NSButton buttonWithTitle:@"默认" target:self action:@selector(resetFocusApps:)];
-    self.focusAppResetButton.frame = NSMakeRect(418, 113, 72, 24);
+    self.focusAppResetButton.frame = NSMakeRect(418, 19, 72, 28);
     self.focusAppResetButton.bezelStyle = NSBezelStyleRounded;
     [card addSubview:self.focusAppResetButton];
 
     self.focusAppHintLabel = [NSTextField wrappingLabelWithString:@"自动策略按忽略、暂停、轻打扰顺序处理。"];
-    self.focusAppHintLabel.frame = NSMakeRect(156, 184, 60, 14);
-    self.focusAppHintLabel.hidden = YES;
+    self.focusAppHintLabel.frame = NSMakeRect(268, 17, 140, 32);
     self.focusAppHintLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightRegular];
+    self.focusAppHintLabel.maximumNumberOfLines = 2;
     self.focusAppHintLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.focusAppHintLabel];
 }
@@ -1809,6 +1800,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     label.font = [NSFont systemFontOfSize:13];
     label.textColor = NSColor.secondaryLabelColor;
     label.alignment = NSTextAlignmentRight;
+    self.fieldLabels = [self.fieldLabels arrayByAddingObject:label];
+    return label;
+}
+
+- (NSTextField *)captionLabel:(NSString *)text frame:(NSRect)frame {
+    NSTextField *label = [NSTextField labelWithString:text];
+    label.frame = frame;
+    label.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
+    label.textColor = NSColor.secondaryLabelColor;
     self.fieldLabels = [self.fieldLabels arrayByAddingObject:label];
     return label;
 }
@@ -2388,11 +2388,21 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.quietHoursEnabled = self.quietHoursSwitch.state == NSControlStateValueOn;
     self.settings.quietHoursStartMinute = ERMinuteOfDayFromClockString(self.quietHoursStartField.stringValue, self.settings.quietHoursStartMinute);
     self.settings.quietHoursEndMinute = ERMinuteOfDayFromClockString(self.quietHoursEndField.stringValue, self.settings.quietHoursEndMinute);
-    self.settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject(self.focusAppTokensField.stringValue);
-    self.settings.autoPauseAppTokens = ERSanitizedFocusAppTokensFromObject(self.autoPauseAppTokensField.stringValue);
-    self.settings.ignoreAppTokens = ERSanitizedFocusAppTokensFromObject(self.ignoreAppTokensField.stringValue);
-    self.settings.calendarFocusTokens = ERSanitizedFocusAppTokensFromObject(self.calendarFocusTokensField.stringValue);
-    self.settings.calendarAutoPauseTokens = ERSanitizedFocusAppTokensFromObject(self.calendarAutoPauseTokensField.stringValue);
+    if (self.focusAppTokensField) {
+        self.settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject(self.focusAppTokensField.stringValue);
+    }
+    if (self.autoPauseAppTokensField) {
+        self.settings.autoPauseAppTokens = ERSanitizedFocusAppTokensFromObject(self.autoPauseAppTokensField.stringValue);
+    }
+    if (self.ignoreAppTokensField) {
+        self.settings.ignoreAppTokens = ERSanitizedFocusAppTokensFromObject(self.ignoreAppTokensField.stringValue);
+    }
+    if (self.calendarFocusTokensField) {
+        self.settings.calendarFocusTokens = ERSanitizedFocusAppTokensFromObject(self.calendarFocusTokensField.stringValue);
+    }
+    if (self.calendarAutoPauseTokensField) {
+        self.settings.calendarAutoPauseTokens = ERSanitizedFocusAppTokensFromObject(self.calendarAutoPauseTokensField.stringValue);
+    }
     self.settings.menuBarMode = self.menuBarModePopup.indexOfSelectedItem;
     self.settings.restStyle = self.restStylePopup.indexOfSelectedItem;
 
@@ -2447,6 +2457,71 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             self.settings.standCustomStagesText = ERSanitizedStandCustomStagesTextFromObject(textView.string);
         } else if (response == NSAlertSecondButtonReturn) {
             self.settings.standCustomStagesText = @"";
+        } else {
+            return;
+        }
+        [self.settings save];
+        [self refreshControls];
+        [self.appDelegate settingsDidChangeShouldReset:NO];
+    }];
+}
+
+- (void)editAutomationKeywords:(id)sender {
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = @"策略关键词";
+    alert.informativeText = @"多个关键词用逗号、分号或换行分隔。优先级：忽略 > 暂停 > 只发通知。";
+    [alert addButtonWithTitle:@"保存"];
+    [alert addButtonWithTitle:@"恢复默认"];
+    [alert addButtonWithTitle:@"取消"];
+
+    NSView *panel = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 520, 220)];
+    NSArray<NSString *> *labels = @[@"应用通知", @"应用暂停", @"应用忽略", @"日程通知", @"日程暂停"];
+    NSArray<NSString *> *values = @[
+        [self.settings.focusAppTokens componentsJoinedByString:@", "],
+        [self.settings.autoPauseAppTokens componentsJoinedByString:@", "],
+        [self.settings.ignoreAppTokens componentsJoinedByString:@", "],
+        [self.settings.calendarFocusTokens componentsJoinedByString:@", "],
+        [self.settings.calendarAutoPauseTokens componentsJoinedByString:@", "]
+    ];
+    NSArray<NSString *> *placeholders = @[
+        @"会议/演示类应用：只发通知",
+        @"视频/游戏类应用：暂停计时",
+        @"误命中兜底：照常提醒",
+        @"会议/站会：只发通知",
+        @"录制/直播/面试：暂停计时"
+    ];
+    NSMutableArray<NSTextField *> *fields = [NSMutableArray arrayWithCapacity:labels.count];
+    for (NSInteger index = 0; index < labels.count; index++) {
+        CGFloat y = 176 - index * 40;
+        NSTextField *label = [NSTextField labelWithString:[NSString stringWithFormat:@"%@：", labels[index]]];
+        label.frame = NSMakeRect(0, y + 4, 86, 22);
+        label.alignment = NSTextAlignmentRight;
+        label.textColor = NSColor.secondaryLabelColor;
+        [panel addSubview:label];
+
+        NSTextField *field = [[NSTextField alloc] initWithFrame:NSMakeRect(100, y, 400, 26)];
+        field.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
+        field.bezelStyle = NSTextFieldRoundedBezel;
+        field.placeholderString = placeholders[index];
+        field.stringValue = values[index];
+        [panel addSubview:field];
+        [fields addObject:field];
+    }
+    alert.accessoryView = panel;
+
+    [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse response) {
+        if (response == NSAlertSecondButtonReturn) {
+            self.settings.focusAppTokens = ERDefaultFocusAppTokens();
+            self.settings.autoPauseAppTokens = ERDefaultAutoPauseAppTokens();
+            self.settings.ignoreAppTokens = ERDefaultIgnoreAppTokens();
+            self.settings.calendarFocusTokens = ERDefaultCalendarFocusTokens();
+            self.settings.calendarAutoPauseTokens = ERDefaultCalendarAutoPauseTokens();
+        } else if (response == NSAlertFirstButtonReturn) {
+            self.settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject(fields[0].stringValue);
+            self.settings.autoPauseAppTokens = ERSanitizedFocusAppTokensFromObject(fields[1].stringValue);
+            self.settings.ignoreAppTokens = ERSanitizedFocusAppTokensFromObject(fields[2].stringValue);
+            self.settings.calendarFocusTokens = ERSanitizedFocusAppTokensFromObject(fields[3].stringValue);
+            self.settings.calendarAutoPauseTokens = ERSanitizedFocusAppTokensFromObject(fields[4].stringValue);
         } else {
             return;
         }
@@ -3042,6 +3117,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self rebuildMenu];
     [self resetAllTimers];
     [self applyPreferenceSideEffects];
+    [NSDistributedNotificationCenter.defaultCenter addObserver:self
+                                                      selector:@selector(handleOpenSettingsRequest:)
+                                                          name:EROpenSettingsNotificationName
+                                                        object:nil];
 
     self.timer = [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(tick:) userInfo:nil repeats:YES];
     [NSRunLoop.mainRunLoop addTimer:self.timer forMode:NSRunLoopCommonModes];
@@ -3534,6 +3613,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender {
     return NO;
+}
+
+- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag {
+    [self openSettings:nil];
+    return YES;
 }
 
 - (void)rebuildMenu {
@@ -4383,15 +4467,39 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self publishState];
 }
 
+- (void)handleOpenSettingsRequest:(NSNotification *)notification {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self presentSettingsWindow];
+    });
+}
+
 - (void)openSettings:(id)sender {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self presentSettingsWindow];
+    });
+}
+
+- (void)presentSettingsWindow {
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
     if (!self.settingsWindowController) {
         self.settingsWindowController = [[ERSettingsWindowController alloc] initWithSettings:self.settings appDelegate:self];
     }
     [self.settingsWindowController refreshControls];
+    NSWindow *settingsWindow = self.settingsWindowController.window;
+    NSScreen *screen = NSScreen.mainScreen ?: NSScreen.screens.firstObject;
+    if (screen) {
+        NSRect visibleFrame = screen.visibleFrame;
+        NSRect windowFrame = settingsWindow.frame;
+        CGFloat x = NSMidX(visibleFrame) - windowFrame.size.width / 2.0;
+        CGFloat y = NSMidY(visibleFrame) - windowFrame.size.height / 2.0;
+        x = MIN(NSMaxX(visibleFrame) - windowFrame.size.width, MAX(NSMinX(visibleFrame), x));
+        y = MIN(NSMaxY(visibleFrame) - windowFrame.size.height, MAX(NSMinY(visibleFrame), y));
+        [settingsWindow setFrameOrigin:NSMakePoint(x, y)];
+    }
     [self.settingsWindowController showWindow:nil];
     [NSApp activateIgnoringOtherApps:YES];
-    [self.settingsWindowController.window makeKeyAndOrderFront:nil];
-    [self.settingsWindowController.window orderFrontRegardless];
+    [settingsWindow makeKeyAndOrderFront:nil];
+    [settingsWindow orderFrontRegardless];
 }
 
 - (void)toggleNotifications:(id)sender {
@@ -4413,6 +4521,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 int main(int argc, const char * argv[]) {
     @autoreleasepool {
         if (!ERAcquireSingleInstanceLock()) {
+            ERPostOpenSettingsRequest();
             return 0;
         }
         NSApplication *application = NSApplication.sharedApplication;
