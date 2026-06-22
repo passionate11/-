@@ -1380,6 +1380,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *overviewTodayLabel;
 @property(nonatomic, strong) NSTextField *overviewModeLabel;
 @property(nonatomic, strong) NSTextField *overviewHintLabel;
+@property(nonatomic, strong) NSButton *overviewRestEyeButton;
+@property(nonatomic, strong) NSButton *overviewRestStandButton;
+@property(nonatomic, strong) NSButton *overviewPauseButton;
+@property(nonatomic, strong) NSButton *overviewIssueButton;
+@property(nonatomic, strong) NSArray<NSButton *> *overviewActionButtons;
 @property(nonatomic, strong) NSTextField *statsOverviewLabel;
 @property(nonatomic, strong) NSTextField *statsMonthLabel;
 @property(nonatomic, strong) NSTextField *statsStrategyLabel;
@@ -1421,6 +1426,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSArray<NSTextField *> *fieldLabels;
 @property(nonatomic, strong) NSArray<NSView *> *settingRowViews;
 @property(nonatomic, strong) NSArray<NSView *> *settingDividerViews;
+@property(nonatomic, strong) NSVisualEffectView *footerView;
+@property(nonatomic, strong) NSView *footerDivider;
+@property(nonatomic, strong) NSButton *applyButton;
+@property(nonatomic, strong) NSButton *resetButton;
 @property(nonatomic, strong) NSSegmentedControl *paneControl;
 @property(nonatomic) NSInteger selectedPage;
 - (instancetype)initWithSettings:(ERSettings *)settings appDelegate:(ERAppDelegate *)appDelegate;
@@ -1548,6 +1557,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)copyRecoveryReportDiagnostic:(id)sender;
 - (void)copySupportBundleDiagnostic:(id)sender;
 - (void)copyIssueBundleDiagnostic:(id)sender;
+- (void)restEyeNow:(id)sender;
+- (void)restStandNow:(id)sender;
+- (void)pauseForSeconds:(NSTimeInterval)seconds;
 - (void)runRecoverySelfCheck:(id)sender;
 - (void)runRecoveryStressTest:(id)sender;
 - (void)handleRecoveryStressTestRequest:(NSNotification *)notification;
@@ -1757,16 +1769,28 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [statsPage.subviews objectAtIndex:1]
     ];
 
-    NSButton *applyButton = [NSButton buttonWithTitle:@"应用" target:self action:@selector(applySettings:)];
-    applyButton.frame = NSMakeRect(664, 24, 84, 32);
-    applyButton.bezelStyle = NSBezelStyleRounded;
-    applyButton.keyEquivalent = @"\r";
-    [content addSubview:applyButton];
+    NSVisualEffectView *footer = [[NSVisualEffectView alloc] initWithFrame:NSMakeRect(196, 0, 584, 72)];
+    footer.material = NSVisualEffectMaterialContentBackground;
+    footer.blendingMode = NSVisualEffectBlendingModeWithinWindow;
+    footer.state = NSVisualEffectStateActive;
+    [content addSubview:footer positioned:NSWindowAbove relativeTo:nil];
+    self.footerView = footer;
 
-    NSButton *resetButton = [NSButton buttonWithTitle:@"恢复默认" target:self action:@selector(resetDefaults:)];
-    resetButton.frame = NSMakeRect(562, 24, 90, 32);
-    resetButton.bezelStyle = NSBezelStyleRounded;
-    [content addSubview:resetButton];
+    NSView *footerDivider = [[NSView alloc] initWithFrame:NSMakeRect(0, 71, 584, 1)];
+    footerDivider.wantsLayer = YES;
+    [footer addSubview:footerDivider];
+    self.footerDivider = footerDivider;
+
+    self.applyButton = [NSButton buttonWithTitle:@"应用" target:self action:@selector(applySettings:)];
+    self.applyButton.frame = NSMakeRect(468, 20, 84, 32);
+    self.applyButton.bezelStyle = NSBezelStyleRounded;
+    self.applyButton.keyEquivalent = @"\r";
+    [footer addSubview:self.applyButton];
+
+    self.resetButton = [NSButton buttonWithTitle:@"恢复默认" target:self action:@selector(resetDefaults:)];
+    self.resetButton.frame = NSMakeRect(360, 20, 92, 32);
+    self.resetButton.bezelStyle = NSBezelStyleRounded;
+    [footer addSubview:self.resetButton];
 
     self.selectedPage = 0;
     [self updateSelectedPage];
@@ -1836,12 +1860,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMutableArray<NSView *> *tiles = [NSMutableArray array];
     NSMutableArray<NSTextField *> *labels = [NSMutableArray array];
 
-    NSView *eyeTile = ERRoundedView(NSMakeRect(18, 104, 236, 112), [NSColor colorWithWhite:1 alpha:0.38], 14);
+    NSView *eyeTile = ERRoundedView(NSMakeRect(18, 112, 236, 106), [NSColor colorWithWhite:1 alpha:0.38], 14);
     eyeTile.layer.borderWidth = 1;
     [card addSubview:eyeTile];
     [tiles addObject:eyeTile];
 
-    NSView *standTile = ERRoundedView(NSMakeRect(274, 104, 236, 112), [NSColor colorWithWhite:1 alpha:0.38], 14);
+    NSView *standTile = ERRoundedView(NSMakeRect(274, 112, 236, 106), [NSColor colorWithWhite:1 alpha:0.38], 14);
     standTile.layer.borderWidth = 1;
     [card addSubview:standTile];
     [tiles addObject:standTile];
@@ -1899,25 +1923,48 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [labels addObject:self.overviewStandMetaLabel];
 
     self.overviewTodayLabel = [NSTextField wrappingLabelWithString:@""];
-    self.overviewTodayLabel.frame = NSMakeRect(24, 64, 216, 32);
+    self.overviewTodayLabel.frame = NSMakeRect(24, 70, 216, 32);
     self.overviewTodayLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
     self.overviewTodayLabel.maximumNumberOfLines = 2;
     [card addSubview:self.overviewTodayLabel];
     [labels addObject:self.overviewTodayLabel];
 
     self.overviewModeLabel = [NSTextField wrappingLabelWithString:@""];
-    self.overviewModeLabel.frame = NSMakeRect(274, 64, 222, 32);
+    self.overviewModeLabel.frame = NSMakeRect(274, 70, 222, 32);
     self.overviewModeLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
     self.overviewModeLabel.maximumNumberOfLines = 2;
     [card addSubview:self.overviewModeLabel];
     [labels addObject:self.overviewModeLabel];
 
     self.overviewHintLabel = [NSTextField wrappingLabelWithString:@""];
-    self.overviewHintLabel.frame = NSMakeRect(24, 18, 472, 34);
+    self.overviewHintLabel.frame = NSMakeRect(24, 42, 472, 24);
     self.overviewHintLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
-    self.overviewHintLabel.maximumNumberOfLines = 2;
+    self.overviewHintLabel.maximumNumberOfLines = 1;
     [card addSubview:self.overviewHintLabel];
     [labels addObject:self.overviewHintLabel];
+
+    self.overviewRestEyeButton = [self overviewActionButtonWithTitle:@"眼睛" symbol:@"eye" action:@selector(overviewRestEyeNow:) frame:NSMakeRect(24, 10, 92, 28)];
+    self.overviewRestEyeButton.toolTip = @"立即开始一次眼睛休息";
+    [card addSubview:self.overviewRestEyeButton];
+
+    self.overviewRestStandButton = [self overviewActionButtonWithTitle:@"站立" symbol:@"figure.stand" action:@selector(overviewRestStandNow:) frame:NSMakeRect(130, 10, 92, 28)];
+    self.overviewRestStandButton.toolTip = @"立即开始一次站立提醒";
+    [card addSubview:self.overviewRestStandButton];
+
+    self.overviewPauseButton = [self overviewActionButtonWithTitle:@"暂停 30" symbol:@"pause" action:@selector(overviewPauseThirtyMinutes:) frame:NSMakeRect(236, 10, 100, 28)];
+    self.overviewPauseButton.toolTip = @"暂停提醒 30 分钟";
+    [card addSubview:self.overviewPauseButton];
+
+    self.overviewIssueButton = [self overviewActionButtonWithTitle:@"反馈包" symbol:@"doc.on.doc" action:@selector(overviewCopyIssueBundle:) frame:NSMakeRect(350, 10, 100, 28)];
+    self.overviewIssueButton.toolTip = @"复制问题反馈包";
+    [card addSubview:self.overviewIssueButton];
+
+    self.overviewActionButtons = @[
+        self.overviewRestEyeButton,
+        self.overviewRestStandButton,
+        self.overviewPauseButton,
+        self.overviewIssueButton
+    ];
 
     self.overviewTiles = tiles;
     self.overviewLabels = labels;
@@ -2384,6 +2431,36 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self updateSelectedPage];
 }
 
+- (NSButton *)overviewActionButtonWithTitle:(NSString *)title symbol:(NSString *)symbol action:(SEL)action frame:(NSRect)frame {
+    NSButton *button = [NSButton buttonWithTitle:title target:self action:action];
+    button.frame = frame;
+    button.bezelStyle = NSBezelStyleRounded;
+    button.image = [NSImage imageWithSystemSymbolName:symbol accessibilityDescription:title];
+    button.imagePosition = NSImageLeft;
+    button.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
+    return button;
+}
+
+- (void)overviewRestEyeNow:(id)sender {
+    [self.appDelegate restEyeNow:sender];
+    [self refreshOverview];
+}
+
+- (void)overviewRestStandNow:(id)sender {
+    [self.appDelegate restStandNow:sender];
+    [self refreshOverview];
+}
+
+- (void)overviewPauseThirtyMinutes:(id)sender {
+    [self.appDelegate pauseForSeconds:30 * 60];
+    [self refreshOverview];
+}
+
+- (void)overviewCopyIssueBundle:(id)sender {
+    [self.appDelegate copyIssueBundleDiagnostic:sender];
+    [self refreshOverview];
+}
+
 - (void)updateSelectedPage {
     for (NSInteger index = 0; index < self.pages.count; index++) {
         self.pages[index].hidden = index != self.selectedPage;
@@ -2475,6 +2552,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             : [NSString stringWithFormat:@"每 %@ 站 %@", ERFormatDuration(self.settings.standIntervalSeconds), ERFormatDuration(self.settings.standDurationSeconds)];
         self.overviewStandProgress.doubleValue = standTotal > 0 ? MAX(0, MIN(1, 1 - standRemaining / standTotal)) : 0;
     }
+
+    self.overviewRestEyeButton.enabled = self.settings.eyeEnabled && !self.appDelegate.eyeResting;
+    self.overviewRestStandButton.enabled = self.settings.standEnabled && !self.appDelegate.standResting;
+    self.overviewPauseButton.enabled = !self.appDelegate.paused;
+    self.overviewPauseButton.title = self.appDelegate.paused ? @"已暂停" : @"暂停 30";
+    self.overviewIssueButton.enabled = YES;
 
     NSInteger done = self.appDelegate.todayEyeDone + self.appDelegate.todayStandDone;
     self.overviewTodayLabel.stringValue = [NSString stringWithFormat:@"今天 %ld 次：眼 %ld · 站 %ld\n稍后/跳过 %ld",
@@ -2886,6 +2969,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.contentView.layer.backgroundColor = theme.settingsBackground.CGColor;
     self.headerView.wantsLayer = YES;
     self.headerView.layer.backgroundColor = theme.settingsHeader.CGColor;
+    self.footerView.wantsLayer = YES;
+    self.footerView.layer.backgroundColor = theme.settingsHeader.CGColor;
+    self.footerDivider.layer.backgroundColor = [theme.cardBorder colorWithAlphaComponent:0.58].CGColor;
     self.overviewCard.layer.backgroundColor = theme.card.CGColor;
     self.eyeCard.layer.backgroundColor = theme.card.CGColor;
     self.standCard.layer.backgroundColor = theme.card.CGColor;
@@ -2920,6 +3006,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.standIntensityHintLabel.textColor = theme.secondary;
     self.standCustomStagesSummaryLabel.textColor = theme.secondary;
     self.standCustomStagesButton.contentTintColor = theme.accent;
+    for (NSButton *button in self.overviewActionButtons) {
+        button.contentTintColor = theme.accent;
+    }
+    self.applyButton.contentTintColor = theme.accent;
+    self.resetButton.contentTintColor = theme.secondary;
     self.statsOverviewLabel.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
     self.statsMonthLabel.textColor = theme.secondary;
     self.statsStrategyLabel.textColor = theme.secondary;
@@ -5984,6 +6075,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)pauseFor:(NSMenuItem *)sender {
     NSTimeInterval seconds = [sender.representedObject doubleValue];
+    [self pauseForSeconds:seconds];
+}
+
+- (void)pauseForSeconds:(NSTimeInterval)seconds {
+    if (seconds <= 0) return;
     self.paused = YES;
     self.pauseStartedAt = NSDate.date;
     self.pausedUntil = [NSDate dateWithTimeIntervalSinceNow:seconds];
@@ -8136,9 +8232,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else {
             NSTimeInterval seconds = ERAutomationDurationSecondsFromToken(argument);
             if (seconds <= 0) return NO;
-            self.paused = YES;
-            self.pauseStartedAt = NSDate.date;
-            self.pausedUntil = [NSDate dateWithTimeIntervalSinceNow:seconds];
+            [self pauseForSeconds:seconds];
             detail = [NSString stringWithFormat:@"暂停 %@", ERFormatDuration(seconds)];
         }
     } else if ([command isEqualToString:@"resume"]) {
