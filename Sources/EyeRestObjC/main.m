@@ -1395,6 +1395,17 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 @end
 
+@interface ERRestActionButton : NSButton
+@end
+
+@implementation ERRestActionButton
+
+- (BOOL)acceptsFirstMouse:(NSEvent *)event {
+    return YES;
+}
+
+@end
+
 @interface ERSettingsWindow : NSWindow
 @end
 
@@ -1461,6 +1472,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSTimeInterval totalDuration;
 @property(nonatomic) ERRestStyle currentStyle;
 - (instancetype)initWithAppDelegate:(ERAppDelegate *)appDelegate;
+- (ERRestActionButton *)actionButtonWithTitle:(NSString *)title action:(SEL)action;
 - (void)configureForKind:(ERReminderKind)kind settings:(ERSettings *)settings duration:(NSTimeInterval)duration;
 - (void)updateRemaining:(NSTimeInterval)remaining;
 - (void)configureActionSuggestionsForKind:(ERReminderKind)kind settings:(ERSettings *)settings;
@@ -1730,7 +1742,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runRecoverySelfCheck:(id)sender;
 - (void)runRecoveryStressTest:(id)sender;
 - (void)handleRecoveryStressTestRequest:(NSNotification *)notification;
-- (void)runRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
+- (void)runRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousEyeDueAt:(NSDate *)previousEyeDueAt previousEyeRestEndsAt:(NSDate *)previousEyeRestEndsAt previousEyeResting:(BOOL)previousEyeResting previousStandDueAt:(NSDate *)previousStandDueAt previousStandRestEndsAt:(NSDate *)previousStandRestEndsAt previousStandResting:(BOOL)previousStandResting previousRestOverlayYielded:(BOOL)previousRestOverlayYielded diagnosticRestStarted:(BOOL)diagnosticRestStarted;
 - (void)runLunchRecoveryStressTest:(id)sender;
 - (void)runLunchRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runSleepHiddenRecoveryStressTest:(id)sender;
@@ -3818,29 +3830,31 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.styleHintLabel.font = [NSFont systemFontOfSize:14 weight:NSFontWeightMedium];
     [self.focusCard addSubview:self.styleHintLabel];
 
-    self.finishButton = [NSButton buttonWithTitle:@"完成" target:self action:@selector(finish:)];
-    self.finishButton.bezelStyle = NSBezelStyleRounded;
-    self.finishButton.font = [NSFont systemFontOfSize:15 weight:NSFontWeightMedium];
+    self.finishButton = [self actionButtonWithTitle:@"完成" action:@selector(finish:)];
     self.finishButton.keyEquivalent = @"\r";
     [self.focusCard addSubview:self.finishButton];
 
-    self.snoozeButton = [NSButton buttonWithTitle:@"稍后 5 分钟" target:self action:@selector(snooze:)];
-    self.snoozeButton.bezelStyle = NSBezelStyleRounded;
-    self.snoozeButton.font = [NSFont systemFontOfSize:15 weight:NSFontWeightMedium];
+    self.snoozeButton = [self actionButtonWithTitle:@"稍后 5 分钟" action:@selector(snooze:)];
     [self.focusCard addSubview:self.snoozeButton];
 
-    self.skipButton = [NSButton buttonWithTitle:@"跳过本次" target:self action:@selector(skip:)];
-    self.skipButton.bezelStyle = NSBezelStyleRounded;
-    self.skipButton.font = [NSFont systemFontOfSize:15 weight:NSFontWeightMedium];
+    self.skipButton = [self actionButtonWithTitle:@"跳过本次" action:@selector(skip:)];
     [self.focusCard addSubview:self.skipButton];
 
-    self.extendButton = [NSButton buttonWithTitle:@"延长 1 分钟" target:self action:@selector(extend:)];
-    self.extendButton.bezelStyle = NSBezelStyleRounded;
-    self.extendButton.font = [NSFont systemFontOfSize:15 weight:NSFontWeightMedium];
+    self.extendButton = [self actionButtonWithTitle:@"延长 1 分钟" action:@selector(extend:)];
     [self.focusCard addSubview:self.extendButton];
     [self refreshActionBindings];
     [self layoutRestContent];
     return self;
+}
+
+- (ERRestActionButton *)actionButtonWithTitle:(NSString *)title action:(SEL)action {
+    ERRestActionButton *button = [[ERRestActionButton alloc] initWithFrame:NSZeroRect];
+    button.title = title;
+    button.target = self;
+    button.action = action;
+    button.bezelStyle = NSBezelStyleRounded;
+    button.font = [NSFont systemFontOfSize:15 weight:NSFontWeightMedium];
+    return button;
 }
 
 - (void)refreshActionBindings {
@@ -3865,15 +3879,19 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     return self.appDelegate &&
         self.window &&
         !self.window.ignoresMouseEvents &&
+        [self.finishButton isKindOfClass:ERRestActionButton.class] &&
         self.finishButton.target == self &&
         self.finishButton.action == @selector(finish:) &&
         self.finishButton.enabled &&
+        [self.snoozeButton isKindOfClass:ERRestActionButton.class] &&
         self.snoozeButton.target == self &&
         self.snoozeButton.action == @selector(snooze:) &&
         self.snoozeButton.enabled &&
+        [self.skipButton isKindOfClass:ERRestActionButton.class] &&
         self.skipButton.target == self &&
         self.skipButton.action == @selector(skip:) &&
         self.skipButton.enabled &&
+        [self.extendButton isKindOfClass:ERRestActionButton.class] &&
         self.extendButton.target == self &&
         self.extendButton.action == @selector(extend:) &&
         self.extendButton.enabled;
@@ -6781,8 +6799,27 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runRecoveryStressTest:(id)sender {
     self.recoveryStressTestGeneration += 1;
     NSUInteger generation = self.recoveryStressTestGeneration;
+    NSDate *previousEyeDueAt = self.eyeDueAt;
+    NSDate *previousEyeRestEndsAt = self.eyeRestEndsAt;
+    BOOL previousEyeResting = self.eyeResting;
+    NSDate *previousStandDueAt = self.standDueAt;
+    NSDate *previousStandRestEndsAt = self.standRestEndsAt;
+    BOOL previousStandResting = self.standResting;
+    BOOL previousRestOverlayYielded = self.restOverlayYielded;
+    BOOL diagnosticRestStarted = !self.eyeResting && !self.standResting && self.settings.eyeEnabled && self.settings.showRestWindow && !self.paused && ![self isLightDistractionModeActive];
     NSArray<NSNumber *> *delays = @[@0.0, @0.4, @1.0, @2.0, @4.0];
     NSInteger total = delays.count;
+
+    if (diagnosticRestStarted) {
+        self.eyeResting = YES;
+        self.eyeRestEndsAt = [NSDate dateWithTimeIntervalSinceNow:MAX(45, self.settings.eyeRestSeconds)];
+        self.restOverlayYielded = NO;
+        [self ensureRestWindowForKind:ERReminderKindEye remaining:[self remainingUntil:self.eyeRestEndsAt]];
+    }
+    if (self.restWindowController) {
+        self.restWindowController.finishButton.target = nil;
+        [self noteRecoveryEventTitle:@"恢复压测" detail:@"已模拟休息页按钮链路异常"];
+    }
 
     [self noteRecoveryEventTitle:@"恢复压测" detail:[NSString stringWithFormat:@"开始 %ld 轮窗口复查", (long)total]];
     [self publishState];
@@ -6790,14 +6827,25 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     for (NSInteger index = 0; index < total; index++) {
         NSTimeInterval delay = delays[index].doubleValue;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [self runRecoveryStressTestPass:index + 1 total:total generation:generation];
+            [self runRecoveryStressTestPass:index + 1
+                                      total:total
+                                 generation:generation
+                           previousEyeDueAt:previousEyeDueAt
+                        previousEyeRestEndsAt:previousEyeRestEndsAt
+                         previousEyeResting:previousEyeResting
+                         previousStandDueAt:previousStandDueAt
+                      previousStandRestEndsAt:previousStandRestEndsAt
+                       previousStandResting:previousStandResting
+                  previousRestOverlayYielded:previousRestOverlayYielded
+                       diagnosticRestStarted:diagnosticRestStarted];
         });
     }
 }
 
-- (void)runRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation {
+- (void)runRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousEyeDueAt:(NSDate *)previousEyeDueAt previousEyeRestEndsAt:(NSDate *)previousEyeRestEndsAt previousEyeResting:(BOOL)previousEyeResting previousStandDueAt:(NSDate *)previousStandDueAt previousStandRestEndsAt:(NSDate *)previousStandRestEndsAt previousStandResting:(BOOL)previousStandResting previousRestOverlayYielded:(BOOL)previousRestOverlayYielded diagnosticRestStarted:(BOOL)diagnosticRestStarted {
     if (generation != self.recoveryStressTestGeneration) return;
 
+    BOOL hadBrokenButtons = self.restWindowController && ![self.restWindowController hasHealthyActionBindings];
     [self refreshFocusModeState];
     [self settleExpiredRests];
     [self repairRestStateIfNeeded];
@@ -6824,10 +6872,29 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     } else {
         [details addObject:@"无休息页"];
     }
+    if (hadBrokenButtons && self.restWindowController && [self.restWindowController hasHealthyActionBindings]) {
+        [details addObject:@"按钮链路已修复"];
+    }
     if (orphaned > 0) {
         [details addObject:[NSString stringWithFormat:@"清理残留 %ld 个", (long)orphaned]];
     }
     [details addObject:[NSString stringWithFormat:@"屏幕 %ld", (long)NSScreen.screens.count]];
+
+    if (pass == total && diagnosticRestStarted) {
+        self.eyeDueAt = previousEyeDueAt ?: (self.settings.eyeEnabled ? [NSDate dateWithTimeIntervalSinceNow:self.settings.eyeFocusSeconds] : nil);
+        self.eyeRestEndsAt = previousEyeRestEndsAt;
+        self.eyeResting = previousEyeResting;
+        self.standDueAt = previousStandDueAt ?: (self.settings.standEnabled ? [NSDate dateWithTimeIntervalSinceNow:self.settings.standIntervalSeconds] : nil);
+        self.standRestEndsAt = previousStandRestEndsAt;
+        self.standResting = previousStandResting;
+        self.restOverlayYielded = previousRestOverlayYielded;
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
+        [self closeOrphanRestWindows];
+        [details addObject:@"恢复压测状态已还原"];
+    }
 
     [self noteRecoveryEventTitle:@"恢复压测" detail:[details componentsJoinedByString:@"，"]];
     [self publishState];

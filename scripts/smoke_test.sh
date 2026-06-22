@@ -208,6 +208,9 @@ echo "==> Checking recovery stress URL"
 open "$URL_SCHEME://diagnostics/recovery-stress"
 sleep 5
 history_contains '完成 5/5' '\\U5b8c\\U6210 5/5' || fail "recovery stress did not complete"
+history_contains '已模拟休息页按钮链路异常' '\\U5df2\\U6a21\\U62df\\U4f11\\U606f\\U9875\\U6309\\U94ae\\U94fe\\U8def\\U5f02\\U5e38' || fail "recovery stress did not simulate broken action bindings"
+history_contains '按钮链路已修复' '\\U6309\\U94ae\\U94fe\\U8def\\U5df2\\U4fee\\U590d' || fail "recovery stress did not repair broken action bindings"
+history_contains '恢复压测状态已还原' '\\U6062\\U590d\\U538b\\U6d4b\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "recovery stress did not restore diagnostic rest state"
 
 echo "==> Checking lunch recovery URL"
 open "$URL_SCHEME://diagnostics/lunch-recovery"
