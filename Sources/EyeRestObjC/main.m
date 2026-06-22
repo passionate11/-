@@ -88,6 +88,7 @@ static NSString *const ERStatsHistoryKey = @"statsHistory";
 static NSString *const ERRecoveryHistoryKey = @"recoveryHistory";
 static NSString *const ERBrandName = @"松一下";
 static NSString *const ERGitHubURLString = @"https://github.com/passionate11/-";
+static NSString *const ERLatestReleaseURLString = @"https://github.com/passionate11/-/releases/latest";
 static NSString *const ERAutomationURLScheme = @"songyixia";
 static NSString *const ERRestOverlayWindowIdentifier = @"local.codex.eyerest.rest-overlay";
 static NSString *const EROpenSettingsNotificationName = @"local.codex.eyerest.open-settings";
@@ -1392,6 +1393,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (NSString *)recoveryWindowDiagnosticLine;
 - (void)showAbout:(id)sender;
+- (void)checkForUpdates:(id)sender;
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
 - (BOOL)handleAutomationURL:(NSURL *)url;
 - (void)copyAutomationURL:(NSMenuItem *)sender;
@@ -4052,6 +4054,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     about.target = self;
     [self.menu addItem:about];
 
+    NSMenuItem *update = [[NSMenuItem alloc] initWithTitle:@"检查更新..." action:@selector(checkForUpdates:) keyEquivalent:@""];
+    update.target = self;
+    [self.menu addItem:update];
+
     NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"退出 %@", ERBrandName] action:@selector(terminate:) keyEquivalent:@"q"];
     quit.target = NSApp;
     [self.menu addItem:quit];
@@ -4877,6 +4883,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         if (url) {
             [NSWorkspace.sharedWorkspace openURL:url];
         }
+    }
+}
+
+- (void)checkForUpdates:(id)sender {
+    NSURL *url = [NSURL URLWithString:ERLatestReleaseURLString];
+    if (url) {
+        [NSWorkspace.sharedWorkspace openURL:url];
+        [self noteRecoveryEventTitle:@"更新" detail:@"已打开最新版本页面"];
+        [self publishState];
     }
 }
 

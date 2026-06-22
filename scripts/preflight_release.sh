@@ -53,10 +53,11 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: checkForUpdates:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
+check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-/releases/latest" "latest release URL"
 
 echo "==> Verifying window behavior guardrails"
 SOURCE_CONTENT="$(< "$SOURCE_FILE")"
