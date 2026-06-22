@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.11
+
+- `复制专注联动脚本` 新增 Raycast Script Command 示例，覆盖切换轻打扰和暂停 30 分钟。
+- 冒烟测试新增 Raycast 模板校验，确认复制出的专注联动模板包含 Raycast 配置片段。
+
 ## 0.1.10
 
 - 菜单栏新增 `复制专注联动脚本`，一键复制 macOS 快捷指令和 Hammerspoon 可用的轻打扰联动模板。

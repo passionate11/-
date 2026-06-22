@@ -5589,7 +5589,20 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @"\n"
         @"hs.hotkey.bind({'cmd', 'alt', 'ctrl'}, 'R', function()\n"
         @"  openSongYiXia('resume')\n"
-        @"end)\n",
+        @"end)\n"
+        @"\n"
+        @"## Raycast Script Command 示例\n"
+        @"#!/bin/bash\n"
+        @"# @raycast.schemaVersion 1\n"
+        @"# @raycast.title 松一下 · 切换轻打扰\n"
+        @"# @raycast.mode silent\n"
+        @"open 'songyixia://focus/toggle'\n"
+        @"\n"
+        @"#!/bin/bash\n"
+        @"# @raycast.schemaVersion 1\n"
+        @"# @raycast.title 松一下 · 暂停 30 分钟\n"
+        @"# @raycast.mode silent\n"
+        @"open 'songyixia://pause/30m'\n",
         focusOn,
         focusOff,
         focusToggle,

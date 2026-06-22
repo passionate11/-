@@ -125,6 +125,8 @@ template="$(/usr/bin/pbpaste)"
 [[ "$template" == *"songyixia://focus/on"* ]] || fail "focus template missing focus/on"
 [[ "$template" == *"songyixia://focus/off"* ]] || fail "focus template missing focus/off"
 [[ "$template" == *"Hammerspoon"* ]] || fail "focus template missing Hammerspoon section"
+[[ "$template" == *"@raycast.schemaVersion"* ]] || fail "focus template missing Raycast metadata"
+[[ "$template" == *"songyixia://pause/30m"* ]] || fail "focus template missing Raycast pause command"
 
 echo "==> Checking recovery stress URL"
 open "$URL_SCHEME://diagnostics/recovery-stress"
