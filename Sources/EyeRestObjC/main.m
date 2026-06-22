@@ -866,6 +866,146 @@ static CAGradientLayer *ERGradientLayer(NSRect frame, NSArray<NSColor *> *colors
     return gradient;
 }
 
+static CALayer *ERStyleMotifLayer(CGRect frame, NSColor *color, CGFloat radius, NSString *name) {
+    CALayer *layer = [CALayer layer];
+    layer.frame = frame;
+    layer.backgroundColor = color.CGColor;
+    layer.cornerRadius = radius;
+    layer.masksToBounds = YES;
+    layer.name = name;
+    return layer;
+}
+
+static void ERRemoveStyleMotifLayers(CALayer *hostLayer, NSString *prefix) {
+    NSArray<CALayer *> *layers = [hostLayer.sublayers copy];
+    for (CALayer *layer in layers) {
+        if ([layer.name hasPrefix:prefix]) {
+            [layer removeFromSuperlayer];
+        }
+    }
+}
+
+static void ERInsertStyleMotifLayer(CALayer *hostLayer, CALayer *layer, NSUInteger *insertIndex) {
+    NSUInteger boundedIndex = MIN(*insertIndex, hostLayer.sublayers.count);
+    [hostLayer insertSublayer:layer atIndex:(unsigned int)boundedIndex];
+    *insertIndex = boundedIndex + 1;
+}
+
+static void ERAddStyleMotifLayers(CALayer *hostLayer, NSRect bounds, ERRestStyle style, ERTheme theme, NSString *prefix, CGFloat intensity, BOOL compact, NSUInteger startIndex) {
+    if (!hostLayer) return;
+    ERRemoveStyleMotifLayers(hostLayer, prefix);
+
+    CGFloat width = MAX(1, NSWidth(bounds));
+    CGFloat height = MAX(1, NSHeight(bounds));
+    CGFloat unit = compact ? 0.56 : 1.0;
+    BOOL darkStyle = theme.foreground == NSColor.whiteColor;
+    CGFloat softAlpha = MIN(0.90, (darkStyle ? 0.18 : 0.12) * intensity);
+    CGFloat midAlpha = MIN(0.90, (darkStyle ? 0.30 : 0.22) * intensity);
+    CGFloat strongAlpha = MIN(0.90, (darkStyle ? 0.48 : 0.34) * intensity);
+    NSColor *accentSoft = [theme.accent colorWithAlphaComponent:softAlpha];
+    NSColor *accentMid = [theme.accent colorWithAlphaComponent:midAlpha];
+    NSColor *accentStrong = [theme.accent colorWithAlphaComponent:strongAlpha];
+    NSColor *lightSoft = darkStyle
+        ? [NSColor colorWithWhite:1 alpha:MIN(0.70, 0.16 * intensity)]
+        : [NSColor colorWithWhite:1 alpha:MIN(0.70, 0.42 * intensity)];
+    NSColor *shadowSoft = darkStyle
+        ? [NSColor colorWithWhite:0 alpha:MIN(0.45, 0.14 * intensity)]
+        : [theme.cardBorder colorWithAlphaComponent:MIN(0.60, 0.32 * intensity)];
+
+    __block NSUInteger insertIndex = MIN(startIndex, hostLayer.sublayers.count);
+    __block NSInteger motifIndex = 0;
+    NSString *(^motifName)(void) = ^NSString *{
+        return [NSString stringWithFormat:@"%@-%ld", prefix, (long)motifIndex++];
+    };
+    void (^addLayer)(CALayer *) = ^(CALayer *layer) {
+        ERInsertStyleMotifLayer(hostLayer, layer, &insertIndex);
+    };
+
+    if (style == ERRestStyleBreath) {
+        NSArray<NSValue *> *frames = @[
+            [NSValue valueWithRect:NSMakeRect(-width * 0.06, height * 0.76, width * 0.38, 6 * unit)],
+            [NSValue valueWithRect:NSMakeRect(width * 0.60, height * 0.18, width * 0.34, 5 * unit)],
+            [NSValue valueWithRect:NSMakeRect(width * 0.12, height * 0.16, width * 0.44, 4 * unit)],
+            [NSValue valueWithRect:NSMakeRect(width * 0.70, height * 0.64, width * 0.26, 4 * unit)]
+        ];
+        for (NSInteger index = 0; index < frames.count; index++) {
+            NSRect frame = frames[index].rectValue;
+            CALayer *line = ERStyleMotifLayer(frame, index % 2 == 0 ? accentSoft : lightSoft, frame.size.height / 2.0, motifName());
+            addLayer(line);
+        }
+    } else if (style == ERRestStyleForest) {
+        CALayer *ground = ERStyleMotifLayer(CGRectMake(0, 0, width, MAX(14, height * 0.13)), accentSoft, 0, motifName());
+        addLayer(ground);
+        NSInteger stemCount = compact ? 4 : 9;
+        for (NSInteger index = 0; index < stemCount; index++) {
+            CGFloat stemWidth = (compact ? 8 : 18) + (index % 2) * 4;
+            CGFloat stemHeight = height * (compact ? 0.28 : 0.36) + (index % 3) * 18 * unit;
+            CGFloat x = width * 0.08 + index * (width / MAX(1, stemCount));
+            CALayer *stem = ERStyleMotifLayer(CGRectMake(x, MAX(0, height * 0.06), stemWidth, stemHeight), shadowSoft, stemWidth / 2.0, motifName());
+            addLayer(stem);
+
+            CALayer *leaf = ERStyleMotifLayer(CGRectMake(x - 5 * unit, stemHeight + height * 0.05, 30 * unit, 12 * unit), accentMid, 8 * unit, motifName());
+            leaf.transform = CATransform3DMakeRotation((index % 2 == 0 ? -0.34 : 0.34), 0, 0, 1);
+            addLayer(leaf);
+        }
+    } else if (style == ERRestStylePixel) {
+        CGFloat block = MAX(6, 24 * unit);
+        CALayer *sun = ERStyleMotifLayer(CGRectMake(width - 4 * block, height - 4 * block, 2.2 * block, 2.2 * block), ERColor(1.00, 0.84, 0.26, MIN(0.92, 0.72 * intensity)), 1, motifName());
+        addLayer(sun);
+        for (NSInteger index = 0; index < (compact ? 7 : 15); index++) {
+            CGFloat x = width * 0.08 + (index % 7) * block * 1.08;
+            CGFloat y = height * 0.72 - (index / 7) * block * 1.08;
+            CALayer *tile = ERStyleMotifLayer(CGRectMake(x, y, block, block), index % 3 == 0 ? lightSoft : accentSoft, 1, motifName());
+            addLayer(tile);
+        }
+        NSInteger steps = compact ? 6 : 14;
+        for (NSInteger index = 0; index < steps; index++) {
+            CGFloat stepHeight = block * (1 + (index % 3));
+            CALayer *step = ERStyleMotifLayer(CGRectMake(index * block * 1.02, 0, block * 1.02, stepHeight), shadowSoft, 0, motifName());
+            addLayer(step);
+        }
+    } else if (style == ERRestStyleToy) {
+        NSArray<NSColor *> *colors = @[
+            ERColor(1.00, 0.88, 0.22, MIN(0.90, 0.42 * intensity)),
+            ERColor(0.35, 0.78, 1.00, MIN(0.90, 0.36 * intensity)),
+            ERColor(1.00, 0.45, 0.62, MIN(0.90, 0.34 * intensity)),
+            ERColor(0.68, 0.52, 1.00, MIN(0.90, 0.32 * intensity))
+        ];
+        NSInteger stickerCount = compact ? 4 : 9;
+        for (NSInteger index = 0; index < stickerCount; index++) {
+            CGFloat stickerWidth = (compact ? 32 : 74) + (index % 3) * 12 * unit;
+            CGFloat stickerHeight = (compact ? 14 : 28) + (index % 2) * 8 * unit;
+            CGFloat x = width * (0.08 + 0.11 * index);
+            CGFloat y = height * (index % 2 == 0 ? 0.70 : 0.18) + (index % 3) * 12 * unit;
+            CALayer *sticker = ERStyleMotifLayer(CGRectMake(x, y, stickerWidth, stickerHeight), colors[index % colors.count], 8 * unit, motifName());
+            sticker.transform = CATransform3DMakeRotation((index % 2 == 0 ? -0.22 : 0.18), 0, 0, 1);
+            addLayer(sticker);
+        }
+        NSInteger confettiCount = compact ? 6 : 16;
+        for (NSInteger index = 0; index < confettiCount; index++) {
+            CGFloat size = (compact ? 5 : 10) + (index % 2) * 3 * unit;
+            CGFloat x = width * 0.05 + fmod(index * 47 * unit, width * 0.84);
+            CGFloat y = height * 0.12 + fmod(index * 31 * unit, height * 0.72);
+            CALayer *piece = ERStyleMotifLayer(CGRectMake(x, y, size, size), colors[(index + 2) % colors.count], 2 * unit, motifName());
+            addLayer(piece);
+        }
+    } else if (style == ERRestStyleNight) {
+        for (NSInteger index = 0; index < (compact ? 12 : 34); index++) {
+            CGFloat size = (compact ? 2 : 3) + (index % 3) * unit;
+            CGFloat x = width * 0.06 + fmod(index * 83 * unit, width * 0.88);
+            CGFloat y = height * 0.20 + fmod(index * 47 * unit, height * 0.66);
+            CALayer *star = ERStyleMotifLayer(CGRectMake(x, y, size, size), lightSoft, size / 2.0, motifName());
+            addLayer(star);
+        }
+        CALayer *window = ERStyleMotifLayer(CGRectMake(width - width * 0.24, height - height * 0.28, width * 0.12, height * 0.14), accentMid, 7 * unit, motifName());
+        addLayer(window);
+        CALayer *horizon = ERStyleMotifLayer(CGRectMake(width * 0.10, height * 0.10, width * 0.64, 5 * unit), accentSoft, 3 * unit, motifName());
+        addLayer(horizon);
+        CALayer *horizonTwo = ERStyleMotifLayer(CGRectMake(width * 0.18, height * 0.16, width * 0.46, 3 * unit), accentStrong, 2 * unit, motifName());
+        addLayer(horizonTwo);
+    }
+}
+
 static ERTheme ERThemeForStyle(ERRestStyle style) {
     ERTheme theme;
     theme.settingsBackground = ERColor(0.95, 0.96, 0.98, 1);
@@ -2966,10 +3106,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)applySettingsTheme {
     ERTheme theme = ERThemeForStyle(self.settings.restStyle);
+    BOOL settingsDarkStyle = self.settings.restStyle == ERRestStyleNight;
+    NSColor *settingsPrimaryTextColor = settingsDarkStyle ? NSColor.whiteColor : NSColor.labelColor;
+    NSColor *settingsSecondaryTextColor = settingsDarkStyle ? theme.secondary : NSColor.secondaryLabelColor;
     self.contentView.layer.backgroundColor = theme.settingsBackground.CGColor;
     self.headerView.wantsLayer = YES;
+    self.headerView.material = settingsDarkStyle ? NSVisualEffectMaterialUnderWindowBackground : NSVisualEffectMaterialSidebar;
     self.headerView.layer.backgroundColor = theme.settingsHeader.CGColor;
     self.footerView.wantsLayer = YES;
+    self.footerView.material = settingsDarkStyle ? NSVisualEffectMaterialUnderWindowBackground : NSVisualEffectMaterialContentBackground;
     self.footerView.layer.backgroundColor = theme.settingsHeader.CGColor;
     self.footerDivider.layer.backgroundColor = [theme.cardBorder colorWithAlphaComponent:0.58].CGColor;
     self.overviewCard.layer.backgroundColor = theme.card.CGColor;
@@ -2990,59 +3135,62 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.alertCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 16;
     self.automationCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 16;
     self.statsCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 16;
-    self.titleLabel.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
-    self.summaryLabel.textColor = theme.secondary;
-    NSColor *primaryTextColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
-    for (NSTextField *label in self.overviewLabels) {
-        label.textColor = label == self.overviewEyeTimerLabel || label == self.overviewStandTimerLabel ? primaryTextColor : theme.secondary;
+    NSArray<NSView *> *themeCards = @[self.overviewCard, self.eyeCard, self.standCard, self.alertCard, self.automationCard, self.statsCard];
+    for (NSView *card in themeCards) {
+        card.layer.masksToBounds = YES;
+        ERAddStyleMotifLayers(card.layer, card.bounds, self.settings.restStyle, theme, @"settings-card-motif", 0.36, YES, 0);
     }
-    self.overviewEyeStatusLabel.textColor = primaryTextColor;
-    self.overviewStandStatusLabel.textColor = primaryTextColor;
-    self.focusAppMatchLabel.textColor = theme.secondary;
-    self.calendarStatusLabel.textColor = theme.secondary;
-    self.quietHoursStatusLabel.textColor = theme.secondary;
-    self.focusAppHintLabel.textColor = theme.secondary;
-    self.standRoutineHintLabel.textColor = theme.secondary;
-    self.standIntensityHintLabel.textColor = theme.secondary;
-    self.standCustomStagesSummaryLabel.textColor = theme.secondary;
+    self.titleLabel.textColor = settingsPrimaryTextColor;
+    self.summaryLabel.textColor = settingsSecondaryTextColor;
+    for (NSTextField *label in self.overviewLabels) {
+        label.textColor = label == self.overviewEyeTimerLabel || label == self.overviewStandTimerLabel ? settingsPrimaryTextColor : settingsSecondaryTextColor;
+    }
+    self.overviewEyeStatusLabel.textColor = settingsPrimaryTextColor;
+    self.overviewStandStatusLabel.textColor = settingsPrimaryTextColor;
+    self.focusAppMatchLabel.textColor = settingsSecondaryTextColor;
+    self.calendarStatusLabel.textColor = settingsSecondaryTextColor;
+    self.quietHoursStatusLabel.textColor = settingsSecondaryTextColor;
+    self.focusAppHintLabel.textColor = settingsSecondaryTextColor;
+    self.standRoutineHintLabel.textColor = settingsSecondaryTextColor;
+    self.standIntensityHintLabel.textColor = settingsSecondaryTextColor;
+    self.standCustomStagesSummaryLabel.textColor = settingsSecondaryTextColor;
     self.standCustomStagesButton.contentTintColor = theme.accent;
     for (NSButton *button in self.overviewActionButtons) {
         button.contentTintColor = theme.accent;
     }
     self.applyButton.contentTintColor = theme.accent;
-    self.resetButton.contentTintColor = theme.secondary;
-    self.statsOverviewLabel.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
-    self.statsMonthLabel.textColor = theme.secondary;
-    self.statsStrategyLabel.textColor = theme.secondary;
-    self.statsInsightLabel.textColor = theme.secondary;
-    self.statsQualityLabel.textColor = theme.secondary;
-    self.statsStandLabel.textColor = theme.secondary;
-    self.statsStreakLabel.textColor = theme.secondary;
+    self.resetButton.contentTintColor = settingsSecondaryTextColor;
+    self.statsOverviewLabel.textColor = settingsPrimaryTextColor;
+    self.statsMonthLabel.textColor = settingsSecondaryTextColor;
+    self.statsStrategyLabel.textColor = settingsSecondaryTextColor;
+    self.statsInsightLabel.textColor = settingsSecondaryTextColor;
+    self.statsQualityLabel.textColor = settingsSecondaryTextColor;
+    self.statsStandLabel.textColor = settingsSecondaryTextColor;
+    self.statsStreakLabel.textColor = settingsSecondaryTextColor;
     self.exportStatsButton.contentTintColor = theme.accent;
     self.exportBackupButton.contentTintColor = theme.accent;
     for (NSTextField *label in self.pageTitleLabels) {
-        label.textColor = theme.foreground == NSColor.whiteColor ? NSColor.whiteColor : NSColor.labelColor;
+        label.textColor = settingsPrimaryTextColor;
     }
     for (NSTextField *label in self.pageSubtitleLabels) {
-        label.textColor = theme.secondary;
+        label.textColor = settingsSecondaryTextColor;
     }
     for (NSTextField *label in self.fieldLabels) {
-        label.textColor = theme.secondary;
+        label.textColor = settingsSecondaryTextColor;
     }
     for (NSTextField *label in self.statsBarLabels) {
-        label.textColor = theme.secondary;
+        label.textColor = settingsSecondaryTextColor;
     }
     for (NSTextField *label in self.heatmapLabels) {
-        label.textColor = theme.secondary;
+        label.textColor = settingsSecondaryTextColor;
     }
-    BOOL darkStyle = theme.foreground == NSColor.whiteColor;
-    NSColor *rowColor = darkStyle
+    NSColor *rowColor = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.045]
         : [NSColor colorWithWhite:1 alpha:0.42];
-    NSColor *tileColor = darkStyle
+    NSColor *tileColor = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.06]
         : [NSColor colorWithWhite:1 alpha:0.42];
-    NSColor *dividerColor = darkStyle
+    NSColor *dividerColor = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.10]
         : [theme.cardBorder colorWithAlphaComponent:0.48];
     for (NSView *tile in self.overviewTiles) {
@@ -3090,38 +3238,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     gradient.cornerRadius = radius;
     [self.stylePreviewCanvas.layer insertSublayer:gradient atIndex:0];
 
-    for (NSView *view in self.stylePreviewDecorations) {
-        [view removeFromSuperview];
-    }
-    NSMutableArray<NSView *> *decorations = [NSMutableArray array];
-    NSColor *accentSoft = [theme.accent colorWithAlphaComponent:darkStyle ? 0.34 : 0.24];
-    NSColor *accentStrong = [theme.accent colorWithAlphaComponent:darkStyle ? 0.82 : 0.62];
-
-    if (style == ERRestStylePixel) {
-        NSArray<NSValue *> *frames = @[
-            [NSValue valueWithRect:NSMakeRect(12, 12, 18, 18)],
-            [NSValue valueWithRect:NSMakeRect(94, 50, 16, 16)],
-            [NSValue valueWithRect:NSMakeRect(108, 16, 10, 10)]
-        ];
-        for (NSValue *value in frames) {
-            NSView *block = ERRoundedView(value.rectValue, accentSoft, 1);
-            [self.stylePreviewCanvas addSubview:block positioned:NSWindowBelow relativeTo:self.stylePreviewIcon];
-            [decorations addObject:block];
-        }
-    } else {
-        NSArray<NSValue *> *frames = @[
-            [NSValue valueWithRect:NSMakeRect(8, 10, 28, 28)],
-            [NSValue valueWithRect:NSMakeRect(94, 48, 22, 22)],
-            [NSValue valueWithRect:NSMakeRect(108, 16, 10, 10)]
-        ];
-        for (NSInteger index = 0; index < frames.count; index++) {
-            NSColor *color = index == 1 ? accentStrong : accentSoft;
-            NSView *dot = ERRoundedView(frames[index].rectValue, color, frames[index].rectValue.size.width / 2.0);
-            [self.stylePreviewCanvas addSubview:dot positioned:NSWindowBelow relativeTo:self.stylePreviewIcon];
-            [decorations addObject:dot];
-        }
-    }
-    self.stylePreviewDecorations = decorations;
+    ERAddStyleMotifLayers(self.stylePreviewCanvas.layer, self.stylePreviewCanvas.bounds, style, theme, @"stylePreviewMotif", 1.42, YES, 1);
 
     NSString *symbolName = @"eye";
     if (style == ERRestStyleForest) symbolName = @"leaf";
@@ -3740,9 +3857,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self.backgroundView.layer.sublayers makeObjectsPerformSelector:@selector(removeFromSuperlayer)];
     [self.backgroundView.layer insertSublayer:ERGradientLayer(self.backgroundView.bounds, @[theme.backgroundA, theme.backgroundB], CGPointMake(0, 0), CGPointMake(1, 1)) atIndex:0];
     [self addDecorationsForStyle:style theme:theme];
-    self.focusCard.layer.backgroundColor = [theme.card colorWithAlphaComponent:(style == ERRestStyleNight ? 0.14 : 0.24)].CGColor;
+    CGFloat cardAlpha = style == ERRestStyleNight ? 0.14 : (style == ERRestStyleToy ? 0.32 : (style == ERRestStylePixel ? 0.38 : 0.24));
+    self.focusCard.layer.backgroundColor = [theme.card colorWithAlphaComponent:cardAlpha].CGColor;
     self.focusCard.layer.borderColor = theme.cardBorder.CGColor;
     self.focusCard.layer.cornerRadius = theme.cornerRadius;
+    self.focusCard.layer.borderWidth = style == ERRestStylePixel ? 2 : 1;
+    self.focusCard.layer.shadowOpacity = style == ERRestStyleToy ? 0.16 : 0.08;
+    self.focusCard.layer.shadowRadius = style == ERRestStylePixel ? 0 : 22;
+    self.focusCard.layer.shadowOffset = CGSizeMake(0, style == ERRestStylePixel ? 0 : -8);
+    self.focusCard.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:0.28].CGColor;
     self.iconView.contentTintColor = theme.accent;
     self.brandLabel.textColor = theme.secondary;
     self.titleLabel.textColor = theme.foreground;
