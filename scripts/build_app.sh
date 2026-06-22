@@ -26,6 +26,7 @@ clang -fobjc-arc \
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp ".build/EyeRest" "$MACOS_DIR/$APP_NAME"
+"$ROOT_DIR/scripts/generate_icon.sh" "$RESOURCES_DIR/AppIcon.icns" >/dev/null
 
 cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -40,6 +41,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
   <string>松一下</string>
   <key>CFBundleDisplayName</key>
   <string>松一下</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>

@@ -17,6 +17,7 @@ jobs:
       - name: Check shell scripts
         run: |
           bash -n scripts/build_app.sh
+          bash -n scripts/generate_icon.sh
           bash -n scripts/install_app.sh
           bash -n scripts/package_app.sh
           bash -n scripts/smoke_test.sh
@@ -27,8 +28,10 @@ jobs:
       - name: Verify app bundle
         run: |
           test -x outputs/EyeRest.app/Contents/MacOS/EyeRest
+          test -s outputs/EyeRest.app/Contents/Resources/AppIcon.icns
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' outputs/EyeRest.app/Contents/Info.plist | grep -q 'local.codex.eyerest'
           /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' outputs/EyeRest.app/Contents/Info.plist | grep -q '松一下'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' outputs/EyeRest.app/Contents/Info.plist | grep -q 'AppIcon'
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' outputs/EyeRest.app/Contents/Info.plist)" = "$(cat VERSION)"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' outputs/EyeRest.app/Contents/Info.plist | grep -q 'songyixia'
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'handleAutomationURL:'
@@ -43,6 +46,7 @@ jobs:
           archive="$(ls dist/songyixia-*.zip | head -1)"
           test -s "$archive"
           unzip -l "$archive" | grep -q '松一下.app/Contents/MacOS/EyeRest'
+          unzip -l "$archive" | grep -q '松一下.app/Contents/Resources/AppIcon.icns'
           ! unzip -l "$archive" | grep -q '/._'
 
       - name: Upload app artifact

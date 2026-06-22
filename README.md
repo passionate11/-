@@ -46,6 +46,8 @@ outputs/EyeRest.app
 
 GitHub Actions 会在 `main` 和 Pull Request 上运行 macOS 构建检查，覆盖 shell 语法、App bundle 生成、URL Scheme 和关键入口 selector。
 
+构建时会自动生成 `AppIcon.icns` 并写入 App bundle。
+
 ## 打包
 
 ```bash
