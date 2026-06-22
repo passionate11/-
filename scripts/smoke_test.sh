@@ -214,6 +214,14 @@ history_contains '演示命中已关闭休息页' '\\U6f14\\U793a\\U547d\\U4e2d\
 history_contains '恢复自检不弹休息页' '\\U6062\\U590d\\U81ea\\U68c0\\U4e0d\\U5f39\\U4f11\\U606f\\U9875' || fail "presentation policy recovery check popped rest window"
 history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "presentation policy did not restore test state"
 
+echo "==> Checking live presentation policy URL"
+open "$URL_SCHEME://diagnostics/presentation-live"
+sleep 4
+history_contains '真实演示联动自检' '\\U771f\\U5b9e\\U6f14\\U793a\\U8054\\U52a8\\U81ea\\U68c0' || fail "live presentation policy check did not run"
+if ! history_contains '跳过' '\\U8df3\\U8fc7' '真实演示命中' '\\U771f\\U5b9e\\U6f14\\U793a\\U547d\\U4e2d' '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f'; then
+  fail "live presentation policy check did not record skip or pass state"
+fi
+
 echo "==> Checking calendar policy URL"
 open "$URL_SCHEME://diagnostics/calendar-policy"
 sleep 4
