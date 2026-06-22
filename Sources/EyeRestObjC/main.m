@@ -1150,10 +1150,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 @end
 
-@interface ERSettingsPanel : NSPanel
+@interface ERSettingsWindow : NSWindow
 @end
 
-@implementation ERSettingsPanel
+@implementation ERSettingsWindow
 
 - (BOOL)canBecomeKeyWindow {
     return YES;
@@ -1419,10 +1419,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (instancetype)initWithSettings:(ERSettings *)settings appDelegate:(ERAppDelegate *)appDelegate {
     NSRect frame = NSMakeRect(0, 0, 780, 540);
-    ERSettingsPanel *window = [[ERSettingsPanel alloc] initWithContentRect:frame
-                                                                 styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskUtilityWindow
-                                                                   backing:NSBackingStoreBuffered
-                                                                     defer:NO];
+    ERSettingsWindow *window = [[ERSettingsWindow alloc] initWithContentRect:frame
+                                                                   styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable
+                                                                     backing:NSBackingStoreBuffered
+                                                                       defer:NO];
     self = [super initWithWindow:window];
     if (!self) return nil;
 
@@ -1431,10 +1431,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     window.title = [NSString stringWithFormat:@"%@ 设置", ERBrandName];
     window.delegate = self;
     window.releasedWhenClosed = NO;
-    window.level = NSFloatingWindowLevel;
-    window.hidesOnDeactivate = NO;
-    window.floatingPanel = YES;
-    window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary;
+    window.level = NSNormalWindowLevel;
+    window.collectionBehavior = NSWindowCollectionBehaviorManaged;
     [window center];
 
     NSView *content = [[NSView alloc] initWithFrame:frame];
@@ -4999,7 +4997,6 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self.settingsWindowController showWindow:nil];
     [NSApp activateIgnoringOtherApps:YES];
     [settingsWindow makeKeyAndOrderFront:nil];
-    [settingsWindow orderFrontRegardless];
 }
 
 - (void)toggleNotifications:(id)sender {
