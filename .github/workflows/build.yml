@@ -17,6 +17,7 @@ jobs:
       - name: Check shell scripts
         run: |
           bash -n scripts/build_app.sh
+          bash -n scripts/diagnose_app.sh
           bash -n scripts/generate_icon.sh
           bash -n scripts/install_app.sh
           bash -n scripts/package_app.sh
@@ -39,6 +40,7 @@ jobs:
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'importBackupJSON:'
           codesign --verify --deep --strict outputs/EyeRest.app
           codesign -dv outputs/EyeRest.app 2>&1 | grep -q 'Signature=adhoc'
+          APP_TARGET=outputs/EyeRest.app scripts/diagnose_app.sh | grep -Eq 'codesign verify:[[:space:]]+ok'
 
       - name: Package app
         run: scripts/package_app.sh
