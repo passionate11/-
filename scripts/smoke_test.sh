@@ -6,7 +6,7 @@ APP_TARGET="/Applications/松一下.app"
 BINARY="$APP_TARGET/Contents/MacOS/EyeRest"
 BUNDLE_ID="local.codex.eyerest"
 URL_SCHEME="songyixia"
-PREF_BACKUP="$(mktemp "${TMPDIR:-/tmp}/songyixia-smoke-prefs.XXXXXX.plist")"
+PREF_BACKUP="$(mktemp "${TMPDIR:-/tmp}/songyixia-smoke-prefs.XXXXXXXX.plist")"
 HAD_PREFS=0
 APP_WAS_RUNNING=0
 
@@ -61,6 +61,17 @@ wait_for_process() {
   return 1
 }
 
+wait_for_no_process() {
+  local attempt
+  for attempt in {1..20}; do
+    if ! pgrep -f "$BINARY" >/dev/null && ! pgrep -x EyeRest >/dev/null; then
+      return 0
+    fi
+    sleep 0.5
+  done
+  return 1
+}
+
 history_contains() {
   local history token
   history="$(/usr/bin/defaults read "$BUNDLE_ID" recoveryHistory 2>/dev/null || true)"
@@ -70,6 +81,44 @@ history_contains() {
     fi
   done
   return 1
+}
+
+wait_for_history() {
+  local attempt
+  for attempt in {1..20}; do
+    if history_contains "$@"; then
+      return 0
+    fi
+    sleep 0.5
+  done
+  return 1
+}
+
+settings_window_visible() {
+  [[ -x /tmp/list_windows ]] || return 2
+  /tmp/list_windows 2>&1 | awk '
+    function reset_window() {
+      owner = 0
+      title = 0
+      onscreen = 0
+      normal_layer = 0
+    }
+    function matched() {
+      return owner && title && onscreen && normal_layer
+    }
+    /^[0-9]{4}-[0-9]{2}-[0-9]{2} .*[{]$/ {
+      if (matched()) found = 1
+      reset_window()
+    }
+    /kCGWindowOwnerName/ && ($0 ~ /松一下/ || $0 ~ /\\U677e\\U4e00\\U4e0b/) { owner = 1 }
+    /kCGWindowName/ && ($0 ~ /设置/ || $0 ~ /\\U8bbe\\U7f6e/) { title = 1 }
+    /kCGWindowIsOnscreen = 1/ { onscreen = 1 }
+    /kCGWindowLayer = 0/ { normal_layer = 1 }
+    END {
+      if (matched()) found = 1
+      exit(found ? 0 : 1)
+    }
+  '
 }
 
 echo "==> Installing app"
@@ -96,7 +145,7 @@ echo "==> Checking settings reopen"
 open -n "$APP_TARGET"
 sleep 1
 if [[ -x /tmp/list_windows ]]; then
-  /tmp/list_windows 2>&1 | rg -q '松一下|\\U677e\\U4e00\\U4e0b' || fail "settings window was not found"
+  settings_window_visible || fail "settings window was not visible"
 else
   echo "    /tmp/list_windows missing; skipped WindowServer check"
 fi
@@ -114,6 +163,18 @@ history_contains '暂停 00:10' '\\U6682\\U505c 00:10' || fail "pause/10s did no
 open "$URL_SCHEME://resume"
 sleep 1
 history_contains '继续提醒' '\\U7ee7\\U7eed\\U63d0\\U9192' || fail "resume did not record success"
+open "$URL_SCHEME://settings/eye"
+sleep 1
+history_contains '打开设置 eye' '\\U6253\\U5f00\\U8bbe\\U7f6e eye' || fail "settings/eye did not record success"
+if [[ -x /tmp/list_windows ]]; then
+  settings_window_visible || fail "settings/eye did not show settings window"
+fi
+open "$URL_SCHEME://settings/stand"
+sleep 1
+history_contains '打开设置 stand' '\\U6253\\U5f00\\U8bbe\\U7f6e stand' || fail "settings/stand did not record success"
+if [[ -x /tmp/list_windows ]]; then
+  settings_window_visible || fail "settings/stand did not show settings window"
+fi
 open "$URL_SCHEME://rhythm/debug"
 sleep 1
 history_contains '快速节奏 调试 10 秒' '\\U5feb\\U901f\\U8282\\U594f \\U8c03\\U8bd5 10 \\U79d2' || fail "rhythm/debug did not record success"
@@ -274,18 +335,28 @@ history_contains '运行 9/9' '\\U8fd0\\U884c 9/9' || fail "recovery matrix suit
 history_contains '睡眠隐藏恢复压测' '\\U7761\\U7720\\U9690\\U85cf\\U6062\\U590d\\U538b\\U6d4b' || fail "recovery matrix suite did not include sleep hidden stress"
 history_contains '窗口层级压测' '\\U7a97\\U53e3\\U5c42\\U7ea7\\U538b\\U6d4b' || fail "recovery matrix suite did not include window layer stress"
 
+echo "==> Resetting recovery history for isolated policy checks"
+pkill -f "$BINARY" 2>/dev/null || true
+pkill -x EyeRest 2>/dev/null || true
+wait_for_no_process || fail "app did not stop before recovery history reset"
+/usr/bin/defaults delete "$BUNDLE_ID" recoveryHistory >/dev/null 2>&1 || true
+if /usr/bin/defaults read "$BUNDLE_ID" recoveryHistory >/dev/null 2>&1; then
+  fail "recovery history was not cleared before isolated policy checks"
+fi
+open "$APP_TARGET"
+wait_for_process || fail "app did not restart after recovery history reset"
+
 echo "==> Checking live display URL"
 open "$URL_SCHEME://diagnostics/display-live"
-sleep 4
+wait_for_history '真实显示状态已还原' '\\U771f\\U5b9e\\U663e\\U793a\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "live display check did not restore state"
 history_contains '真实显示环境自检' '\\U771f\\U5b9e\\U663e\\U793a\\U73af\\U5883\\U81ea\\U68c0' || fail "live display check did not run"
 history_contains '真实窗口在屏幕内' '\\U771f\\U5b9e\\U7a97\\U53e3\\U5728\\U5c4f\\U5e55\\U5185' || fail "live display check did not keep window onscreen"
 history_contains '真实窗口贴合屏幕' '\\U771f\\U5b9e\\U7a97\\U53e3\\U8d34\\U5408\\U5c4f\\U5e55' || fail "live display check did not fit screen"
 history_contains '真实内容已重排' '\\U771f\\U5b9e\\U5185\\U5bb9\\U5df2\\U91cd\\U6392' || fail "live display check did not relayout content"
-history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "live display check did not restore state"
 
 echo "==> Checking overlay yield URL"
 open "$URL_SCHEME://diagnostics/overlay-yield"
-sleep 3
+wait_for_history '窗口让开状态已还原' '\\U7a97\\U53e3\\U8ba9\\U5f00\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "overlay yield stress did not restore test state"
 history_contains '窗口让开压测' '\\U7a97\\U53e3\\U8ba9\\U5f00\\U538b\\U6d4b' || fail "overlay yield stress did not run"
 history_contains '休息页已让开' '\\U4f11\\U606f\\U9875\\U5df2\\U8ba9\\U5f00' || fail "overlay yield stress did not yield rest overlay"
 history_contains '设置页保留' '\\U8bbe\\U7f6e\\U9875\\U4fdd\\U7559' || fail "overlay yield stress did not preserve settings window"
@@ -293,32 +364,29 @@ history_contains '休息计时继续' '\\U4f11\\U606f\\U8ba1\\U65f6\\U7ee7\\U7ee
 
 echo "==> Checking window layer policy URL"
 open "$URL_SCHEME://diagnostics/window-layer"
-sleep 4
+wait_for_history '窗口层级状态已还原' '\\U7a97\\U53e3\\U5c42\\U7ea7\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "window layer policy did not restore test state"
 history_contains '窗口层级压测' '\\U7a97\\U53e3\\U5c42\\U7ea7\\U538b\\U6d4b' || fail "window layer policy stress did not run"
 history_contains '设置页普通层级' '\\U8bbe\\U7f6e\\U9875\\U666e\\U901a\\U5c42\\U7ea7' || fail "window layer policy did not keep settings normal"
 history_contains '普通休息页未置顶' '\\U666e\\U901a\\U4f11\\U606f\\U9875\\U672a\\U7f6e\\U9876' || fail "window layer policy did not keep normal rest non-topmost"
 history_contains '让开后未弹回' '\\U8ba9\\U5f00\\U540e\\U672a\\U5f39\\U56de' || fail "window layer policy did not preserve yielded rest"
 history_contains '强提醒才置顶' '\\U5f3a\\U63d0\\U9192\\U624d\\U7f6e\\U9876' || fail "window layer policy did not gate topmost mode"
-history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "window layer policy did not restore test state"
 
 echo "==> Checking automation policy URL"
 open "$URL_SCHEME://diagnostics/automation-policy"
-sleep 4
+wait_for_history '自动化策略状态已还原' '\\U81ea\\U52a8\\U5316\\U7b56\\U7565\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "automation policy did not restore test state"
 history_contains '自动化策略压测' '\\U81ea\\U52a8\\U5316\\U7b56\\U7565\\U538b\\U6d4b' || fail "automation policy stress did not run"
 history_contains '安静时段只发通知' '\\U5b89\\U9759\\U65f6\\U6bb5\\U53ea\\U53d1\\U901a\\U77e5' || fail "automation policy did not keep quiet hours notification-only"
 history_contains '自动暂停命中' '\\U81ea\\U52a8\\U6682\\U505c\\U547d\\U4e2d' || fail "automation policy did not hit auto pause"
 history_contains '自动暂停已关闭休息页' '\\U81ea\\U52a8\\U6682\\U505c\\U5df2\\U5173\\U95ed\\U4f11\\U606f\\U9875' || fail "automation policy did not close rest window"
 history_contains '提醒时间已顺延' '\\U63d0\\U9192\\U65f6\\U95f4\\U5df2\\U987a\\U5ef6' || fail "automation policy did not shift reminder time"
-history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "automation policy did not restore test state"
 
 echo "==> Checking presentation policy URL"
 open "$URL_SCHEME://diagnostics/presentation-policy"
-sleep 3
+wait_for_history '演示策略状态已还原' '\\U6f14\\U793a\\U7b56\\U7565\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "presentation policy did not restore test state"
 history_contains '演示策略压测' '\\U6f14\\U793a\\U7b56\\U7565\\U538b\\U6d4b' || fail "presentation policy stress did not run"
 history_contains '演示模式只发通知' '\\U6f14\\U793a\\U6a21\\U5f0f\\U53ea\\U53d1\\U901a\\U77e5' || fail "presentation policy did not keep notification-only"
 history_contains '演示命中已关闭休息页' '\\U6f14\\U793a\\U547d\\U4e2d\\U5df2\\U5173\\U95ed\\U4f11\\U606f\\U9875' || fail "presentation policy did not close rest window"
 history_contains '恢复自检不弹休息页' '\\U6062\\U590d\\U81ea\\U68c0\\U4e0d\\U5f39\\U4f11\\U606f\\U9875' || fail "presentation policy recovery check popped rest window"
-history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "presentation policy did not restore test state"
 
 echo "==> Checking live presentation policy URL"
 open "$URL_SCHEME://diagnostics/presentation-live"
@@ -330,14 +398,13 @@ fi
 
 echo "==> Checking calendar policy URL"
 open "$URL_SCHEME://diagnostics/calendar-policy"
-sleep 4
+wait_for_history '日历策略状态已还原' '\\U65e5\\U5386\\U7b56\\U7565\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "calendar policy did not restore test state"
 history_contains '日历策略压测' '\\U65e5\\U5386\\U7b56\\U7565\\U538b\\U6d4b' || fail "calendar policy stress did not run"
 history_contains '日历会议只发通知' '\\U65e5\\U5386\\U4f1a\\U8bae\\U53ea\\U53d1\\U901a\\U77e5' || fail "calendar policy did not keep meeting notification-only"
 history_contains '日程暂停命中' '\\U65e5\\U7a0b\\U6682\\U505c\\U547d\\U4e2d' || fail "calendar policy did not hit calendar auto-pause"
 history_contains '日程暂停已关闭休息页' '\\U65e5\\U7a0b\\U6682\\U505c\\U5df2\\U5173\\U95ed\\U4f11\\U606f\\U9875' || fail "calendar policy did not close rest window"
 history_contains '提醒时间已顺延' '\\U63d0\\U9192\\U65f6\\U95f4\\U5df2\\U987a\\U5ef6' || fail "calendar policy did not shift reminder time"
 history_contains '统计已还原' '\\U7edf\\U8ba1\\U5df2\\U8fd8\\U539f' || fail "calendar policy did not restore stats"
-history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "calendar policy did not restore test state"
 
 echo "==> Checking real calendar diagnostic URL"
 open "$URL_SCHEME://diagnostics/calendar-real"

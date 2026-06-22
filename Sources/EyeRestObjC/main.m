@@ -1480,6 +1480,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSPopUpButton *eyeModePopup;
 @property(nonatomic, strong) ERTimeInput *eyeFocusInput;
 @property(nonatomic, strong) ERTimeInput *eyeRestInput;
+@property(nonatomic, strong) NSView *eyeSummaryBand;
+@property(nonatomic, strong) NSImageView *eyeSummaryIcon;
+@property(nonatomic, strong) NSTextField *eyeSummaryTitleLabel;
+@property(nonatomic, strong) NSTextField *eyeSummaryDetailLabel;
+@property(nonatomic, strong) NSTextField *eyeSummaryBadgeLabel;
 @property(nonatomic, strong) NSButton *standEnabledSwitch;
 @property(nonatomic, strong) ERTimeInput *standIntervalInput;
 @property(nonatomic, strong) ERTimeInput *standDurationInput;
@@ -1489,6 +1494,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *standIntensityHintLabel;
 @property(nonatomic, strong) NSButton *standCustomStagesButton;
 @property(nonatomic, strong) NSTextField *standCustomStagesSummaryLabel;
+@property(nonatomic, strong) NSView *standSummaryBand;
+@property(nonatomic, strong) NSImageView *standSummaryIcon;
+@property(nonatomic, strong) NSTextField *standSummaryTitleLabel;
+@property(nonatomic, strong) NSTextField *standSummaryDetailLabel;
+@property(nonatomic, strong) NSTextField *standSummaryBadgeLabel;
 @property(nonatomic, strong) NSButton *notificationSwitch;
 @property(nonatomic, strong) NSButton *restWindowSwitch;
 @property(nonatomic, strong) NSButton *restWindowTopmostSwitch;
@@ -1566,6 +1576,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSArray<NSTextField *> *overviewLabels;
 @property(nonatomic, strong) NSView *eyeCard;
 @property(nonatomic, strong) NSView *standCard;
+@property(nonatomic, strong) NSArray<NSView *> *summaryBandViews;
+@property(nonatomic, strong) NSArray<NSTextField *> *summaryBandLabels;
+@property(nonatomic, strong) NSArray<NSImageView *> *summaryBandIcons;
 @property(nonatomic, strong) NSView *alertCard;
 @property(nonatomic, strong) NSView *automationCard;
 @property(nonatomic, strong) NSView *statsCard;
@@ -1590,6 +1603,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)refreshStats;
 - (void)refreshAutomationStatus;
 - (void)openQuickSetup:(id)sender;
+- (void)setSelectedPageIndex:(NSInteger)pageIndex;
 - (void)exportStatsCSV:(id)sender;
 - (void)exportStatsJSON:(id)sender;
 - (void)importBackupJSON:(id)sender;
@@ -1731,7 +1745,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runRealDisplayCheck:(id)sender;
 - (void)runRealDisplayCheckPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousEyeDueAt:(NSDate *)previousEyeDueAt previousEyeRestEndsAt:(NSDate *)previousEyeRestEndsAt previousEyeResting:(BOOL)previousEyeResting previousStandDueAt:(NSDate *)previousStandDueAt previousStandRestEndsAt:(NSDate *)previousStandRestEndsAt previousStandResting:(BOOL)previousStandResting previousRestOverlayYielded:(BOOL)previousRestOverlayYielded;
 - (void)runOverlayYieldStressTest:(id)sender;
-- (void)runOverlayYieldStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
+- (void)runOverlayYieldStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousTopmost:(BOOL)previousTopmost;
 - (void)runWindowLayerPolicyStressTest:(id)sender;
 - (void)runWindowLayerPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousTopmost:(BOOL)previousTopmost;
 - (void)runRecoveryMatrixSuite:(id)sender;
@@ -1769,6 +1783,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSString *)automationDiagnosticText;
 - (void)copyAutomationDiagnostic:(id)sender;
 - (void)presentSettingsWindow;
+- (void)presentSettingsPage:(NSString *)pageToken;
 - (NSTimeInterval)remainingUntil:(NSDate *)date;
 - (void)toggleRestWindowTopmost:(id)sender;
 - (NSTimeInterval)configuredRestDurationForKind:(ERReminderKind)kind;
@@ -1822,6 +1837,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.fieldLabels = @[];
     self.settingRowViews = @[];
     self.settingDividerViews = @[];
+    self.summaryBandViews = @[];
+    self.summaryBandLabels = @[];
+    self.summaryBandIcons = @[];
 
     NSVisualEffectView *header = [[NSVisualEffectView alloc] initWithFrame:NSMakeRect(0, 0, 196, 540)];
     header.material = NSVisualEffectMaterialSidebar;
@@ -2000,6 +2018,48 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settingDividerViews = dividers;
 }
 
+- (NSView *)summaryBandInCard:(NSView *)card
+                        frame:(NSRect)frame
+                       symbol:(NSString *)symbol
+                         icon:(NSImageView **)iconOut
+                        title:(NSTextField **)titleOut
+                       detail:(NSTextField **)detailOut
+                        badge:(NSTextField **)badgeOut {
+    NSView *band = ERRoundedView(frame, [NSColor colorWithWhite:1 alpha:0.38], 14);
+    band.layer.borderWidth = 1;
+    [card addSubview:band];
+
+    NSImageView *icon = [[NSImageView alloc] initWithFrame:NSMakeRect(14, frame.size.height - 34, 24, 24)];
+    icon.image = [NSImage imageWithSystemSymbolName:symbol accessibilityDescription:nil];
+    icon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:21 weight:NSFontWeightSemibold];
+    [band addSubview:icon];
+
+    NSTextField *title = [NSTextField labelWithString:@""];
+    title.frame = NSMakeRect(48, frame.size.height - 24, 230, 18);
+    title.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
+    [band addSubview:title];
+
+    NSTextField *detail = [NSTextField labelWithString:@""];
+    detail.frame = NSMakeRect(48, 9, 330, 18);
+    detail.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    [band addSubview:detail];
+
+    NSTextField *badge = [NSTextField labelWithString:@""];
+    badge.frame = NSMakeRect(frame.size.width - 132, frame.size.height - 28, 112, 20);
+    badge.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
+    badge.alignment = NSTextAlignmentRight;
+    [band addSubview:badge];
+
+    if (iconOut) *iconOut = icon;
+    if (titleOut) *titleOut = title;
+    if (detailOut) *detailOut = detail;
+    if (badgeOut) *badgeOut = badge;
+    self.summaryBandViews = [self.summaryBandViews arrayByAddingObject:band] ?: @[band];
+    self.summaryBandLabels = [[self.summaryBandLabels arrayByAddingObjectsFromArray:@[title, detail, badge]] copy] ?: @[title, detail, badge];
+    self.summaryBandIcons = [self.summaryBandIcons arrayByAddingObject:icon] ?: @[icon];
+    return band;
+}
+
 - (NSProgressIndicator *)overviewProgressWithFrame:(NSRect)frame {
     NSProgressIndicator *progress = [[NSProgressIndicator alloc] initWithFrame:frame];
     progress.indeterminate = NO;
@@ -2166,69 +2226,99 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)buildEyeSectionInView:(NSView *)view {
     NSView *card = self.eyeCard;
+    NSImageView *eyeSummaryIcon = nil;
+    NSTextField *eyeSummaryTitle = nil;
+    NSTextField *eyeSummaryDetail = nil;
+    NSTextField *eyeSummaryBadge = nil;
+    self.eyeSummaryBand = [self summaryBandInCard:card
+                                            frame:NSMakeRect(14, 166, 500, 52)
+                                           symbol:@"eye"
+                                             icon:&eyeSummaryIcon
+                                            title:&eyeSummaryTitle
+                                           detail:&eyeSummaryDetail
+                                            badge:&eyeSummaryBadge];
+    self.eyeSummaryIcon = eyeSummaryIcon;
+    self.eyeSummaryTitleLabel = eyeSummaryTitle;
+    self.eyeSummaryDetailLabel = eyeSummaryDetail;
+    self.eyeSummaryBadgeLabel = eyeSummaryBadge;
     [self addSettingRowsToCard:card frames:@[
-        [NSValue valueWithRect:NSMakeRect(14, 148, 500, 50)],
-        [NSValue valueWithRect:NSMakeRect(14, 104, 500, 42)],
-        [NSValue valueWithRect:NSMakeRect(14, 62, 500, 42)],
-        [NSValue valueWithRect:NSMakeRect(14, 20, 500, 42)]
+        [NSValue valueWithRect:NSMakeRect(14, 126, 500, 36)],
+        [NSValue valueWithRect:NSMakeRect(14, 86, 500, 38)],
+        [NSValue valueWithRect:NSMakeRect(14, 46, 500, 38)],
+        [NSValue valueWithRect:NSMakeRect(14, 8, 500, 36)]
     ] dividerX:136 dividerWidth:354];
 
     self.eyeEnabledSwitch = [NSButton checkboxWithTitle:@"启用眼睛休息提醒" target:self action:@selector(toggleOnly:)];
-    self.eyeEnabledSwitch.frame = NSMakeRect(24, 158, 180, 24);
+    self.eyeEnabledSwitch.frame = NSMakeRect(24, 132, 180, 24);
     [card addSubview:self.eyeEnabledSwitch];
 
-    [card addSubview:[self fieldLabel:@"使用电脑：" frame:NSMakeRect(24, 114, 96, 22)]];
-    self.eyeFocusInput = [self addTimeFieldsToView:card x:140 y:110];
+    [card addSubview:[self fieldLabel:@"使用电脑：" frame:NSMakeRect(24, 94, 96, 22)]];
+    self.eyeFocusInput = [self addTimeFieldsToView:card x:140 y:90];
 
-    [card addSubview:[self fieldLabel:@"休息：" frame:NSMakeRect(24, 72, 96, 22)]];
-    self.eyeRestInput = [self addTimeFieldsToView:card x:140 y:68];
+    [card addSubview:[self fieldLabel:@"休息：" frame:NSMakeRect(24, 54, 96, 22)]];
+    self.eyeRestInput = [self addTimeFieldsToView:card x:140 y:50];
 
-    [card addSubview:[self fieldLabel:@"节奏：" frame:NSMakeRect(24, 30, 96, 22)]];
-    self.eyeModePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(140, 26, 190, 30) pullsDown:NO];
+    [card addSubview:[self fieldLabel:@"节奏：" frame:NSMakeRect(24, 16, 96, 22)]];
+    self.eyeModePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(140, 12, 190, 30) pullsDown:NO];
     [self.eyeModePopup addItemsWithTitles:@[EREyeModeTitle(EREyeMode202020), EREyeModeTitle(EREyeModePomodoro), EREyeModeTitle(EREyeModeCustom)]];
     self.eyeModePopup.target = self;
     self.eyeModePopup.action = @selector(eyeModeChanged:);
     [card addSubview:self.eyeModePopup];
 
     NSButton *ruleButton = [NSButton buttonWithTitle:@"20-20-20" target:self action:@selector(use202020:)];
-    ruleButton.frame = NSMakeRect(354, 26, 96, 30);
+    ruleButton.frame = NSMakeRect(354, 12, 96, 30);
     ruleButton.bezelStyle = NSBezelStyleRounded;
     [card addSubview:ruleButton];
 }
 
 - (void)buildStandSectionInView:(NSView *)view {
     NSView *card = self.standCard;
+    NSImageView *standSummaryIcon = nil;
+    NSTextField *standSummaryTitle = nil;
+    NSTextField *standSummaryDetail = nil;
+    NSTextField *standSummaryBadge = nil;
+    self.standSummaryBand = [self summaryBandInCard:card
+                                              frame:NSMakeRect(14, 166, 500, 52)
+                                             symbol:@"figure.stand"
+                                               icon:&standSummaryIcon
+                                              title:&standSummaryTitle
+                                             detail:&standSummaryDetail
+                                              badge:&standSummaryBadge];
+    self.standSummaryIcon = standSummaryIcon;
+    self.standSummaryTitleLabel = standSummaryTitle;
+    self.standSummaryDetailLabel = standSummaryDetail;
+    self.standSummaryBadgeLabel = standSummaryBadge;
     [self addSettingRowsToCard:card frames:@[
-        [NSValue valueWithRect:NSMakeRect(14, 164, 500, 46)],
-        [NSValue valueWithRect:NSMakeRect(14, 126, 500, 36)],
-        [NSValue valueWithRect:NSMakeRect(14, 88, 500, 36)],
-        [NSValue valueWithRect:NSMakeRect(14, 50, 500, 36)],
-        [NSValue valueWithRect:NSMakeRect(14, 12, 500, 36)]
+        [NSValue valueWithRect:NSMakeRect(14, 136, 500, 34)],
+        [NSValue valueWithRect:NSMakeRect(14, 100, 500, 34)],
+        [NSValue valueWithRect:NSMakeRect(14, 64, 500, 34)],
+        [NSValue valueWithRect:NSMakeRect(14, 28, 500, 34)],
+        [NSValue valueWithRect:NSMakeRect(14, 4, 500, 22)]
     ] dividerX:136 dividerWidth:354];
 
     self.standEnabledSwitch = [NSButton checkboxWithTitle:@"启用站立提醒" target:self action:@selector(toggleOnly:)];
-    self.standEnabledSwitch.frame = NSMakeRect(24, 175, 160, 24);
+    self.standEnabledSwitch.frame = NSMakeRect(24, 141, 160, 24);
     [card addSubview:self.standEnabledSwitch];
 
     self.standCustomStagesSummaryLabel = [NSTextField labelWithString:@""];
-    self.standCustomStagesSummaryLabel.frame = NSMakeRect(210, 176, 132, 22);
+    self.standCustomStagesSummaryLabel.frame = NSMakeRect(206, 142, 132, 22);
     self.standCustomStagesSummaryLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     self.standCustomStagesSummaryLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.standCustomStagesSummaryLabel];
 
     self.standCustomStagesButton = [NSButton buttonWithTitle:@"编辑阶段..." target:self action:@selector(editStandCustomStages:)];
-    self.standCustomStagesButton.frame = NSMakeRect(360, 170, 132, 30);
+    self.standCustomStagesButton.frame = NSMakeRect(360, 138, 132, 28);
     self.standCustomStagesButton.bezelStyle = NSBezelStyleRounded;
     [card addSubview:self.standCustomStagesButton];
 
-    [card addSubview:[self fieldLabel:@"每隔：" frame:NSMakeRect(24, 133, 96, 22)]];
-    self.standIntervalInput = [self addTimeFieldsToView:card x:140 y:129];
+    [card addSubview:[self fieldLabel:@"每隔：" frame:NSMakeRect(24, 107, 96, 22)]];
+    self.standIntervalInput = [self addTimeFieldsToView:card x:140 y:103];
 
-    [card addSubview:[self fieldLabel:@"站立：" frame:NSMakeRect(24, 95, 96, 22)]];
-    self.standDurationInput = [self addTimeFieldsToView:card x:140 y:91];
+    [card addSubview:[self fieldLabel:@"站立：" frame:NSMakeRect(24, 71, 96, 22)]];
+    self.standDurationInput = [self addTimeFieldsToView:card x:140 y:67];
 
-    [card addSubview:[self fieldLabel:@"动作组合：" frame:NSMakeRect(24, 57, 96, 22)]];
-    self.standRoutinePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(140, 53, 178, 30) pullsDown:NO];
+    [card addSubview:[self fieldLabel:@"动作组合：" frame:NSMakeRect(24, 35, 96, 22)]];
+    self.standRoutinePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(140, 31, 160, 28) pullsDown:NO];
     [self.standRoutinePopup addItemsWithTitles:@[
         ERStandRoutineTitle(ERStandRoutineBalanced),
         ERStandRoutineTitle(ERStandRoutineNeckShoulder),
@@ -2240,14 +2330,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.standRoutinePopup];
 
     self.standRoutineHintLabel = [NSTextField wrappingLabelWithString:@""];
-    self.standRoutineHintLabel.frame = NSMakeRect(330, 50, 170, 36);
+    self.standRoutineHintLabel.frame = NSMakeRect(312, 28, 188, 34);
     self.standRoutineHintLabel.font = [NSFont systemFontOfSize:10.5 weight:NSFontWeightMedium];
     self.standRoutineHintLabel.maximumNumberOfLines = 2;
     self.standRoutineHintLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.standRoutineHintLabel];
 
-    [card addSubview:[self fieldLabel:@"强度：" frame:NSMakeRect(24, 19, 96, 22)]];
-    self.standIntensityPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(140, 15, 178, 30) pullsDown:NO];
+    [card addSubview:[self fieldLabel:@"强度：" frame:NSMakeRect(24, 7, 96, 18)]];
+    self.standIntensityPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(140, 2, 160, 28) pullsDown:NO];
     [self.standIntensityPopup addItemsWithTitles:@[
         ERStandIntensityTitle(ERStandIntensityGentle),
         ERStandIntensityTitle(ERStandIntensityStandard),
@@ -2258,7 +2348,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.standIntensityPopup];
 
     self.standIntensityHintLabel = [NSTextField wrappingLabelWithString:@""];
-    self.standIntensityHintLabel.frame = NSMakeRect(330, 12, 170, 36);
+    self.standIntensityHintLabel.frame = NSMakeRect(312, 2, 188, 26);
     self.standIntensityHintLabel.font = [NSFont systemFontOfSize:10.5 weight:NSFontWeightMedium];
     self.standIntensityHintLabel.maximumNumberOfLines = 2;
     self.standIntensityHintLabel.textColor = NSColor.secondaryLabelColor;
@@ -2660,6 +2750,38 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self refreshOverview];
 }
 
+- (void)setSelectedPageIndex:(NSInteger)pageIndex {
+    self.selectedPage = ERClampInteger(pageIndex, 0, (NSInteger)self.pages.count - 1);
+    [self updateSelectedPage];
+}
+
+- (void)refreshTimingSummaries {
+    if (self.eyeSummaryTitleLabel) {
+        self.eyeSummaryIcon.image = [NSImage imageWithSystemSymbolName:(self.settings.eyeMode == EREyeModePomodoro ? @"timer" : @"eye")
+                                                 accessibilityDescription:@"眼睛休息"];
+        self.eyeSummaryTitleLabel.stringValue = self.settings.eyeEnabled
+            ? [NSString stringWithFormat:@"%@ · %@", EREyeModeTitle(self.settings.eyeMode), ERFormatDuration(self.settings.eyeFocusSeconds)]
+            : @"眼睛休息已关闭";
+        self.eyeSummaryDetailLabel.stringValue = self.settings.eyeEnabled
+            ? [NSString stringWithFormat:@"使用电脑 %@ 后，离屏休息 %@。", ERFormatDuration(self.settings.eyeFocusSeconds), ERFormatDuration(self.settings.eyeRestSeconds)]
+            : @"关闭后不会安排眼睛休息提醒。";
+        self.eyeSummaryBadgeLabel.stringValue = self.settings.eyeEnabled ? ERFormatDuration(self.settings.eyeRestSeconds) : @"关闭";
+    }
+
+    if (self.standSummaryTitleLabel) {
+        BOOL hasCustomStages = ERStandCustomStageEntriesFromText(self.settings.standCustomStagesText).count > 0;
+        self.standSummaryIcon.image = [NSImage imageWithSystemSymbolName:(hasCustomStages ? @"list.bullet.rectangle" : @"figure.stand")
+                                                   accessibilityDescription:@"站立提醒"];
+        self.standSummaryTitleLabel.stringValue = self.settings.standEnabled
+            ? [NSString stringWithFormat:@"%@ · %@", hasCustomStages ? @"自定义阶段" : ERStandRoutineTitle(self.settings.standRoutine), ERStandIntensityTitle(self.settings.standIntensity)]
+            : @"站立提醒已关闭";
+        self.standSummaryDetailLabel.stringValue = self.settings.standEnabled
+            ? [NSString stringWithFormat:@"每隔 %@，站立 %@。", ERFormatDuration(self.settings.standIntervalSeconds), ERFormatDuration(self.settings.standDurationSeconds)]
+            : @"关闭后不会安排站立活动提醒。";
+        self.standSummaryBadgeLabel.stringValue = self.settings.standEnabled ? ERFormatDuration(self.settings.standDurationSeconds) : @"关闭";
+    }
+}
+
 - (void)updateSelectedPage {
     for (NSInteger index = 0; index < self.pages.count; index++) {
         self.pages[index].hidden = index != self.selectedPage;
@@ -2711,6 +2833,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                                      self.settings.eyeEnabled ? ERFormatDuration(self.settings.eyeRestSeconds) : @"--",
                                      self.settings.standEnabled ? ERFormatDuration(self.settings.standIntervalSeconds) : @"关闭",
                                      self.settings.standEnabled ? ERFormatDuration(self.settings.standDurationSeconds) : @"--"];
+    [self refreshTimingSummaries];
     [self applySettingsTheme];
     [self refreshStats];
     [self refreshOverview];
@@ -3257,6 +3380,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.overviewStatusIcon.contentTintColor = theme.accent;
     self.overviewEyeIcon.contentTintColor = theme.accent;
     self.overviewStandIcon.contentTintColor = theme.accent;
+    for (NSImageView *icon in self.summaryBandIcons) {
+        icon.contentTintColor = theme.accent;
+    }
+    for (NSTextField *label in self.summaryBandLabels) {
+        BOOL isBadge = label == self.eyeSummaryBadgeLabel || label == self.standSummaryBadgeLabel;
+        BOOL isTitle = label == self.eyeSummaryTitleLabel || label == self.standSummaryTitleLabel;
+        label.textColor = isBadge ? theme.accent : (isTitle ? settingsPrimaryTextColor : settingsSecondaryTextColor);
+    }
     self.focusAppMatchLabel.textColor = settingsSecondaryTextColor;
     self.calendarStatusLabel.textColor = settingsSecondaryTextColor;
     self.quietHoursStatusLabel.textColor = settingsSecondaryTextColor;
@@ -3307,6 +3438,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         tile.layer.backgroundColor = tileColor.CGColor;
         tile.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.70].CGColor;
         tile.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 14;
+    }
+    for (NSView *band in self.summaryBandViews) {
+        band.layer.backgroundColor = tileColor.CGColor;
+        band.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.70].CGColor;
+        band.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 14;
     }
     self.overviewActionBar.layer.backgroundColor = (settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.075]
@@ -5020,6 +5156,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"轻打扰关闭", ERAutomationURLString(@"focus/off")],
         @[@"轻打扰切换", ERAutomationURLString(@"focus/toggle")],
         @[@"打开设置", ERAutomationURLString(@"settings")],
+        @[@"打开眼睛设置", ERAutomationURLString(@"settings/eye")],
+        @[@"打开站立设置", ERAutomationURLString(@"settings/stand")],
         @[@"快速配置：均衡护眼", ERAutomationURLString(@"setup/balanced")],
         @[@"快速配置：番茄专注", ERAutomationURLString(@"setup/pomodoro")],
         @[@"快速配置：久坐打断", ERAutomationURLString(@"setup/stand")],
@@ -7281,6 +7419,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         }
         [self closeOrphanRestWindows];
         [details addObject:@"测试状态已还原"];
+        [details addObject:@"真实显示状态已还原"];
     }
 
     [self noteRecoveryEventTitle:@"真实显示环境自检" detail:[details componentsJoinedByString:@"，"]];
@@ -7324,27 +7463,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             if (index == 0) {
                 [self yieldRestOverlayForUserFocusChange];
             }
-            [self runOverlayYieldStressTestPass:index + 1 total:total generation:generation];
-            if (index + 1 == total) {
-                self.settings.restWindowTopmost = previousTopmost;
-                [self.settings save];
-                self.eyeResting = NO;
-                self.eyeRestEndsAt = nil;
-                self.eyeDueAt = self.settings.eyeEnabled ? [NSDate dateWithTimeIntervalSinceNow:self.settings.eyeFocusSeconds] : nil;
-                self.restOverlayYielded = NO;
-                if (self.restWindowController) {
-                    [self.restWindowController close];
-                    self.restWindowController = nil;
-                }
-                [self closeOrphanRestWindows];
-                [self.settingsWindowController close];
-                [self publishState];
-            }
+            [self runOverlayYieldStressTestPass:index + 1 total:total generation:generation previousTopmost:previousTopmost];
         });
     }
 }
 
-- (void)runOverlayYieldStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation {
+- (void)runOverlayYieldStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousTopmost:(BOOL)previousTopmost {
     if (generation != self.overlayYieldStressTestGeneration) return;
 
     [self settleExpiredRests];
@@ -7366,6 +7490,23 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [details addObject:restContinues ? @"休息计时继续" : @"休息计时异常"];
     if (orphaned > 0) {
         [details addObject:[NSString stringWithFormat:@"清理残留 %ld 个", (long)orphaned]];
+    }
+
+    if (pass == total) {
+        self.settings.restWindowTopmost = previousTopmost;
+        [self.settings save];
+        self.eyeResting = NO;
+        self.eyeRestEndsAt = nil;
+        self.eyeDueAt = self.settings.eyeEnabled ? [NSDate dateWithTimeIntervalSinceNow:self.settings.eyeFocusSeconds] : nil;
+        self.restOverlayYielded = NO;
+        if (self.restWindowController) {
+            [self.restWindowController close];
+            self.restWindowController = nil;
+        }
+        [self closeOrphanRestWindows];
+        [self.settingsWindowController close];
+        [details addObject:@"测试状态已还原"];
+        [details addObject:@"窗口让开状态已还原"];
     }
 
     [self noteRecoveryEventTitle:@"窗口让开压测" detail:[details componentsJoinedByString:@"，"]];
@@ -7461,6 +7602,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self cleanupDiagnosticEyeRest];
         [self.settingsWindowController close];
         [details addObject:@"测试状态已还原"];
+        [details addObject:@"窗口层级状态已还原"];
     }
 
     [self noteRecoveryEventTitle:@"窗口层级压测" detail:[details componentsJoinedByString:@"，"]];
@@ -7729,6 +7871,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self closeOrphanRestWindows];
         [self.settingsWindowController refreshControls];
         [details addObject:@"测试状态已还原"];
+        [details addObject:@"自动化策略状态已还原"];
     }
 
     [self noteRecoveryEventTitle:@"自动化策略压测" detail:[details componentsJoinedByString:@"，"]];
@@ -7883,6 +8026,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self closeOrphanRestWindows];
         [self.settingsWindowController refreshControls];
         [details addObject:@"测试状态已还原"];
+        [details addObject:@"演示策略状态已还原"];
     }
 
     [self noteRecoveryEventTitle:@"演示策略压测" detail:[details componentsJoinedByString:@"，"]];
@@ -8222,6 +8366,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         BOOL restoredAutoPauseSeconds = snapshot && self.todayAutoPauseSeconds == snapshot[@"autoPauseSeconds"].integerValue;
         [details addObject:(restoredNotification && restoredAutoPauseSeconds) ? @"统计已还原" : @"统计仍需还原"];
         [details addObject:@"测试状态已还原"];
+        [details addObject:@"日历策略状态已还原"];
     }
 
     [self noteRecoveryEventTitle:@"日历策略压测" detail:[details componentsJoinedByString:@"，"]];
@@ -8592,8 +8737,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSString *detail = nil;
 
     if ([command isEqualToString:@"settings"] || [command isEqualToString:@"open-settings"]) {
-        [self presentSettingsWindow];
-        detail = @"打开设置";
+        if (argument.length > 0) {
+            [self presentSettingsPage:argument];
+            detail = [NSString stringWithFormat:@"打开设置 %@", argument];
+        } else {
+            [self presentSettingsWindow];
+            detail = @"打开设置";
+        }
     } else if ([command isEqualToString:@"setup"] || [command isEqualToString:@"quick-setup"]) {
         NSString *profile = argument.length > 0 ? argument : @"balanced";
         [self applyQuickSetupProfile:profile];
@@ -8905,6 +9055,24 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     dispatch_async(dispatch_get_main_queue(), ^{
         [self presentSettingsWindow];
     });
+}
+
+- (void)presentSettingsPage:(NSString *)pageToken {
+    [self presentSettingsWindow];
+    NSString *token = pageToken.lowercaseString ?: @"";
+    NSInteger pageIndex = 0;
+    if ([token isEqualToString:@"eye"] || [token isEqualToString:@"eyes"] || [token containsString:@"眼"]) {
+        pageIndex = 1;
+    } else if ([token isEqualToString:@"stand"] || [token containsString:@"站"]) {
+        pageIndex = 2;
+    } else if ([token isEqualToString:@"display"] || [token isEqualToString:@"style"] || [token containsString:@"显示"]) {
+        pageIndex = 3;
+    } else if ([token isEqualToString:@"automation"] || [token isEqualToString:@"auto"] || [token containsString:@"自动"]) {
+        pageIndex = 4;
+    } else if ([token isEqualToString:@"stats"] || [token isEqualToString:@"statistics"] || [token containsString:@"统计"]) {
+        pageIndex = 5;
+    }
+    [self.settingsWindowController setSelectedPageIndex:pageIndex];
 }
 
 - (void)openSettings:(id)sender {
