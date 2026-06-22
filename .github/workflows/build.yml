@@ -21,42 +21,11 @@ jobs:
           bash -n scripts/generate_icon.sh
           bash -n scripts/install_app.sh
           bash -n scripts/package_app.sh
+          bash -n scripts/preflight_release.sh
           bash -n scripts/smoke_test.sh
 
-      - name: Build app bundle
-        run: scripts/build_app.sh
-
-      - name: Verify app bundle
-        run: |
-          test -x outputs/EyeRest.app/Contents/MacOS/EyeRest
-          test -s outputs/EyeRest.app/Contents/Resources/AppIcon.icns
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' outputs/EyeRest.app/Contents/Info.plist | grep -q 'local.codex.eyerest'
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' outputs/EyeRest.app/Contents/Info.plist | grep -q '松一下'
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' outputs/EyeRest.app/Contents/Info.plist | grep -q 'AppIcon'
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' outputs/EyeRest.app/Contents/Info.plist)" = "$(cat VERSION)"
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' outputs/EyeRest.app/Contents/Info.plist | grep -q 'songyixia'
-          strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'handleAutomationURL:'
-          strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'runRecoveryStressTest:'
-          strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'importBackupJSON:'
-          strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'showAbout:'
-          codesign --verify --deep --strict outputs/EyeRest.app
-          codesign -dv outputs/EyeRest.app 2>&1 | grep -q 'Signature=adhoc'
-          APP_TARGET=outputs/EyeRest.app scripts/diagnose_app.sh | grep -Eq 'codesign verify:[[:space:]]+ok'
-          grep -q "## $(cat VERSION)" CHANGELOG.md
-
-      - name: Package app
-        run: scripts/package_app.sh
-
-      - name: Verify package
-        run: |
-          archive="$(ls dist/songyixia-*.zip | head -1)"
-          test -s "$archive"
-          unzip -l "$archive" | grep -q '松一下.app/Contents/MacOS/EyeRest'
-          unzip -l "$archive" | grep -q '松一下.app/Contents/Resources/AppIcon.icns'
-          ! unzip -l "$archive" | grep -q '/._'
-          tmpdir="$(mktemp -d)"
-          ditto -x -k "$archive" "$tmpdir"
-          codesign --verify --deep --strict "$tmpdir/松一下.app"
+      - name: Release preflight
+        run: scripts/preflight_release.sh
 
       - name: Upload app artifact
         uses: actions/upload-artifact@v4
