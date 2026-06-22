@@ -130,4 +130,10 @@ sleep 3
 history_contains '完成 3/3' '\\U5b8c\\U6210 3/3' || fail "lunch recovery stress did not complete"
 history_contains '站立过期已结算' '\\U7ad9\\U7acb\\U8fc7\\U671f\\U5df2\\U7ed3\\U7b97' || fail "lunch recovery did not settle expired stand rest"
 
+echo "==> Checking display recovery URL"
+open "$URL_SCHEME://diagnostics/display-recovery"
+sleep 3
+history_contains '完成 3/3' '\\U5b8c\\U6210 3/3' || fail "display recovery stress did not complete"
+history_contains '窗口回到屏幕内' '\\U7a97\\U53e3\\U56de\\U5230\\U5c4f\\U5e55\\U5185' || fail "display recovery did not restore window onscreen"
+
 echo "==> Smoke test passed"
