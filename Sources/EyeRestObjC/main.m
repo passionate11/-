@@ -1386,7 +1386,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSString *)recoveryDiagnosticText;
 - (NSArray<NSString *> *)recoveryHistoryLines;
 - (NSString *)detailedRecoveryDiagnosticText;
+- (NSString *)applicationDiagnosticText;
 - (void)copyRecoveryDiagnostic:(id)sender;
+- (void)copyApplicationDiagnostic:(id)sender;
 - (void)runRecoverySelfCheck:(id)sender;
 - (void)runRecoveryStressTest:(id)sender;
 - (void)handleRecoveryStressTestRequest:(NSNotification *)notification;
@@ -3941,6 +3943,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     copyRecovery.target = self;
     [self.menu addItem:copyRecovery];
 
+    NSMenuItem *copyAppDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制应用诊断" action:@selector(copyApplicationDiagnostic:) keyEquivalent:@""];
+    copyAppDiagnostic.target = self;
+    [self.menu addItem:copyAppDiagnostic];
+
     NSMenuItem *recoverySelfCheck = [[NSMenuItem alloc] initWithTitle:@"运行恢复自检" action:@selector(runRecoverySelfCheck:) keyEquivalent:@""];
     recoverySelfCheck.target = self;
     [self.menu addItem:recoverySelfCheck];
@@ -4372,6 +4378,57 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     return [lines componentsJoinedByString:@"\n"];
 }
 
+- (NSString *)applicationDiagnosticText {
+    NSBundle *bundle = NSBundle.mainBundle;
+    NSDictionary *info = bundle.infoDictionary;
+    NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"未知";
+    NSString *build = [info[@"CFBundleVersion"] isKindOfClass:NSString.class] ? info[@"CFBundleVersion"] : @"未知";
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+
+    [lines addObject:[NSString stringWithFormat:@"%@ 应用诊断", ERBrandName]];
+    [lines addObject:[NSString stringWithFormat:@"生成时间：%@", ERFormatClockTime(NSDate.date)]];
+    [lines addObject:[NSString stringWithFormat:@"版本：%@ (%@)", version, build]];
+    [lines addObject:[NSString stringWithFormat:@"安装位置：%@", bundle.bundlePath ?: @"未知"]];
+    [lines addObject:[NSString stringWithFormat:@"系统：%@", NSProcessInfo.processInfo.operatingSystemVersionString]];
+    [lines addObject:[NSString stringWithFormat:@"屏幕：%ld", (long)NSScreen.screens.count]];
+    [lines addObject:[NSString stringWithFormat:@"眼睛：%@ · %@ · 使用 %@ · 休息 %@ · 剩余 %@",
+                      self.settings.eyeEnabled ? @"开启" : @"关闭",
+                      EREyeModeTitle(self.settings.eyeMode),
+                      ERFormatDuration(self.settings.eyeFocusSeconds),
+                      ERFormatDuration(self.settings.eyeRestSeconds),
+                      ERFormatDuration([self remainingUntil:(self.eyeResting ? self.eyeRestEndsAt : self.eyeDueAt)])]];
+    [lines addObject:[NSString stringWithFormat:@"站立：%@ · 每隔 %@ · 站立 %@ · %@/%@ · 剩余 %@",
+                      self.settings.standEnabled ? @"开启" : @"关闭",
+                      ERFormatDuration(self.settings.standIntervalSeconds),
+                      ERFormatDuration(self.settings.standDurationSeconds),
+                      ERStandRoutineTitle(self.settings.standRoutine),
+                      ERStandIntensityTitle(self.settings.standIntensity),
+                      ERFormatDuration([self remainingUntil:(self.standResting ? self.standRestEndsAt : self.standDueAt)])]];
+    [lines addObject:[NSString stringWithFormat:@"提醒：通知 %@ · 全屏提醒 %@ · 菜单栏模式 %ld · 风格 %ld",
+                      self.settings.notificationsEnabled ? @"开" : @"关",
+                      self.settings.showRestWindow ? @"开" : @"关",
+                      (long)self.settings.menuBarMode,
+                      (long)self.settings.restStyle]];
+    [lines addObject:[NSString stringWithFormat:@"自动化：%@ · %@", [self focusModeStatusText], [self isLightDistractionModeActive] ? @"轻打扰中" : @"正常提醒"]];
+    [lines addObject:[NSString stringWithFormat:@"前台应用：%@ · %@",
+                      self.frontmostAppName.length > 0 ? self.frontmostAppName : @"未知",
+                      self.frontmostAppBundleIdentifier.length > 0 ? self.frontmostAppBundleIdentifier : @"未知 bundle"]];
+    [lines addObject:[NSString stringWithFormat:@"今日统计：眼睛 %ld · 站立 %ld · 稍后 %ld · 跳过 %ld · 只通知 %ld · 自动暂停 %@",
+                      (long)self.todayEyeDone,
+                      (long)self.todayStandDone,
+                      (long)self.todaySnoozed,
+                      (long)self.todaySkipped,
+                      (long)self.todayNotificationOnly,
+                      ERFormatDuration(self.todayAutoPauseSeconds)]];
+    [lines addObject:[self recoveryWindowDiagnosticLine]];
+    [lines addObject:[self recoveryDiagnosticText]];
+    [lines addObject:@"最近恢复事件："];
+    for (NSString *line in [self recoveryHistoryLines]) {
+        [lines addObject:[NSString stringWithFormat:@"- %@", line]];
+    }
+    return [lines componentsJoinedByString:@"\n"];
+}
+
 - (void)evaluateReminderKind:(ERReminderKind)kind {
     BOOL enabled = kind == ERReminderKindEye ? self.settings.eyeEnabled : self.settings.standEnabled;
     if (!enabled) return;
@@ -4799,6 +4856,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [pasteboard clearContents];
     [pasteboard setString:[self detailedRecoveryDiagnosticText] forType:NSPasteboardTypeString];
     [self noteRecoveryEventTitle:@"诊断" detail:@"已复制恢复诊断"];
+    [self publishState];
+}
+
+- (void)copyApplicationDiagnostic:(id)sender {
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:[self applicationDiagnosticText] forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"诊断" detail:@"已复制应用诊断"];
     [self publishState];
 }
 

@@ -53,7 +53,7 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: checkForUpdates:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: checkForUpdates: copyApplicationDiagnostic: applicationDiagnosticText; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
@@ -61,6 +61,7 @@ check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-/releases/lat
 
 echo "==> Verifying window behavior guardrails"
 SOURCE_CONTENT="$(< "$SOURCE_FILE")"
+check_contains "$SOURCE_CONTENT" "应用诊断" "application diagnostics title"
 [[ "$SOURCE_CONTENT" == *"@interface ERSettingsWindow : NSWindow"* ]] || fail "settings window must remain a normal NSWindow"
 [[ "$SOURCE_CONTENT" == *"window.level = NSNormalWindowLevel;"* ]] || fail "settings window must use NSNormalWindowLevel"
 if [[ "$SOURCE_CONTENT" =~ NSFloatingWindowLevel|floatingPanel|NSWindowStyleMaskUtilityWindow|@interface\ ERSettingsPanel\ :\ NSPanel ]]; then
