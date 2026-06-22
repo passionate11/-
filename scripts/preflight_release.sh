@@ -6,6 +6,7 @@ APP_BUNDLE="$ROOT_DIR/outputs/EyeRest.app"
 BINARY="$APP_BUNDLE/Contents/MacOS/EyeRest"
 INFO_PLIST="$APP_BUNDLE/Contents/Info.plist"
 EXPECTED_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
+SOURCE_FILE="$ROOT_DIR/Sources/EyeRestObjC/main.m"
 
 cd "$ROOT_DIR"
 
@@ -55,6 +56,16 @@ for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: sh
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
+
+echo "==> Verifying window behavior guardrails"
+grep -q '@interface ERSettingsWindow : NSWindow' "$SOURCE_FILE" || fail "settings window must remain a normal NSWindow"
+grep -q 'window.level = NSNormalWindowLevel;' "$SOURCE_FILE" || fail "settings window must use NSNormalWindowLevel"
+if grep -Eq 'NSFloatingWindowLevel|floatingPanel|NSWindowStyleMaskUtilityWindow|@interface ERSettingsPanel : NSPanel' "$SOURCE_FILE"; then
+  fail "settings window floating-panel regression detected"
+fi
+if awk '/- \(void\)presentSettingsWindow /{inside=1} inside && /}/{print; exit} inside{print}' "$SOURCE_FILE" | grep -q 'orderFrontRegardless'; then
+  fail "settings window must not use orderFrontRegardless"
+fi
 
 echo "==> Verifying signature and diagnostics"
 codesign --verify --deep --strict "$APP_BUNDLE"
