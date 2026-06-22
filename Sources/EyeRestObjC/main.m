@@ -1151,6 +1151,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 @class ERAppDelegate;
 
+@interface NSObject (ERRestOverlayYielding)
+- (BOOL)er_shouldYieldForMouseDown:(NSEvent *)event;
+- (void)er_yieldRestOverlayForUserFocusChange:(id)sender;
+@end
+
 @interface EROverlayWindow : NSWindow
 @end
 
@@ -1162,6 +1167,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (BOOL)canBecomeMainWindow {
     return YES;
+}
+
+- (void)mouseDown:(NSEvent *)event {
+    id controller = self.windowController;
+    if ([controller respondsToSelector:@selector(er_shouldYieldForMouseDown:)] &&
+        [controller er_shouldYieldForMouseDown:event]) {
+        [controller er_yieldRestOverlayForUserFocusChange:self];
+        return;
+    }
+    [super mouseDown:event];
 }
 
 - (void)keyDown:(NSEvent *)event {
@@ -1393,6 +1408,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSUInteger recoveryStressTestGeneration;
 @property(nonatomic, strong) ERRestWindowController *restWindowController;
 @property(nonatomic, strong) ERSettingsWindowController *settingsWindowController;
+@property(nonatomic) BOOL restOverlayYielded;
 - (void)finishRestForKind:(ERReminderKind)kind;
 - (void)finishRestForKind:(ERReminderKind)kind manually:(BOOL)manually;
 - (void)extendRestForKind:(ERReminderKind)kind bySeconds:(NSTimeInterval)seconds;
@@ -1421,6 +1437,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)handleRecoveryStressTestRequest:(NSNotification *)notification;
 - (void)runRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (NSString *)recoveryWindowDiagnosticLine;
+- (void)yieldRestOverlayForUserFocusChange;
 - (void)showAbout:(id)sender;
 - (void)openIssueFeedback:(id)sender;
 - (void)checkForUpdates:(id)sender;
@@ -2923,7 +2940,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     window.identifier = ERRestOverlayWindowIdentifier;
     window.level = NSNormalWindowLevel;
-    window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary;
+    window.collectionBehavior = NSWindowCollectionBehaviorManaged;
     window.opaque = YES;
     window.acceptsMouseMovedEvents = YES;
     window.ignoresMouseEvents = NO;
@@ -3262,13 +3279,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)presentOverlay {
     [self refreshActionBindings];
+    [self applyWindowLevelForSettings:self.appDelegate.settings];
     [self refitToCurrentScreen];
-    [self showWindow:nil];
     if (self.appDelegate.settings.restWindowTopmost) {
+        [self showWindow:nil];
         [self.window orderFrontRegardless];
         [NSApp activateIgnoringOtherApps:YES];
+        [self.window makeKeyAndOrderFront:nil];
+    } else {
+        [self.window orderFront:nil];
     }
-    [self.window makeKeyAndOrderFront:nil];
 }
 
 - (void)applyStyle:(ERRestStyle)style {
@@ -3420,6 +3440,17 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     ERRestWindowController *controller = self;
     [controller.appDelegate skipRestForKind:controller.kind];
     [controller close];
+}
+
+- (BOOL)er_shouldYieldForMouseDown:(NSEvent *)event {
+    if (self.appDelegate.settings.restWindowTopmost) return NO;
+    NSPoint location = event.locationInWindow;
+    NSPoint pointInCard = [self.focusCard convertPoint:location fromView:nil];
+    return !NSPointInRect(pointInCard, self.focusCard.bounds);
+}
+
+- (void)er_yieldRestOverlayForUserFocusChange:(id)sender {
+    [self.appDelegate yieldRestOverlayForUserFocusChange];
 }
 
 @end
@@ -3843,6 +3874,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)frontmostApplicationDidChange:(NSNotification *)notification {
     [self refreshFocusModeState];
+    NSRunningApplication *frontmost = NSWorkspace.sharedWorkspace.frontmostApplication;
+    BOOL switchedAwayFromRest = self.restWindowController &&
+        self.restWindowController.window.visible &&
+        !self.settings.restWindowTopmost &&
+        frontmost &&
+        frontmost.processIdentifier != NSProcessInfo.processInfo.processIdentifier;
+    if (switchedAwayFromRest) {
+        [self yieldRestOverlayForUserFocusChange];
+    }
     [self repairRestStateIfNeeded];
     [self publishState];
 }
@@ -3886,10 +3926,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self publishState];
         return;
     }
+    if (self.restOverlayYielded && !self.settings.restWindowTopmost) {
+        [self publishState];
+        return;
+    }
     dispatch_async(dispatch_get_main_queue(), ^{
         [self settleExpiredRests];
         [self repairRestStateIfNeeded];
-        if (!self.restWindowController) return;
+        if (!self.restWindowController || (self.restOverlayYielded && !self.settings.restWindowTopmost)) return;
         [self.restWindowController presentOverlay];
         [self noteRecoveryEventTitle:eventTitle detail:@"休息页已置前"];
         [self publishState];
@@ -3897,7 +3941,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self settleExpiredRests];
         [self repairRestStateIfNeeded];
-        if (!self.restWindowController) return;
+        if (!self.restWindowController || (self.restOverlayYielded && !self.settings.restWindowTopmost)) return;
         [self.restWindowController presentOverlay];
         [self noteRecoveryEventTitle:eventTitle detail:@"休息页二次校准完成"];
         [self publishState];
@@ -3934,9 +3978,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [details addObject:@"暂停中"];
     } else if ([self isLightDistractionModeActive]) {
         [details addObject:@"轻打扰中"];
-    } else if (self.restWindowController) {
+    } else if (self.restWindowController && (!self.restOverlayYielded || self.settings.restWindowTopmost)) {
         [self.restWindowController presentOverlay];
         [details addObject:@"休息页已校准"];
+    } else if (self.restOverlayYielded) {
+        [details addObject:@"休息页已让开"];
     } else {
         [details addObject:@"状态正常"];
     }
@@ -4161,6 +4207,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)resetAllTimers {
     [self resetEyeTimer];
     [self resetStandTimer];
+    self.restOverlayYielded = NO;
     [self.restWindowController close];
     self.restWindowController = nil;
     [self publishState];
@@ -4221,6 +4268,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)ensureRestWindowForKind:(ERReminderKind)kind remaining:(NSTimeInterval)remaining {
     if (!self.settings.showRestWindow || [self isLightDistractionModeActive] || remaining <= 0) return;
+    if (self.restOverlayYielded && !self.settings.restWindowTopmost) return;
     [self.settingsWindowController close];
     [self.restWindowController close];
     self.restWindowController = [[ERRestWindowController alloc] initWithAppDelegate:self];
@@ -4317,6 +4365,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         if (self.restWindowController) {
             [self.restWindowController close];
             self.restWindowController = nil;
+        }
+        return;
+    }
+
+    if (self.restOverlayYielded && !self.settings.restWindowTopmost) {
+        if (self.restWindowController.window.visible) {
+            [self.restWindowController.window orderOut:nil];
         }
         return;
     }
@@ -4418,11 +4473,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [parts addObject:self.restWindowController.window.visible ? @"可见" : @"不可见"];
         [parts addObject:self.restWindowController.window.screen ? @"有屏幕" : @"无屏幕"];
         [parts addObject:[self.restWindowController hasHealthyActionBindings] ? @"按钮正常" : @"按钮异常"];
+        [parts addObject:[NSString stringWithFormat:@"level %ld", (long)self.restWindowController.window.level]];
+        [parts addObject:[NSString stringWithFormat:@"behavior %lu", (unsigned long)self.restWindowController.window.collectionBehavior]];
         restWindowState = [parts componentsJoinedByString:@"/"];
     }
 
-    return [NSString stringWithFormat:@"窗口诊断：休息页 %@ · app 窗口 %ld · 残留休息页 %ld · 屏幕 %ld",
+    return [NSString stringWithFormat:@"窗口诊断：休息页 %@ · 已让开 %@ · app 窗口 %ld · 残留休息页 %ld · 屏幕 %ld",
             restWindowState,
+            self.restOverlayYielded ? @"YES" : @"NO",
             (long)NSApp.windows.count,
             (long)orphaned,
             (long)NSScreen.screens.count];
@@ -4533,6 +4591,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)beginRestForKind:(ERReminderKind)kind {
     NSTimeInterval duration = kind == ERReminderKindEye ? self.settings.eyeRestSeconds : self.settings.standDurationSeconds;
+    self.restOverlayYielded = NO;
     if (kind == ERReminderKindEye) {
         self.eyeResting = YES;
         self.eyeRestEndsAt = [NSDate dateWithTimeIntervalSinceNow:duration];
@@ -4589,6 +4648,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self resetStandTimer];
     }
 
+    self.restOverlayYielded = NO;
     if (self.restWindowController && self.restWindowController.kind == kind) {
         [self.restWindowController close];
         self.restWindowController = nil;
@@ -4614,6 +4674,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         self.standRestEndsAt = nil;
         self.standDueAt = [NSDate dateWithTimeIntervalSinceNow:seconds];
     }
+    self.restOverlayYielded = NO;
     if (self.restWindowController && self.restWindowController.kind == kind) {
         [self.restWindowController close];
         self.restWindowController = nil;
@@ -4631,6 +4692,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     } else {
         [self resetStandTimer];
     }
+    self.restOverlayYielded = NO;
     if (self.restWindowController && self.restWindowController.kind == kind) {
         [self.restWindowController close];
         self.restWindowController = nil;
@@ -5034,7 +5096,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSInteger orphaned = [self closeOrphanRestWindows];
     if (self.restWindowController) {
         [self.restWindowController refreshActionBindings];
-        [self.restWindowController presentOverlay];
+        if (!self.restOverlayYielded || self.settings.restWindowTopmost) {
+            [self.restWindowController presentOverlay];
+        }
     }
 
     NSMutableArray<NSString *> *details = [NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%@ %ld/%ld",
@@ -5058,6 +5122,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [details addObject:[NSString stringWithFormat:@"屏幕 %ld", (long)NSScreen.screens.count]];
 
     [self noteRecoveryEventTitle:@"恢复压测" detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
+}
+
+- (void)yieldRestOverlayForUserFocusChange {
+    if (!self.restWindowController || self.settings.restWindowTopmost) return;
+    self.restOverlayYielded = YES;
+    [self.restWindowController.window orderOut:nil];
+    [self noteRecoveryEventTitle:@"窗口让开" detail:@"用户切到其他窗口，非置顶休息页已隐藏，本轮计时继续"];
     [self publishState];
 }
 
@@ -5366,6 +5438,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)toggleRestWindowTopmost:(id)sender {
     self.settings.restWindowTopmost = !self.settings.restWindowTopmost;
+    if (self.settings.restWindowTopmost) {
+        self.restOverlayYielded = NO;
+    }
     [self.settings save];
     [self.settingsWindowController refreshControls];
     [self.restWindowController applyWindowLevelForSettings:self.settings];

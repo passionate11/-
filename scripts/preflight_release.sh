@@ -77,6 +77,9 @@ check_contains "$SOURCE_CONTENT" "NSURLSession" "update check network request"
 check_contains "$SOURCE_CONTENT" "ERCompareVersionStrings" "version comparison helper"
 check_contains "$SOURCE_CONTENT" "ERSettingsRestWindowTopmostKey: @NO" "rest window topmost default"
 check_contains "$SOURCE_CONTENT" "置顶强提醒" "topmost reminder setting"
+check_contains "$SOURCE_CONTENT" "restOverlayYielded" "yielded rest overlay state"
+check_contains "$SOURCE_CONTENT" "yieldRestOverlayForUserFocusChange" "rest overlay yield helper"
+check_contains "$SOURCE_CONTENT" "窗口让开" "rest overlay yield diagnostic"
 [[ "$SOURCE_CONTENT" == *"@interface ERSettingsWindow : NSWindow"* ]] || fail "settings window must remain a normal NSWindow"
 [[ "$SOURCE_CONTENT" == *"window.level = NSNormalWindowLevel;"* ]] || fail "settings window must use NSNormalWindowLevel"
 if [[ "$SOURCE_CONTENT" =~ NSFloatingWindowLevel|floatingPanel|NSWindowStyleMaskUtilityWindow|@interface\ ERSettingsPanel\ :\ NSPanel ]]; then
@@ -84,8 +87,14 @@ if [[ "$SOURCE_CONTENT" =~ NSFloatingWindowLevel|floatingPanel|NSWindowStyleMask
 fi
 REST_PRESENT_BLOCK="$(awk '/- \(void\)presentOverlay /{inside=1} inside && /^}/ {print; exit} inside{print}' "$SOURCE_FILE")"
 check_contains "$REST_PRESENT_BLOCK" "if (self.appDelegate.settings.restWindowTopmost)" "rest overlay topmost gate"
+check_contains "$REST_PRESENT_BLOCK" "[self.window orderFront:nil];" "rest overlay non-topmost presentation"
 if [[ "$REST_PRESENT_BLOCK" != *"restWindowTopmost"* || "$REST_PRESENT_BLOCK" == *"[self.window orderFrontRegardless];"* && "$REST_PRESENT_BLOCK" != *"if (self.appDelegate.settings.restWindowTopmost)"* ]]; then
   fail "rest overlay orderFrontRegardless must stay gated by restWindowTopmost"
+fi
+REST_INIT_BLOCK="$(awk '/- \(instancetype\)initWithAppDelegate:/{inside=1} inside && /return self;/{print; exit} inside{print}' "$SOURCE_FILE")"
+check_contains "$REST_INIT_BLOCK" "window.collectionBehavior = NSWindowCollectionBehaviorManaged;" "rest overlay default collection behavior"
+if [[ "$REST_INIT_BLOCK" == *"NSWindowCollectionBehaviorCanJoinAllSpaces"* || "$REST_INIT_BLOCK" == *"NSWindowCollectionBehaviorFullScreenAuxiliary"* ]]; then
+  fail "rest overlay must not join all spaces by default"
 fi
 SETTINGS_PRESENT_BLOCK="$(awk '/- \(void\)presentSettingsWindow /{inside=1} inside && /}/{print; exit} inside{print}' "$SOURCE_FILE")"
 if [[ "$SETTINGS_PRESENT_BLOCK" == *"orderFrontRegardless"* ]]; then
