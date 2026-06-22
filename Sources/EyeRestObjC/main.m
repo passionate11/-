@@ -59,6 +59,7 @@ static NSString *const ERSettingsStandRoutineKey = @"standRoutine";
 static NSString *const ERSettingsStandIntensityKey = @"standIntensity";
 static NSString *const ERSettingsStandCustomStagesKey = @"standCustomStages";
 static NSString *const ERSettingsShowRestWindowKey = @"showRestWindow";
+static NSString *const ERSettingsRestWindowTopmostKey = @"restWindowTopmost";
 static NSString *const ERSettingsNotificationsKey = @"notificationsEnabled";
 static NSString *const ERSettingsRestStyleKey = @"restStyle";
 static NSString *const ERSettingsMenuBarModeKey = @"menuBarMode";
@@ -903,6 +904,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) ERStandIntensity standIntensity;
 @property(nonatomic, copy) NSString *standCustomStagesText;
 @property(nonatomic) BOOL showRestWindow;
+@property(nonatomic) BOOL restWindowTopmost;
 @property(nonatomic) BOOL notificationsEnabled;
 @property(nonatomic) ERRestStyle restStyle;
 @property(nonatomic) ERMenuBarMode menuBarMode;
@@ -941,6 +943,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ERSettingsStandIntensityKey: @(ERStandIntensityStandard),
         ERSettingsStandCustomStagesKey: @"",
         ERSettingsShowRestWindowKey: @YES,
+        ERSettingsRestWindowTopmostKey: @NO,
         ERSettingsNotificationsKey: @YES,
         ERSettingsRestStyleKey: @(ERRestStyleBreath),
         ERSettingsMenuBarModeKey: @(ERMenuBarModeBoth),
@@ -970,6 +973,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     settings.standIntensity = [defaults integerForKey:ERSettingsStandIntensityKey];
     settings.standCustomStagesText = ERSanitizedStandCustomStagesTextFromObject([defaults objectForKey:ERSettingsStandCustomStagesKey]);
     settings.showRestWindow = [defaults boolForKey:ERSettingsShowRestWindowKey];
+    settings.restWindowTopmost = [defaults boolForKey:ERSettingsRestWindowTopmostKey];
     settings.notificationsEnabled = [defaults boolForKey:ERSettingsNotificationsKey];
     settings.restStyle = [defaults integerForKey:ERSettingsRestStyleKey];
     settings.menuBarMode = [defaults integerForKey:ERSettingsMenuBarModeKey];
@@ -1043,6 +1047,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [defaults setInteger:self.standIntensity forKey:ERSettingsStandIntensityKey];
     [defaults setObject:ERSanitizedStandCustomStagesTextFromObject(self.standCustomStagesText) forKey:ERSettingsStandCustomStagesKey];
     [defaults setBool:self.showRestWindow forKey:ERSettingsShowRestWindowKey];
+    [defaults setBool:self.restWindowTopmost forKey:ERSettingsRestWindowTopmostKey];
     [defaults setBool:self.notificationsEnabled forKey:ERSettingsNotificationsKey];
     [defaults setInteger:self.restStyle forKey:ERSettingsRestStyleKey];
     [defaults setInteger:self.menuBarMode forKey:ERSettingsMenuBarModeKey];
@@ -1105,6 +1110,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     value = dictionary[@"showRestWindow"];
     if (value) self.showRestWindow = [value boolValue];
+    value = dictionary[@"restWindowTopmost"];
+    if (value) self.restWindowTopmost = [value boolValue];
     value = dictionary[@"notificationsEnabled"];
     if (value) self.notificationsEnabled = [value boolValue];
     value = dictionary[@"restStyle"];
@@ -1238,6 +1245,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)configureForKind:(ERReminderKind)kind settings:(ERSettings *)settings duration:(NSTimeInterval)duration;
 - (void)updateRemaining:(NSTimeInterval)remaining;
 - (void)configureActionSuggestionsForKind:(ERReminderKind)kind settings:(ERSettings *)settings;
+- (void)applyWindowLevelForSettings:(ERSettings *)settings;
 - (void)refreshActionBindings;
 - (BOOL)hasHealthyActionBindings;
 - (void)updateActionSuggestionForRemaining:(NSTimeInterval)remaining;
@@ -1264,6 +1272,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *standCustomStagesSummaryLabel;
 @property(nonatomic, strong) NSButton *notificationSwitch;
 @property(nonatomic, strong) NSButton *restWindowSwitch;
+@property(nonatomic, strong) NSButton *restWindowTopmostSwitch;
 @property(nonatomic, strong) NSButton *launchAtLoginSwitch;
 @property(nonatomic, strong) NSButton *autoFocusSwitch;
 @property(nonatomic, strong) NSButton *calendarFocusSwitch;
@@ -1417,6 +1426,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (BOOL)handleAutomationURL:(NSURL *)url;
 - (void)copyAutomationURL:(NSMenuItem *)sender;
 - (void)presentSettingsWindow;
+- (void)toggleRestWindowTopmost:(id)sender;
 - (NSTimeInterval)configuredRestDurationForKind:(ERReminderKind)kind;
 - (NSDate *)restEndDateForKind:(ERReminderKind)kind;
 - (void)ensureRestWindowForKind:(ERReminderKind)kind remaining:(NSTimeInterval)remaining;
@@ -1727,27 +1737,32 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)buildAlertSectionInView:(NSView *)view {
     NSView *card = self.alertCard;
     [self addSettingRowsToCard:card frames:@[
-        [NSValue valueWithRect:NSMakeRect(14, 166, 316, 38)],
-        [NSValue valueWithRect:NSMakeRect(14, 128, 316, 38)],
-        [NSValue valueWithRect:NSMakeRect(14, 90, 316, 38)],
-        [NSValue valueWithRect:NSMakeRect(14, 50, 316, 40)],
-        [NSValue valueWithRect:NSMakeRect(14, 10, 316, 40)]
+        [NSValue valueWithRect:NSMakeRect(14, 174, 316, 32)],
+        [NSValue valueWithRect:NSMakeRect(14, 140, 316, 32)],
+        [NSValue valueWithRect:NSMakeRect(14, 106, 316, 32)],
+        [NSValue valueWithRect:NSMakeRect(14, 72, 316, 32)],
+        [NSValue valueWithRect:NSMakeRect(14, 38, 316, 32)],
+        [NSValue valueWithRect:NSMakeRect(14, 4, 316, 32)]
     ] dividerX:136 dividerWidth:180];
 
     self.notificationSwitch = [NSButton checkboxWithTitle:@"系统通知" target:self action:@selector(toggleOnly:)];
-    self.notificationSwitch.frame = NSMakeRect(24, 174, 160, 24);
+    self.notificationSwitch.frame = NSMakeRect(24, 178, 160, 24);
     [card addSubview:self.notificationSwitch];
 
     self.restWindowSwitch = [NSButton checkboxWithTitle:@"提醒窗口" target:self action:@selector(toggleOnly:)];
-    self.restWindowSwitch.frame = NSMakeRect(24, 136, 160, 24);
+    self.restWindowSwitch.frame = NSMakeRect(24, 144, 160, 24);
     [card addSubview:self.restWindowSwitch];
 
+    self.restWindowTopmostSwitch = [NSButton checkboxWithTitle:@"置顶强提醒" target:self action:@selector(toggleOnly:)];
+    self.restWindowTopmostSwitch.frame = NSMakeRect(24, 110, 160, 24);
+    [card addSubview:self.restWindowTopmostSwitch];
+
     self.launchAtLoginSwitch = [NSButton checkboxWithTitle:@"登录时自动启动" target:self action:@selector(toggleOnly:)];
-    self.launchAtLoginSwitch.frame = NSMakeRect(24, 98, 180, 24);
+    self.launchAtLoginSwitch.frame = NSMakeRect(24, 76, 180, 24);
     [card addSubview:self.launchAtLoginSwitch];
 
-    [card addSubview:[self fieldLabel:@"菜单栏：" frame:NSMakeRect(24, 58, 96, 22)]];
-    self.menuBarModePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(140, 54, 190, 30) pullsDown:NO];
+    [card addSubview:[self fieldLabel:@"菜单栏：" frame:NSMakeRect(24, 44, 96, 22)]];
+    self.menuBarModePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(140, 39, 190, 30) pullsDown:NO];
     [self.menuBarModePopup addItemsWithTitles:@[
         ERMenuBarModeTitle(ERMenuBarModeBoth),
         ERMenuBarModeTitle(ERMenuBarModeEye),
@@ -1759,8 +1774,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.menuBarModePopup.action = @selector(toggleOnly:);
     [card addSubview:self.menuBarModePopup];
 
-    [card addSubview:[self fieldLabel:@"画面风格：" frame:NSMakeRect(24, 20, 96, 22)]];
-    self.restStylePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(140, 16, 190, 30) pullsDown:NO];
+    [card addSubview:[self fieldLabel:@"画面风格：" frame:NSMakeRect(24, 10, 96, 22)]];
+    self.restStylePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(140, 5, 190, 30) pullsDown:NO];
     [self.restStylePopup addItemsWithTitles:@[
         ERRestStyleTitle(ERRestStyleBreath),
         ERRestStyleTitle(ERRestStyleForest),
@@ -2107,6 +2122,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         : @"使用内置动作";
     self.notificationSwitch.state = self.settings.notificationsEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     self.restWindowSwitch.state = self.settings.showRestWindow ? NSControlStateValueOn : NSControlStateValueOff;
+    self.restWindowTopmostSwitch.state = self.settings.restWindowTopmost ? NSControlStateValueOn : NSControlStateValueOff;
+    self.restWindowTopmostSwitch.enabled = self.settings.showRestWindow;
     self.launchAtLoginSwitch.state = self.settings.launchAtLogin ? NSControlStateValueOn : NSControlStateValueOff;
     self.autoFocusSwitch.state = self.settings.autoFocusModeEnabled ? NSControlStateValueOn : NSControlStateValueOff;
     self.calendarFocusSwitch.state = self.settings.calendarFocusModeEnabled ? NSControlStateValueOn : NSControlStateValueOff;
@@ -2406,6 +2423,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"standIntensity": ERStandIntensityTitle(self.settings.standIntensity),
             @"standCustomStages": ERSanitizedStandCustomStagesTextFromObject(self.settings.standCustomStagesText),
             @"showRestWindow": @(self.settings.showRestWindow),
+            @"restWindowTopmost": @(self.settings.restWindowTopmost),
             @"notificationsEnabled": @(self.settings.notificationsEnabled),
             @"restStyle": ERRestStyleTitle(self.settings.restStyle),
             @"menuBarMode": ERMenuBarModeTitle(self.settings.menuBarMode),
@@ -2671,6 +2689,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.standIntensity = ERClampInteger(self.standIntensityPopup.indexOfSelectedItem, ERStandIntensityGentle, ERStandIntensityActive);
     self.settings.notificationsEnabled = self.notificationSwitch.state == NSControlStateValueOn;
     self.settings.showRestWindow = self.restWindowSwitch.state == NSControlStateValueOn;
+    self.settings.restWindowTopmost = self.restWindowTopmostSwitch.state == NSControlStateValueOn;
     self.settings.launchAtLogin = self.launchAtLoginSwitch.state == NSControlStateValueOn;
     self.settings.autoFocusModeEnabled = self.autoFocusSwitch.state == NSControlStateValueOn;
     self.settings.calendarFocusModeEnabled = self.calendarFocusSwitch.state == NSControlStateValueOn;
@@ -2845,6 +2864,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.standCustomStagesText = @"";
     self.settings.notificationsEnabled = YES;
     self.settings.showRestWindow = YES;
+    self.settings.restWindowTopmost = NO;
     self.settings.launchAtLogin = NO;
     self.settings.autoFocusModeEnabled = YES;
     self.settings.calendarFocusModeEnabled = NO;
@@ -2897,7 +2917,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.appDelegate = appDelegate;
 
     window.identifier = ERRestOverlayWindowIdentifier;
-    window.level = NSStatusWindowLevel;
+    window.level = NSNormalWindowLevel;
     window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary;
     window.opaque = YES;
     window.acceptsMouseMovedEvents = YES;
@@ -3033,6 +3053,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.currentStyle = settings.restStyle;
     [self refreshActionBindings];
     [self applyStyle:settings.restStyle];
+    [self applyWindowLevelForSettings:settings];
 
     if (kind == ERReminderKindStand) {
         self.iconView.image = [NSImage imageWithSystemSymbolName:@"figure.stand" accessibilityDescription:@"Stand"];
@@ -3184,6 +3205,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self updateActionSuggestionForRemaining:self.totalDuration];
 }
 
+- (void)applyWindowLevelForSettings:(ERSettings *)settings {
+    BOOL topmost = settings.restWindowTopmost;
+    self.window.level = topmost ? NSStatusWindowLevel : NSNormalWindowLevel;
+    self.window.collectionBehavior = topmost
+        ? (NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary)
+        : NSWindowCollectionBehaviorManaged;
+}
+
 - (void)layoutRestContent {
     NSRect bounds = self.backgroundView.bounds;
     CGFloat cardWidth = MIN(760, MAX(420, bounds.size.width - 160));
@@ -3230,8 +3259,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self refreshActionBindings];
     [self refitToCurrentScreen];
     [self showWindow:nil];
-    [self.window orderFrontRegardless];
-    [NSApp activateIgnoringOtherApps:YES];
+    if (self.appDelegate.settings.restWindowTopmost) {
+        [self.window orderFrontRegardless];
+        [NSApp activateIgnoringOtherApps:YES];
+    }
     [self.window makeKeyAndOrderFront:nil];
 }
 
@@ -4072,6 +4103,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     window.tag = 105;
     [self.menu addItem:window];
 
+    NSMenuItem *topmostWindow = [[NSMenuItem alloc] initWithTitle:@"置顶强提醒" action:@selector(toggleRestWindowTopmost:) keyEquivalent:@""];
+    topmostWindow.target = self;
+    topmostWindow.tag = 110;
+    [self.menu addItem:topmostWindow];
+
     [self.menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *about = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"关于 %@...", ERBrandName] action:@selector(showAbout:) keyEquivalent:@""];
     about.target = self;
@@ -4421,9 +4457,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                       ERStandRoutineTitle(self.settings.standRoutine),
                       ERStandIntensityTitle(self.settings.standIntensity),
                       ERFormatDuration([self remainingUntil:(self.standResting ? self.standRestEndsAt : self.standDueAt)])]];
-    [lines addObject:[NSString stringWithFormat:@"提醒：通知 %@ · 全屏提醒 %@ · 菜单栏模式 %ld · 风格 %ld",
+    [lines addObject:[NSString stringWithFormat:@"提醒：通知 %@ · 全屏提醒 %@ · 置顶强提醒 %@ · 菜单栏模式 %ld · 风格 %ld",
                       self.settings.notificationsEnabled ? @"开" : @"关",
                       self.settings.showRestWindow ? @"开" : @"关",
+                      self.settings.restWindowTopmost ? @"开" : @"关",
                       (long)self.settings.menuBarMode,
                       (long)self.settings.restStyle]];
     [lines addObject:[NSString stringWithFormat:@"自动化：%@ · %@", [self focusModeStatusText], [self isLightDistractionModeActive] ? @"轻打扰中" : @"正常提醒"]];
@@ -4748,6 +4785,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     NSMenuItem *window = [self.menu itemWithTag:105];
     window.state = self.settings.showRestWindow ? NSControlStateValueOn : NSControlStateValueOff;
+
+    NSMenuItem *topmostWindow = [self.menu itemWithTag:110];
+    topmostWindow.state = self.settings.restWindowTopmost ? NSControlStateValueOn : NSControlStateValueOff;
+    topmostWindow.enabled = self.settings.showRestWindow;
 }
 
 - (void)userNotificationCenter:(UNUserNotificationCenter *)center
@@ -5211,6 +5252,18 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings.showRestWindow = !self.settings.showRestWindow;
     [self.settings save];
     [self.settingsWindowController refreshControls];
+    [self.restWindowController applyWindowLevelForSettings:self.settings];
+    [self publishState];
+}
+
+- (void)toggleRestWindowTopmost:(id)sender {
+    self.settings.restWindowTopmost = !self.settings.restWindowTopmost;
+    [self.settings save];
+    [self.settingsWindowController refreshControls];
+    [self.restWindowController applyWindowLevelForSettings:self.settings];
+    if (self.restWindowController && self.settings.restWindowTopmost) {
+        [self.restWindowController presentOverlay];
+    }
     [self publishState];
 }
 

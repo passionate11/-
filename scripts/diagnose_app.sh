@@ -115,8 +115,11 @@ print_kv "Single lock file" "$([[ -e "$LOCK_PATH" ]] && echo "$LOCK_PATH" || ech
 print_section "Preferences"
 if /usr/bin/defaults read "$BUNDLE_ID" >/dev/null 2>&1; then
   print_kv "Defaults domain" "$BUNDLE_ID"
-  for key in eyeEnabled eyeFocusSeconds eyeRestSeconds standEnabled standIntervalSeconds standDurationSeconds restStyle menuBarMode showRestWindow notificationsEnabled; do
+  for key in eyeEnabled eyeFocusSeconds eyeRestSeconds standEnabled standIntervalSeconds standDurationSeconds restStyle menuBarMode showRestWindow restWindowTopmost notificationsEnabled; do
     VALUE="$(/usr/bin/defaults read "$BUNDLE_ID" "$key" 2>/dev/null || true)"
+    if [[ -z "$VALUE" && "$key" == "restWindowTopmost" ]]; then
+      VALUE="0 (default)"
+    fi
     if [[ -n "$VALUE" ]]; then
       print_kv "$key" "$VALUE"
     fi

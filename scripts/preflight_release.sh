@@ -53,7 +53,7 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: checkForUpdates: copyApplicationDiagnostic: applicationDiagnosticText; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: checkForUpdates: copyApplicationDiagnostic: applicationDiagnosticText toggleRestWindowTopmost:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
@@ -65,10 +65,17 @@ SOURCE_CONTENT="$(< "$SOURCE_FILE")"
 check_contains "$SOURCE_CONTENT" "应用诊断" "application diagnostics title"
 check_contains "$SOURCE_CONTENT" "NSURLSession" "update check network request"
 check_contains "$SOURCE_CONTENT" "ERCompareVersionStrings" "version comparison helper"
+check_contains "$SOURCE_CONTENT" "ERSettingsRestWindowTopmostKey: @NO" "rest window topmost default"
+check_contains "$SOURCE_CONTENT" "置顶强提醒" "topmost reminder setting"
 [[ "$SOURCE_CONTENT" == *"@interface ERSettingsWindow : NSWindow"* ]] || fail "settings window must remain a normal NSWindow"
 [[ "$SOURCE_CONTENT" == *"window.level = NSNormalWindowLevel;"* ]] || fail "settings window must use NSNormalWindowLevel"
 if [[ "$SOURCE_CONTENT" =~ NSFloatingWindowLevel|floatingPanel|NSWindowStyleMaskUtilityWindow|@interface\ ERSettingsPanel\ :\ NSPanel ]]; then
   fail "settings window floating-panel regression detected"
+fi
+REST_PRESENT_BLOCK="$(awk '/- \(void\)presentOverlay /{inside=1} inside && /^}/ {print; exit} inside{print}' "$SOURCE_FILE")"
+check_contains "$REST_PRESENT_BLOCK" "if (self.appDelegate.settings.restWindowTopmost)" "rest overlay topmost gate"
+if [[ "$REST_PRESENT_BLOCK" != *"restWindowTopmost"* || "$REST_PRESENT_BLOCK" == *"[self.window orderFrontRegardless];"* && "$REST_PRESENT_BLOCK" != *"if (self.appDelegate.settings.restWindowTopmost)"* ]]; then
+  fail "rest overlay orderFrontRegardless must stay gated by restWindowTopmost"
 fi
 SETTINGS_PRESENT_BLOCK="$(awk '/- \(void\)presentSettingsWindow /{inside=1} inside && /}/{print; exit} inside{print}' "$SOURCE_FILE")"
 if [[ "$SETTINGS_PRESENT_BLOCK" == *"orderFrontRegardless"* ]]; then
