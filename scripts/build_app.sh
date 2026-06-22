@@ -11,9 +11,21 @@ VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
 CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
 SKIP_CODESIGN="${SKIP_CODESIGN:-0}"
+LOCK_PATH="$ROOT_DIR/.build/build_app.lock"
 
 cd "$ROOT_DIR"
 mkdir -p "$ROOT_DIR/.build"
+
+if [[ "${ER_BUILD_LOCK_HELD:-0}" != "1" ]]; then
+  if command -v lockf >/dev/null 2>&1; then
+    exec lockf "$LOCK_PATH" env ER_BUILD_LOCK_HELD=1 "$ROOT_DIR/scripts/build_app.sh" "$@"
+  elif command -v flock >/dev/null 2>&1; then
+    exec env ER_BUILD_LOCK_HELD=1 flock "$LOCK_PATH" "$ROOT_DIR/scripts/build_app.sh" "$@"
+  else
+    echo "warning: no lockf/flock found; concurrent builds may conflict" >&2
+  fi
+fi
+
 clang -fobjc-arc \
   -mmacosx-version-min=13.0 \
   -framework Cocoa \
