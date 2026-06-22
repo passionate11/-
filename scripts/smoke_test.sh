@@ -234,4 +234,12 @@ calendar_diagnostic="$(/usr/bin/pbpaste)"
 [[ "$calendar_diagnostic" == *"calendarPause="* ]] || fail "calendar diagnostic missing calendar pause flag"
 [[ "$calendar_diagnostic" == *"autoPause="* ]] || fail "calendar diagnostic missing auto pause flag"
 
+echo "==> Checking live calendar policy URL"
+open "$URL_SCHEME://diagnostics/calendar-live"
+sleep 4
+history_contains '真实日历联动自检' '\\U771f\\U5b9e\\U65e5\\U5386\\U8054\\U52a8\\U81ea\\U68c0' || fail "live calendar policy check did not run"
+if ! history_contains '跳过' '\\U8df3\\U8fc7' '真实日历命中' '\\U771f\\U5b9e\\U65e5\\U5386\\U547d\\U4e2d' '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f'; then
+  fail "live calendar policy check did not record skip or pass state"
+fi
+
 echo "==> Smoke test passed"
