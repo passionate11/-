@@ -38,9 +38,11 @@ jobs:
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'handleAutomationURL:'
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'runRecoveryStressTest:'
           strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'importBackupJSON:'
+          strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'showAbout:'
           codesign --verify --deep --strict outputs/EyeRest.app
           codesign -dv outputs/EyeRest.app 2>&1 | grep -q 'Signature=adhoc'
           APP_TARGET=outputs/EyeRest.app scripts/diagnose_app.sh | grep -Eq 'codesign verify:[[:space:]]+ok'
+          grep -q "## $(cat VERSION)" CHANGELOG.md
 
       - name: Package app
         run: scripts/package_app.sh

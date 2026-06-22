@@ -102,7 +102,7 @@ if [[ -n "$PROCESS_LINES" ]]; then
   printf '%s\n' "$PROCESS_LINES" | sed 's/^/  /'
 fi
 
-ALL_EYEREST_LINES="$(pgrep -fl "$EXECUTABLE_NAME" 2>/dev/null || true)"
+ALL_EYEREST_LINES="$(pgrep -fl "$EXECUTABLE_NAME" 2>/dev/null | grep '/Contents/MacOS/' || true)"
 ALL_EYEREST_COUNT="$(printf '%s\n' "$ALL_EYEREST_LINES" | sed '/^$/d' | wc -l | tr -d ' ')"
 print_kv "All EyeRest-like" "$ALL_EYEREST_COUNT"
 if [[ "$ALL_EYEREST_COUNT" != "$PROCESS_COUNT" && -n "$ALL_EYEREST_LINES" ]]; then

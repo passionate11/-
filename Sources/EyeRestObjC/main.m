@@ -87,6 +87,7 @@ static NSString *const ERStatsAutoPauseSecondsKey = @"statsAutoPauseSeconds";
 static NSString *const ERStatsHistoryKey = @"statsHistory";
 static NSString *const ERRecoveryHistoryKey = @"recoveryHistory";
 static NSString *const ERBrandName = @"松一下";
+static NSString *const ERGitHubURLString = @"https://github.com/passionate11/-";
 static NSString *const ERAutomationURLScheme = @"songyixia";
 static NSString *const ERRestOverlayWindowIdentifier = @"local.codex.eyerest.rest-overlay";
 static NSString *const EROpenSettingsNotificationName = @"local.codex.eyerest.open-settings";
@@ -1390,6 +1391,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)handleRecoveryStressTestRequest:(NSNotification *)notification;
 - (void)runRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (NSString *)recoveryWindowDiagnosticLine;
+- (void)showAbout:(id)sender;
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
 - (BOOL)handleAutomationURL:(NSURL *)url;
 - (void)copyAutomationURL:(NSMenuItem *)sender;
@@ -4046,6 +4048,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self.menu addItem:window];
 
     [self.menu addItem:NSMenuItem.separatorItem];
+    NSMenuItem *about = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"关于 %@...", ERBrandName] action:@selector(showAbout:) keyEquivalent:@""];
+    about.target = self;
+    [self.menu addItem:about];
+
     NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"退出 %@", ERBrandName] action:@selector(terminate:) keyEquivalent:@"q"];
     quit.target = NSApp;
     [self.menu addItem:quit];
@@ -4847,6 +4853,31 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     [self noteRecoveryEventTitle:@"恢复压测" detail:[details componentsJoinedByString:@"，"]];
     [self publishState];
+}
+
+- (void)showAbout:(id)sender {
+    NSBundle *bundle = NSBundle.mainBundle;
+    NSDictionary *info = bundle.infoDictionary;
+    NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"0.1.0";
+    NSString *build = [info[@"CFBundleVersion"] isKindOfClass:NSString.class] ? info[@"CFBundleVersion"] : @"1";
+    NSString *bundlePath = bundle.bundlePath ?: @"";
+    NSString *message = [NSString stringWithFormat:@"版本 %@ (%@)\n\n眼睛休息、站立提醒和番茄休息都在一个轻量菜单栏里。\n\n安装位置：%@\n源码：%@", version, build, bundlePath, ERGitHubURLString];
+
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = ERBrandName;
+    alert.informativeText = message;
+    alert.icon = [NSImage imageNamed:NSImageNameInfo];
+    [alert addButtonWithTitle:@"好"];
+    [alert addButtonWithTitle:@"打开 GitHub"];
+
+    [NSApp activateIgnoringOtherApps:YES];
+    NSModalResponse response = [alert runModal];
+    if (response == NSAlertSecondButtonReturn) {
+        NSURL *url = [NSURL URLWithString:ERGitHubURLString];
+        if (url) {
+            [NSWorkspace.sharedWorkspace openURL:url];
+        }
+    }
 }
 
 - (void)handleRecoveryStressTestRequest:(NSNotification *)notification {
