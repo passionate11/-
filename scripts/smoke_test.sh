@@ -74,6 +74,7 @@ history_contains() {
 
 echo "==> Installing app"
 "$ROOT_DIR/scripts/install_app.sh" >/dev/null
+/usr/bin/defaults write "$BUNDLE_ID" quickSetupSeen -bool true
 wait_for_process || fail "app did not start"
 
 echo "==> Checking URL scheme"
@@ -118,6 +119,12 @@ sleep 1
 history_contains '快速节奏 调试 10 秒' '\\U5feb\\U901f\\U8282\\U594f \\U8c03\\U8bd5 10 \\U79d2' || fail "rhythm/debug did not record success"
 [[ "$(/usr/bin/defaults read "$BUNDLE_ID" eyeFocusSeconds 2>/dev/null || true)" == "10" ]] || fail "rhythm/debug did not set eyeFocusSeconds to 10"
 [[ "$(/usr/bin/defaults read "$BUNDLE_ID" eyeRestSeconds 2>/dev/null || true)" == "10" ]] || fail "rhythm/debug did not set eyeRestSeconds to 10"
+open "$URL_SCHEME://setup/stand"
+sleep 1
+history_contains '已应用 久坐打断' '\\U5df2\\U5e94\\U7528 \\U4e45\\U5750\\U6253\\U65ad' || fail "setup/stand did not record success"
+[[ "$(/usr/bin/defaults read "$BUNDLE_ID" standIntervalSeconds 2>/dev/null || true)" == "3600" ]] || fail "setup/stand did not set standIntervalSeconds to 3600"
+[[ "$(/usr/bin/defaults read "$BUNDLE_ID" standDurationSeconds 2>/dev/null || true)" == "600" ]] || fail "setup/stand did not set standDurationSeconds to 600"
+[[ "$(/usr/bin/defaults read "$BUNDLE_ID" restWindowTopmost 2>/dev/null || true)" == "0" ]] || fail "setup/stand should keep restWindowTopmost disabled"
 open "$URL_SCHEME://automation/focus-template"
 sleep 1
 history_contains '已复制专注联动脚本' '\\U5df2\\U590d\\U5236\\U4e13\\U6ce8\\U8054\\U52a8\\U811a\\U672c' || fail "focus template URL did not record success"

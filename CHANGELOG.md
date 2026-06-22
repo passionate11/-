@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.37
+
+- 新增 `快速配置...`，可一键应用均衡护眼、番茄专注、久坐打断和调试 10 秒四套完整节奏。
+- `今日概览` 新增快速配置入口，首次打开设置时会提示一次，之后不再重复打扰。
+- 外部自动化新增 `songyixia://setup/balanced`、`songyixia://setup/pomodoro`、`songyixia://setup/stand` 和 `songyixia://setup/debug`。
+
 ## 0.1.36
 
 - 设置页主卡片增加随风格变化的轻量图案层，像素、玩具、森林、夜间等主题不再只是换背景色。

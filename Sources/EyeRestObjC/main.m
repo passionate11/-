@@ -4,6 +4,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <Carbon/Carbon.h>
+#import <objc/runtime.h>
 #import <fcntl.h>
 #import <sys/file.h>
 #import <unistd.h>
@@ -75,6 +76,7 @@ static NSString *const ERSettingsCalendarAutoPauseTokensKey = @"calendarAutoPaus
 static NSString *const ERSettingsQuietHoursEnabledKey = @"quietHoursEnabled";
 static NSString *const ERSettingsQuietHoursStartKey = @"quietHoursStartMinute";
 static NSString *const ERSettingsQuietHoursEndKey = @"quietHoursEndMinute";
+static NSString *const ERSettingsQuickSetupSeenKey = @"quickSetupSeen";
 static NSString *const ERStatsDateKey = @"statsDate";
 static NSString *const ERStatsEyeDoneKey = @"statsEyeDone";
 static NSString *const ERStatsStandDoneKey = @"statsStandDone";
@@ -1132,6 +1134,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ERSettingsQuietHoursEnabledKey: @NO,
         ERSettingsQuietHoursStartKey: @(22 * 60),
         ERSettingsQuietHoursEndKey: @(7 * 60),
+        ERSettingsQuickSetupSeenKey: @NO,
         ERSettingsFocusAppTokensKey: ERDefaultFocusAppTokens(),
         ERSettingsAutoPauseAppTokensKey: ERDefaultAutoPauseAppTokens(),
         ERSettingsIgnoreAppTokensKey: ERDefaultIgnoreAppTokens(),
@@ -1524,6 +1527,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSButton *overviewRestStandButton;
 @property(nonatomic, strong) NSButton *overviewPauseButton;
 @property(nonatomic, strong) NSButton *overviewIssueButton;
+@property(nonatomic, strong) NSButton *overviewQuickSetupButton;
 @property(nonatomic, strong) NSArray<NSButton *> *overviewActionButtons;
 @property(nonatomic, strong) NSTextField *statsOverviewLabel;
 @property(nonatomic, strong) NSTextField *statsMonthLabel;
@@ -1577,6 +1581,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)refreshOverview;
 - (void)refreshStats;
 - (void)refreshAutomationStatus;
+- (void)openQuickSetup:(id)sender;
 - (void)exportStatsCSV:(id)sender;
 - (void)exportStatsJSON:(id)sender;
 - (void)importBackupJSON:(id)sender;
@@ -1745,6 +1750,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (BOOL)quickRhythmMatchesItemInfo:(NSArray *)itemInfo;
 - (BOOL)applyQuickRhythmToken:(NSString *)token detail:(NSString **)detail;
 - (void)applyQuickRhythm:(NSMenuItem *)sender;
+- (void)applyQuickSetupProfile:(NSString *)profile;
+- (void)showQuickSetup:(id)sender;
+- (void)quickSetupProfileChanged:(id)sender;
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
 - (BOOL)handleAutomationURL:(NSURL *)url;
 - (void)copyAutomationURL:(NSMenuItem *)sender;
@@ -2095,15 +2103,20 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.overviewPauseButton.toolTip = @"暂停提醒 30 分钟";
     [card addSubview:self.overviewPauseButton];
 
-    self.overviewIssueButton = [self overviewActionButtonWithTitle:@"反馈包" symbol:@"doc.on.doc" action:@selector(overviewCopyIssueBundle:) frame:NSMakeRect(350, 10, 100, 28)];
+    self.overviewIssueButton = [self overviewActionButtonWithTitle:@"反馈包" symbol:@"doc.on.doc" action:@selector(overviewCopyIssueBundle:) frame:NSMakeRect(350, 10, 88, 28)];
     self.overviewIssueButton.toolTip = @"复制问题反馈包";
     [card addSubview:self.overviewIssueButton];
+
+    self.overviewQuickSetupButton = [self overviewActionButtonWithTitle:@"配置" symbol:@"slider.horizontal.3" action:@selector(openQuickSetup:) frame:NSMakeRect(452, 10, 58, 28)];
+    self.overviewQuickSetupButton.toolTip = @"打开快速配置";
+    [card addSubview:self.overviewQuickSetupButton];
 
     self.overviewActionButtons = @[
         self.overviewRestEyeButton,
         self.overviewRestStandButton,
         self.overviewPauseButton,
-        self.overviewIssueButton
+        self.overviewIssueButton,
+        self.overviewQuickSetupButton
     ];
 
     self.overviewTiles = tiles;
@@ -2598,6 +2611,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)overviewCopyIssueBundle:(id)sender {
     [self.appDelegate copyIssueBundleDiagnostic:sender];
+    [self refreshOverview];
+}
+
+- (void)openQuickSetup:(id)sender {
+    [self.appDelegate showQuickSetup:sender];
     [self refreshOverview];
 }
 
@@ -4885,6 +4903,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     settings.target = self;
     [self.menu addItem:settings];
 
+    NSMenuItem *quickSetup = [[NSMenuItem alloc] initWithTitle:@"快速配置..." action:@selector(showQuickSetup:) keyEquivalent:@""];
+    quickSetup.target = self;
+    [self.menu addItem:quickSetup];
+
     NSMenuItem *pause = [[NSMenuItem alloc] initWithTitle:@"暂停" action:@selector(togglePause:) keyEquivalent:@"p"];
     pause.target = self;
     pause.tag = 103;
@@ -4901,6 +4923,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"轻打扰关闭", ERAutomationURLString(@"focus/off")],
         @[@"轻打扰切换", ERAutomationURLString(@"focus/toggle")],
         @[@"打开设置", ERAutomationURLString(@"settings")],
+        @[@"快速配置：均衡护眼", ERAutomationURLString(@"setup/balanced")],
+        @[@"快速配置：番茄专注", ERAutomationURLString(@"setup/pomodoro")],
+        @[@"快速配置：久坐打断", ERAutomationURLString(@"setup/stand")],
+        @[@"快速配置：调试", ERAutomationURLString(@"setup/debug")],
         @[@"立即眼睛休息", ERAutomationURLString(@"rest/eye")],
         @[@"立即站立", ERAutomationURLString(@"rest/stand")],
         @[@"快速节奏：20-20-20", ERAutomationURLString(@"rhythm/202020")],
@@ -6259,6 +6285,150 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     if ([self applyQuickRhythmToken:[itemInfo[0] isEqualToString:@"20-20-20"] ? @"202020" : ([itemInfo[0] hasPrefix:@"番茄"] ? @"pomodoro" : @"debug") detail:&detail]) {
         [self noteRecoveryEventTitle:@"快速节奏" detail:[NSString stringWithFormat:@"已切换为 %@", itemInfo[0]]];
         [self publishState];
+    }
+}
+
+- (void)applyQuickSetupProfile:(NSString *)profile {
+    NSString *token = profile.lowercaseString ?: @"";
+    NSString *profileTitle = @"均衡护眼";
+
+    self.settings.eyeEnabled = YES;
+    self.settings.standEnabled = YES;
+    self.settings.showRestWindow = YES;
+    self.settings.restWindowTopmost = NO;
+    self.settings.notificationsEnabled = YES;
+    self.settings.menuBarMode = ERMenuBarModeBoth;
+    self.settings.standCustomStagesText = @"";
+
+    if ([token isEqualToString:@"pomodoro"] || [token isEqualToString:@"focus"]) {
+        profileTitle = @"番茄专注";
+        self.settings.eyeMode = EREyeModePomodoro;
+        self.settings.eyeFocusSeconds = 25 * 60;
+        self.settings.eyeRestSeconds = 5 * 60;
+        self.settings.standIntervalSeconds = 2 * 60 * 60;
+        self.settings.standDurationSeconds = 20 * 60;
+        self.settings.standRoutine = ERStandRoutineReset;
+        self.settings.standIntensity = ERStandIntensityGentle;
+        self.settings.restStyle = ERRestStyleNight;
+    } else if ([token isEqualToString:@"stand"] || [token isEqualToString:@"active"]) {
+        profileTitle = @"久坐打断";
+        self.settings.eyeMode = EREyeMode202020;
+        self.settings.eyeFocusSeconds = 20 * 60;
+        self.settings.eyeRestSeconds = 20;
+        self.settings.standIntervalSeconds = 60 * 60;
+        self.settings.standDurationSeconds = 10 * 60;
+        self.settings.standRoutine = ERStandRoutineWalk;
+        self.settings.standIntensity = ERStandIntensityActive;
+        self.settings.restStyle = ERRestStyleToy;
+    } else if ([token isEqualToString:@"debug"] || [token isEqualToString:@"10s"]) {
+        profileTitle = @"调试 10 秒";
+        self.settings.eyeMode = EREyeModeCustom;
+        self.settings.eyeFocusSeconds = 10;
+        self.settings.eyeRestSeconds = 10;
+        self.settings.standIntervalSeconds = 10;
+        self.settings.standDurationSeconds = 10;
+        self.settings.standRoutine = ERStandRoutineBalanced;
+        self.settings.standIntensity = ERStandIntensityStandard;
+        self.settings.restStyle = ERRestStylePixel;
+    } else {
+        profileTitle = @"均衡护眼";
+        self.settings.eyeMode = EREyeMode202020;
+        self.settings.eyeFocusSeconds = 20 * 60;
+        self.settings.eyeRestSeconds = 20;
+        self.settings.standIntervalSeconds = 2 * 60 * 60;
+        self.settings.standDurationSeconds = 20 * 60;
+        self.settings.standRoutine = ERStandRoutineBalanced;
+        self.settings.standIntensity = ERStandIntensityStandard;
+        self.settings.restStyle = ERRestStyleBreath;
+    }
+
+    [NSUserDefaults.standardUserDefaults setBool:YES forKey:ERSettingsQuickSetupSeenKey];
+    [self.settings save];
+    [self.settingsWindowController refreshControls];
+    [self settingsDidChangeShouldReset:YES];
+    [self noteRecoveryEventTitle:@"快速配置" detail:[NSString stringWithFormat:@"已应用 %@", profileTitle]];
+    [self publishState];
+}
+
+- (void)showQuickSetup:(id)sender {
+    [NSUserDefaults.standardUserDefaults setBool:YES forKey:ERSettingsQuickSetupSeenKey];
+    [NSUserDefaults.standardUserDefaults synchronize];
+
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.icon = [NSImage imageWithSystemSymbolName:@"slider.horizontal.3" accessibilityDescription:@"快速配置"];
+    alert.messageText = @"快速配置";
+    alert.informativeText = @"选一个接近现在状态的节奏，之后仍可在设置里细调。";
+    [alert addButtonWithTitle:@"应用"];
+    [alert addButtonWithTitle:@"取消"];
+
+    NSView *panel = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 460, 168)];
+    NSPopUpButton *profilePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(0, 136, 220, 26) pullsDown:NO];
+    NSArray<NSDictionary<NSString *, NSString *> *> *profiles = @[
+        @{@"title": @"均衡护眼", @"token": @"balanced", @"detail": @"20-20-20 + 站立 2 小时 / 20 分钟"},
+        @{@"title": @"番茄专注", @"token": @"pomodoro", @"detail": @"25 分钟专注 / 5 分钟离屏，站立保持 2 小时"},
+        @{@"title": @"久坐打断", @"token": @"stand", @"detail": @"眼睛保持 20-20-20，站立改为 60 分钟 / 10 分钟"},
+        @{@"title": @"调试 10 秒", @"token": @"debug", @"detail": @"眼睛和站立都用 10 秒节奏，方便快速验证"}
+    ];
+    for (NSDictionary<NSString *, NSString *> *profileInfo in profiles) {
+        [profilePopup addItemWithTitle:profileInfo[@"title"]];
+        NSMenuItem *item = profilePopup.lastItem;
+        item.representedObject = profileInfo[@"token"];
+    }
+    [profilePopup selectItemAtIndex:0];
+    [panel addSubview:profilePopup];
+
+    NSTextField *detailLabel = [NSTextField wrappingLabelWithString:profiles.firstObject[@"detail"]];
+    detailLabel.frame = NSMakeRect(0, 90, 460, 38);
+    detailLabel.font = [NSFont systemFontOfSize:13];
+    detailLabel.textColor = NSColor.secondaryLabelColor;
+    detailLabel.maximumNumberOfLines = 2;
+    [panel addSubview:detailLabel];
+
+    NSArray<NSString *> *rows = @[
+        @"眼睛、站立会分别重置下一次提醒时间。",
+        @"提醒窗口会保持非置顶，避免休息页长期压住主屏幕。",
+        @"选择调试节奏后，记得再切回日常节奏。"
+    ];
+    for (NSInteger index = 0; index < rows.count; index++) {
+        NSTextField *row = [NSTextField labelWithString:rows[index]];
+        row.frame = NSMakeRect(0, 58 - index * 22, 460, 20);
+        row.font = [NSFont systemFontOfSize:12];
+        row.textColor = NSColor.tertiaryLabelColor;
+        [panel addSubview:row];
+    }
+
+    objc_setAssociatedObject(profilePopup, "quickSetupProfiles", profiles, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(profilePopup, "quickSetupDetailLabel", detailLabel, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    profilePopup.target = self;
+    profilePopup.action = @selector(quickSetupProfileChanged:);
+
+    alert.accessoryView = panel;
+
+    void (^applyResponse)(NSModalResponse) = ^(NSModalResponse response) {
+        if (response == NSAlertFirstButtonReturn) {
+            NSString *selectedProfile = [profilePopup.selectedItem.representedObject isKindOfClass:NSString.class]
+                ? profilePopup.selectedItem.representedObject
+                : @"balanced";
+            [self applyQuickSetupProfile:selectedProfile];
+        }
+    };
+
+    NSWindow *settingsWindow = self.settingsWindowController.window;
+    [NSApp activateIgnoringOtherApps:YES];
+    if (settingsWindow.visible) {
+        [alert beginSheetModalForWindow:settingsWindow completionHandler:applyResponse];
+    } else {
+        applyResponse([alert runModal]);
+    }
+}
+
+- (void)quickSetupProfileChanged:(id)sender {
+    NSPopUpButton *profilePopup = [sender isKindOfClass:NSPopUpButton.class] ? sender : nil;
+    NSArray<NSDictionary<NSString *, NSString *> *> *profiles = objc_getAssociatedObject(profilePopup, "quickSetupProfiles");
+    NSTextField *detailLabel = objc_getAssociatedObject(profilePopup, "quickSetupDetailLabel");
+    NSInteger index = profilePopup.indexOfSelectedItem;
+    if (index >= 0 && index < profiles.count) {
+        detailLabel.stringValue = profiles[index][@"detail"] ?: @"";
     }
 }
 
@@ -8327,6 +8497,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     if ([command isEqualToString:@"settings"] || [command isEqualToString:@"open-settings"]) {
         [self presentSettingsWindow];
         detail = @"打开设置";
+    } else if ([command isEqualToString:@"setup"] || [command isEqualToString:@"quick-setup"]) {
+        NSString *profile = argument.length > 0 ? argument : @"balanced";
+        [self applyQuickSetupProfile:profile];
+        detail = [NSString stringWithFormat:@"快速配置 %@", profile];
     } else if ([command isEqualToString:@"focus"] || [command isEqualToString:@"work"] || [command isEqualToString:@"quiet"]) {
         BOOL desired = YES;
         if ([argument isEqualToString:@"off"] || [argument isEqualToString:@"false"] || [argument isEqualToString:@"0"] || [argument isEqualToString:@"disable"]) {
@@ -8647,6 +8821,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     if (!self.settingsWindowController) {
         self.settingsWindowController = [[ERSettingsWindowController alloc] initWithSettings:self.settings appDelegate:self];
     }
+    BOOL shouldShowQuickSetup = ![NSUserDefaults.standardUserDefaults boolForKey:ERSettingsQuickSetupSeenKey];
     [self.settingsWindowController refreshControls];
     NSWindow *settingsWindow = self.settingsWindowController.window;
     settingsWindow.level = NSNormalWindowLevel;
@@ -8655,6 +8830,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self.settingsWindowController showWindow:nil];
     [NSApp activateIgnoringOtherApps:YES];
     [settingsWindow makeKeyAndOrderFront:nil];
+    if (shouldShowQuickSetup) {
+        [NSUserDefaults.standardUserDefaults setBool:YES forKey:ERSettingsQuickSetupSeenKey];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (settingsWindow.visible) {
+                [self showQuickSetup:nil];
+            }
+        });
+    }
 }
 
 - (void)toggleNotifications:(id)sender {
