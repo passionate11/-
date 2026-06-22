@@ -147,6 +147,14 @@ sleep 3
 history_contains '完成 3/3' '\\U5b8c\\U6210 3/3' || fail "lunch recovery stress did not complete"
 history_contains '站立过期已结算' '\\U7ad9\\U7acb\\U8fc7\\U671f\\U5df2\\U7ed3\\U7b97' || fail "lunch recovery did not settle expired stand rest"
 
+echo "==> Checking sleep hidden recovery URL"
+open "$URL_SCHEME://diagnostics/sleep-hidden-recovery"
+sleep 3
+history_contains '睡眠隐藏恢复压测' '\\U7761\\U7720\\U9690\\U85cf\\U6062\\U590d\\U538b\\U6d4b' || fail "sleep hidden recovery stress did not run"
+history_contains '隐藏休息页已恢复' '\\U9690\\U85cf\\U4f11\\U606f\\U9875\\U5df2\\U6062\\U590d' || fail "sleep hidden recovery did not restore hidden rest window"
+history_contains '已让开休息页保持隐藏' '\\U5df2\\U8ba9\\U5f00\\U4f11\\U606f\\U9875\\U4fdd\\U6301\\U9690\\U85cf' || fail "sleep hidden recovery did not preserve yielded rest window"
+history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "sleep hidden recovery did not clean up test state"
+
 echo "==> Checking long-away recovery URL"
 open "$URL_SCHEME://diagnostics/long-away-recovery"
 sleep 3

@@ -187,6 +187,7 @@ songyixia://automation/focus-template
 songyixia://automation/diagnostic
 songyixia://diagnostics/recovery-stress
 songyixia://diagnostics/lunch-recovery
+songyixia://diagnostics/sleep-hidden-recovery
 songyixia://diagnostics/long-away-recovery
 songyixia://diagnostics/display-recovery
 songyixia://diagnostics/display-bounds
@@ -243,6 +244,7 @@ songyixia://diagnostics/overlay-yield
 - 休息页按钮自检：休息页展示或唤醒校准时会重新绑定完成、稍后、跳过和延长按钮，发现按钮链路异常会自动重建休息页。
 - 恢复压测：菜单栏可运行多轮恢复压测，连续校准休息页、按钮链路、残留窗口和屏幕挂载状态，并写入可复制的恢复诊断。
 - 午休恢复压测：可模拟长时间离开后站立休息已经过期，验证自动结算、休息页关闭和下一轮站立计时重置。
+- 睡眠隐藏恢复压测：可模拟睡眠/锁屏时休息页被隐藏但本轮休息未过期，验证该恢复时会恢复、已让开时不会异常弹回。
 - 长离开恢复压测：可模拟睡眠/锁屏很久后眼睛和站立休息都已过期，验证两个提醒自动结算、休息页清理和下一轮计时重置。
 - 显示恢复压测：可模拟休息页位于屏幕外，验证显示器切换或外接屏断开后会回到当前屏幕内。
 - 显示边界压测：可模拟休息页仍在屏幕内但尺寸继承旧显示器，验证会重新贴合当前屏幕并重排内容。
@@ -267,7 +269,7 @@ songyixia://diagnostics/overlay-yield
 
 #### v0.3 体验打磨
 
-- 睡眠/锁屏实机压测：已加入恢复、午休、长离开、显示、显示边界和窗口让开压测入口；后续继续覆盖更多外接屏真实组合，结合恢复诊断继续收敛边界问题。
+- 睡眠/锁屏实机压测：已加入恢复、午休、睡眠隐藏、长离开、显示、显示边界和窗口让开压测入口；后续继续覆盖更多外接屏真实组合，结合恢复诊断继续收敛边界问题。
 
 #### v0.4 自动化增强
 

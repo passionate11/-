@@ -1430,6 +1430,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSUInteger recoveryFollowUpGeneration;
 @property(nonatomic) NSUInteger recoveryStressTestGeneration;
 @property(nonatomic) NSUInteger lunchRecoveryStressTestGeneration;
+@property(nonatomic) NSUInteger sleepHiddenRecoveryStressTestGeneration;
 @property(nonatomic) NSUInteger displayRecoveryStressTestGeneration;
 @property(nonatomic) NSUInteger displayBoundsStressTestGeneration;
 @property(nonatomic) NSUInteger overlayYieldStressTestGeneration;
@@ -1468,6 +1469,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runLunchRecoveryStressTest:(id)sender;
 - (void)runLunchRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
+- (void)runSleepHiddenRecoveryStressTest:(id)sender;
+- (void)runSleepHiddenRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousTopmost:(BOOL)previousTopmost;
 - (void)runDisplayRecoveryStressTest:(id)sender;
 - (void)runDisplayRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runDisplayBoundsStressTest:(id)sender;
@@ -4121,6 +4124,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     lunchRecoveryStressTest.target = self;
     [self.menu addItem:lunchRecoveryStressTest];
 
+    NSMenuItem *sleepHiddenRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行睡眠隐藏恢复压测" action:@selector(runSleepHiddenRecoveryStressTest:) keyEquivalent:@""];
+    sleepHiddenRecoveryStressTest.target = self;
+    [self.menu addItem:sleepHiddenRecoveryStressTest];
+
     NSMenuItem *longAwayRecoveryStressTest = [[NSMenuItem alloc] initWithTitle:@"运行长离开恢复压测" action:@selector(runLongAwayRecoveryStressTest:) keyEquivalent:@""];
     longAwayRecoveryStressTest.target = self;
     [self.menu addItem:longAwayRecoveryStressTest];
@@ -4168,6 +4175,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"恢复 JSON", ERAutomationURLString(@"backup/import")],
         @[@"运行恢复压测", ERAutomationURLString(@"diagnostics/recovery-stress")],
         @[@"运行午休恢复压测", ERAutomationURLString(@"diagnostics/lunch-recovery")],
+        @[@"运行睡眠隐藏恢复压测", ERAutomationURLString(@"diagnostics/sleep-hidden-recovery")],
         @[@"运行长离开恢复压测", ERAutomationURLString(@"diagnostics/long-away-recovery")],
         @[@"运行显示恢复压测", ERAutomationURLString(@"diagnostics/display-recovery")],
         @[@"运行显示边界压测", ERAutomationURLString(@"diagnostics/display-bounds")],
@@ -5287,6 +5295,93 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self publishState];
 }
 
+- (void)runSleepHiddenRecoveryStressTest:(id)sender {
+    if (!self.settings.eyeEnabled || !self.settings.showRestWindow) {
+        [self noteRecoveryEventTitle:@"睡眠隐藏恢复压测" detail:@"眼睛提醒或休息页已关闭，跳过"];
+        [self publishState];
+        return;
+    }
+
+    self.sleepHiddenRecoveryStressTestGeneration += 1;
+    NSUInteger generation = self.sleepHiddenRecoveryStressTestGeneration;
+    NSInteger total = 4;
+    BOOL previousTopmost = self.settings.restWindowTopmost;
+
+    self.settings.restWindowTopmost = NO;
+    self.paused = NO;
+    self.pausedUntil = nil;
+    self.autoPauseActive = NO;
+    self.focusModeEnabled = NO;
+    self.eyeResting = YES;
+    self.eyeRestEndsAt = [NSDate dateWithTimeIntervalSinceNow:MAX(45, self.settings.eyeRestSeconds)];
+    self.standResting = NO;
+    self.standRestEndsAt = nil;
+    self.restOverlayYielded = NO;
+
+    [self ensureRestWindowForKind:ERReminderKindEye remaining:[self remainingUntil:self.eyeRestEndsAt]];
+    if (self.restWindowController) {
+        [self.restWindowController.window orderOut:nil];
+    }
+
+    [self noteRecoveryEventTitle:@"睡眠隐藏恢复压测" detail:@"已模拟睡眠时隐藏但眼睛休息未过期，开始复查"];
+    [self publishState];
+
+    NSArray<NSNumber *> *delays = @[@0.0, @0.5, @1.1, @1.8];
+    for (NSInteger index = 0; index < delays.count; index++) {
+        NSTimeInterval delay = delays[index].doubleValue;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (generation != self.sleepHiddenRecoveryStressTestGeneration) return;
+            [self runSleepHiddenRecoveryStressTestPass:index + 1 total:total generation:generation previousTopmost:previousTopmost];
+        });
+    }
+}
+
+- (void)runSleepHiddenRecoveryStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousTopmost:(BOOL)previousTopmost {
+    if (generation != self.sleepHiddenRecoveryStressTestGeneration) return;
+
+    if (pass == 1) {
+        [self repairRestOverlayAfterSystemEvent:nil];
+    } else if (pass == 2) {
+        [self yieldRestOverlayForUserFocusChange];
+        [self repairRestOverlayAfterSystemEvent:nil];
+    } else {
+        [self settleExpiredRests];
+        [self repairRestStateIfNeeded];
+    }
+    NSInteger orphaned = [self closeOrphanRestWindows];
+
+    BOOL restContinues = self.eyeResting && self.eyeRestEndsAt && [self.eyeRestEndsAt timeIntervalSinceNow] > 0;
+    BOOL windowVisible = self.restWindowController && self.restWindowController.window.visible;
+    BOOL yielded = self.restOverlayYielded;
+    BOOL restoredFirstPass = pass == 1 && windowVisible && !yielded;
+    BOOL yieldedStillHidden = pass >= 2 && yielded && !windowVisible;
+
+    NSMutableArray<NSString *> *details = [NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%@ %ld/%ld",
+                                                                           pass == total ? @"完成" : @"复查",
+                                                                           (long)pass,
+                                                                           (long)total]];
+    if (pass == 1) {
+        [details addObject:restoredFirstPass ? @"隐藏休息页已恢复" : @"隐藏休息页未恢复"];
+    } else {
+        [details addObject:yieldedStillHidden ? @"已让开休息页保持隐藏" : @"已让开休息页异常弹回"];
+    }
+    [details addObject:restContinues ? @"休息计时继续" : @"休息计时异常"];
+    [details addObject:windowVisible ? @"窗口可见" : @"窗口隐藏"];
+    if (orphaned > 0) {
+        [details addObject:[NSString stringWithFormat:@"清理残留 %ld 个", (long)orphaned]];
+    }
+
+    if (pass == total) {
+        self.settings.restWindowTopmost = previousTopmost;
+        [self.settings save];
+        [self cleanupDiagnosticEyeRest];
+        [details addObject:@"测试状态已还原"];
+    }
+
+    [self noteRecoveryEventTitle:@"睡眠隐藏恢复压测" detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
+}
+
 - (void)runLongAwayRecoveryStressTest:(id)sender {
     if (!self.settings.eyeEnabled || !self.settings.standEnabled || !self.settings.showRestWindow) {
         [self noteRecoveryEventTitle:@"长离开恢复压测" detail:@"眼睛、站立或休息页已关闭，跳过"];
@@ -5880,6 +5975,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"lunch-recovery"] || [argument isEqualToString:@"lunch"] || [argument isEqualToString:@"stand-expired"]) {
             [self runLunchRecoveryStressTest:nil];
             detail = @"运行午休恢复压测";
+        } else if ([argument isEqualToString:@"sleep-hidden-recovery"] || [argument isEqualToString:@"sleep-hidden"] || [argument isEqualToString:@"hidden-recovery"]) {
+            [self runSleepHiddenRecoveryStressTest:nil];
+            detail = @"运行睡眠隐藏恢复压测";
         } else if ([argument isEqualToString:@"long-away-recovery"] || [argument isEqualToString:@"long-away"] || [argument isEqualToString:@"both-expired"]) {
             [self runLongAwayRecoveryStressTest:nil];
             detail = @"运行长离开恢复压测";
