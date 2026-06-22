@@ -228,6 +228,17 @@ recovery_matrix="$(/usr/bin/pbpaste)"
 [[ "$recovery_matrix" == *"scenario=settings-offscreen"* ]] || fail "recovery matrix missing settings offscreen scenario"
 [[ "$recovery_matrix" == *"scenario=window-layer"* ]] || fail "recovery matrix missing window layer scenario"
 [[ "$recovery_matrix" == *"$URL_SCHEME://diagnostics/window-layer"* ]] || fail "recovery matrix missing window layer URL"
+[[ "$recovery_matrix" == *"$URL_SCHEME://diagnostics/recovery-matrix-suite"* ]] || fail "recovery matrix missing suite URL"
+
+echo "==> Checking recovery matrix suite URL"
+open "$URL_SCHEME://diagnostics/recovery-matrix-suite"
+sleep 58
+history_contains '恢复矩阵套件' '\\U6062\\U590d\\U77e9\\U9635\\U5957\\U4ef6' || fail "recovery matrix suite did not run"
+history_contains '开始 9 个场景顺序压测' '\\U5f00\\U59cb 9 \\U4e2a\\U573a\\U666f\\U987a\\U5e8f\\U538b\\U6d4b' || fail "recovery matrix suite did not record start"
+history_contains '完成 9/9' '\\U5b8c\\U6210 9/9' || fail "recovery matrix suite did not record completion"
+history_contains '运行 9/9' '\\U8fd0\\U884c 9/9' || fail "recovery matrix suite did not reach final step"
+history_contains '睡眠隐藏恢复压测' '\\U7761\\U7720\\U9690\\U85cf\\U6062\\U590d\\U538b\\U6d4b' || fail "recovery matrix suite did not include sleep hidden stress"
+history_contains '窗口层级压测' '\\U7a97\\U53e3\\U5c42\\U7ea7\\U538b\\U6d4b' || fail "recovery matrix suite did not include window layer stress"
 
 echo "==> Checking live display URL"
 open "$URL_SCHEME://diagnostics/display-live"

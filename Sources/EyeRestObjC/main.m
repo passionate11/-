@@ -96,7 +96,7 @@ static NSString *const ERAutomationURLScheme = @"songyixia";
 static NSString *const ERRestOverlayWindowIdentifier = @"local.codex.eyerest.rest-overlay";
 static NSString *const EROpenSettingsNotificationName = @"local.codex.eyerest.open-settings";
 static NSString *const ERRunRecoveryStressTestNotificationName = @"local.codex.eyerest.run-recovery-stress-test";
-static const NSUInteger ERRecoveryHistoryLimit = 20;
+static const NSUInteger ERRecoveryHistoryLimit = 80;
 static int ERSingleInstanceLockFD = -1;
 
 static NSInteger ERClampInteger(NSInteger value, NSInteger minimum, NSInteger maximum);
@@ -1478,6 +1478,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSUInteger realDisplayCheckGeneration;
 @property(nonatomic) NSUInteger overlayYieldStressTestGeneration;
 @property(nonatomic) NSUInteger windowLayerPolicyStressTestGeneration;
+@property(nonatomic) NSUInteger recoveryMatrixSuiteGeneration;
 @property(nonatomic) NSUInteger automationPolicyStressTestGeneration;
 @property(nonatomic) NSUInteger presentationPolicyStressTestGeneration;
 @property(nonatomic) NSUInteger realPresentationPolicyCheckGeneration;
@@ -1548,6 +1549,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runOverlayYieldStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runWindowLayerPolicyStressTest:(id)sender;
 - (void)runWindowLayerPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousTopmost:(BOOL)previousTopmost;
+- (void)runRecoveryMatrixSuite:(id)sender;
+- (void)runRecoveryMatrixSuiteStep:(NSInteger)index total:(NSInteger)total title:(NSString *)title action:(NSString *)action generation:(NSUInteger)generation;
+- (void)finishRecoveryMatrixSuiteWithTotal:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runAutomationPolicyStressTest:(id)sender;
 - (void)runAutomationPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousSettings:(NSDictionary<NSString *, id> *)previousSettings previousEyeDueAt:(NSDate *)previousEyeDueAt;
 - (void)runPresentationPolicyStressTest:(id)sender;
@@ -4398,6 +4402,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     windowLayerPolicyStressTest.target = self;
     [self.menu addItem:windowLayerPolicyStressTest];
 
+    NSMenuItem *recoveryMatrixSuite = [[NSMenuItem alloc] initWithTitle:@"运行恢复矩阵套件" action:@selector(runRecoveryMatrixSuite:) keyEquivalent:@""];
+    recoveryMatrixSuite.target = self;
+    [self.menu addItem:recoveryMatrixSuite];
+
     NSMenuItem *automationPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行自动化策略压测" action:@selector(runAutomationPolicyStressTest:) keyEquivalent:@""];
     automationPolicyStressTest.target = self;
     [self.menu addItem:automationPolicyStressTest];
@@ -4465,6 +4473,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"运行真实显示环境自检", ERAutomationURLString(@"diagnostics/display-live")],
         @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")],
         @[@"运行窗口层级压测", ERAutomationURLString(@"diagnostics/window-layer")],
+        @[@"运行恢复矩阵套件", ERAutomationURLString(@"diagnostics/recovery-matrix-suite")],
         @[@"运行自动化策略压测", ERAutomationURLString(@"diagnostics/automation-policy")],
         @[@"运行演示策略压测", ERAutomationURLString(@"diagnostics/presentation-policy")],
         @[@"运行真实演示联动自检", ERAutomationURLString(@"diagnostics/presentation-live")],
@@ -5173,6 +5182,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:@"recoveryMatrix=1"];
     [lines addObject:[NSString stringWithFormat:@"生成时间：%@", ERFormatClockTime(NSDate.date)]];
     [lines addObject:[NSString stringWithFormat:@"屏幕摘要：%@", ERScreenDiagnosticSummary()]];
+    [lines addObject:[NSString stringWithFormat:@"一键套件：%@", ERAutomationURLString(@"diagnostics/recovery-matrix-suite")]];
     [lines addObject:[self recoveryWindowDiagnosticLine]];
     [lines addObject:[NSString stringWithFormat:@"最近恢复事件数量：%ld", (long)self.recoveryEventHistory.count]];
     [lines addObject:@"场景覆盖："];
@@ -5206,6 +5216,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [sections addObject:@"排查入口："];
     [sections addObject:[NSString stringWithFormat:@"- 显示环境诊断：%@", ERAutomationURLString(@"diagnostics/display-real")]];
     [sections addObject:[NSString stringWithFormat:@"- 恢复场景矩阵：%@", ERAutomationURLString(@"diagnostics/recovery-matrix")]];
+    [sections addObject:[NSString stringWithFormat:@"- 恢复矩阵套件：%@", ERAutomationURLString(@"diagnostics/recovery-matrix-suite")]];
     [sections addObject:[NSString stringWithFormat:@"- 设置窗口恢复压测：%@", ERAutomationURLString(@"diagnostics/settings-window")]];
     [sections addObject:[NSString stringWithFormat:@"- 自动化诊断：%@", ERAutomationURLString(@"automation/diagnostic")]];
     [sections addObject:[NSString stringWithFormat:@"- 真实日历诊断：%@", ERAutomationURLString(@"diagnostics/calendar-real")]];
@@ -6586,6 +6597,86 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self publishState];
 }
 
+- (void)runRecoveryMatrixSuite:(id)sender {
+    self.recoveryMatrixSuiteGeneration += 1;
+    NSUInteger generation = self.recoveryMatrixSuiteGeneration;
+    NSArray<NSDictionary<NSString *, NSString *> *> *steps = @[
+        @{@"title": @"基础休息页恢复", @"action": @"recovery-stress"},
+        @{@"title": @"午休/离开后站立过期", @"action": @"lunch-recovery"},
+        @{@"title": @"锁屏/睡眠后隐藏休息页", @"action": @"sleep-hidden-recovery"},
+        @{@"title": @"长时间离开后双提醒过期", @"action": @"long-away-recovery"},
+        @{@"title": @"外接屏/合盖后休息页跑到屏幕外", @"action": @"display-recovery"},
+        @{@"title": @"外接屏变化后设置窗口不可见", @"action": @"settings-window"},
+        @{@"title": @"分辨率变化后休息页尺寸不匹配", @"action": @"display-bounds"},
+        @{@"title": @"用户切走后休息页让开", @"action": @"overlay-yield"},
+        @{@"title": @"窗口层级/置顶策略", @"action": @"window-layer"}
+    ];
+
+    [self noteRecoveryEventTitle:@"恢复矩阵套件" detail:[NSString stringWithFormat:@"开始 %ld 个场景顺序压测", (long)steps.count]];
+    [self publishState];
+
+    NSTimeInterval offset = 0;
+    NSTimeInterval gap = 6.0;
+    for (NSInteger index = 0; index < steps.count; index++) {
+        NSDictionary<NSString *, NSString *> *step = steps[index];
+        NSString *title = [step[@"title"] isKindOfClass:NSString.class] ? step[@"title"] : @"恢复场景";
+        NSString *action = [step[@"action"] isKindOfClass:NSString.class] ? step[@"action"] : @"";
+        NSTimeInterval delay = offset;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self runRecoveryMatrixSuiteStep:index + 1 total:steps.count title:title action:action generation:generation];
+        });
+        offset += gap;
+    }
+
+    NSTimeInterval finishDelay = offset + 2.0;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(finishDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self finishRecoveryMatrixSuiteWithTotal:steps.count generation:generation];
+    });
+}
+
+- (void)runRecoveryMatrixSuiteStep:(NSInteger)index total:(NSInteger)total title:(NSString *)title action:(NSString *)action generation:(NSUInteger)generation {
+    if (generation != self.recoveryMatrixSuiteGeneration) return;
+
+    [self noteRecoveryEventTitle:@"恢复矩阵套件"
+                          detail:[NSString stringWithFormat:@"运行 %ld/%ld：%@ · %@",
+                                  (long)index,
+                                  (long)total,
+                                  title,
+                                  ERAutomationURLString([NSString stringWithFormat:@"diagnostics/%@", action])]];
+
+    if ([action isEqualToString:@"recovery-stress"]) {
+        [self runRecoveryStressTest:nil];
+    } else if ([action isEqualToString:@"lunch-recovery"]) {
+        [self runLunchRecoveryStressTest:nil];
+    } else if ([action isEqualToString:@"sleep-hidden-recovery"]) {
+        [self runSleepHiddenRecoveryStressTest:nil];
+    } else if ([action isEqualToString:@"long-away-recovery"]) {
+        [self runLongAwayRecoveryStressTest:nil];
+    } else if ([action isEqualToString:@"display-recovery"]) {
+        [self runDisplayRecoveryStressTest:nil];
+    } else if ([action isEqualToString:@"settings-window"]) {
+        [self runSettingsWindowRecoveryStressTest:nil];
+    } else if ([action isEqualToString:@"display-bounds"]) {
+        [self runDisplayBoundsStressTest:nil];
+    } else if ([action isEqualToString:@"overlay-yield"]) {
+        [self runOverlayYieldStressTest:nil];
+    } else if ([action isEqualToString:@"window-layer"]) {
+        [self runWindowLayerPolicyStressTest:nil];
+    } else {
+        [self noteRecoveryEventTitle:@"恢复矩阵套件" detail:[NSString stringWithFormat:@"跳过未知场景：%@", action]];
+    }
+    [self publishState];
+}
+
+- (void)finishRecoveryMatrixSuiteWithTotal:(NSInteger)total generation:(NSUInteger)generation {
+    if (generation != self.recoveryMatrixSuiteGeneration) return;
+    [self noteRecoveryEventTitle:@"恢复矩阵套件"
+                          detail:[NSString stringWithFormat:@"完成 %ld/%ld，已顺序触发全部恢复场景，可复制恢复场景矩阵查看记录",
+                                  (long)total,
+                                  (long)total]];
+    [self publishState];
+}
+
 - (void)runAutomationPolicyStressTest:(id)sender {
     if (!self.settings.eyeEnabled || !self.settings.showRestWindow) {
         [self noteRecoveryEventTitle:@"自动化策略压测" detail:@"眼睛提醒或休息页已关闭，跳过"];
@@ -7728,6 +7819,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"window-layer"] || [argument isEqualToString:@"layer"] || [argument isEqualToString:@"topmost-policy"]) {
             [self runWindowLayerPolicyStressTest:nil];
             detail = @"运行窗口层级压测";
+        } else if ([argument isEqualToString:@"recovery-matrix-suite"] || [argument isEqualToString:@"matrix-suite"] || [argument isEqualToString:@"recovery-suite"] || [argument isEqualToString:@"suite"]) {
+            [self runRecoveryMatrixSuite:nil];
+            detail = @"运行恢复矩阵套件";
         } else if ([argument isEqualToString:@"automation-policy"] || [argument isEqualToString:@"automation"] || [argument isEqualToString:@"policy"]) {
             [self runAutomationPolicyStressTest:nil];
             detail = @"运行自动化策略压测";
@@ -7797,6 +7891,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"- 设置窗口恢复压测：%@", ERAutomationURLString(@"diagnostics/settings-window")]];
     [lines addObject:[NSString stringWithFormat:@"- 显示环境诊断：%@", ERAutomationURLString(@"diagnostics/display-real")]];
     [lines addObject:[NSString stringWithFormat:@"- 恢复场景矩阵：%@", ERAutomationURLString(@"diagnostics/recovery-matrix")]];
+    [lines addObject:[NSString stringWithFormat:@"- 恢复矩阵套件：%@", ERAutomationURLString(@"diagnostics/recovery-matrix-suite")]];
     [lines addObject:[NSString stringWithFormat:@"- 完整排查包：%@", ERAutomationURLString(@"diagnostics/support-bundle")]];
     [lines addObject:[NSString stringWithFormat:@"- 显示变化追踪自检：%@", ERAutomationURLString(@"diagnostics/display-change-trace")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实显示环境自检：%@", ERAutomationURLString(@"diagnostics/display-live")]];

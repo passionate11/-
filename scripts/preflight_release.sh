@@ -53,7 +53,7 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText copySupportBundleDiagnostic: supportBundleDiagnosticText toggleRestWindowTopmost:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText runRecoveryMatrixSuite: runRecoveryMatrixSuiteStep: finishRecoveryMatrixSuiteWithTotal: copySupportBundleDiagnostic: supportBundleDiagnosticText toggleRestWindowTopmost:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
@@ -118,6 +118,12 @@ check_contains "$SOURCE_CONTENT" "copyRecoveryMatrixDiagnostic:" "recovery matri
 check_contains "$SOURCE_CONTENT" "recoveryMatrixDiagnosticText" "recovery matrix diagnostic text helper"
 check_contains "$SOURCE_CONTENT" "diagnostics/recovery-matrix" "recovery matrix diagnostic URL"
 check_contains "$README_CONTENT" "songyixia://diagnostics/recovery-matrix" "recovery matrix diagnostic docs"
+check_contains "$SOURCE_CONTENT" "runRecoveryMatrixSuite:" "recovery matrix suite action"
+check_contains "$SOURCE_CONTENT" "diagnostics/recovery-matrix-suite" "recovery matrix suite automation URL"
+check_contains "$README_CONTENT" "songyixia://diagnostics/recovery-matrix-suite" "recovery matrix suite docs"
+check_contains "$SOURCE_CONTENT" "开始 %ld 个场景顺序压测" "recovery matrix suite start marker"
+check_contains "$SOURCE_CONTENT" "完成 %ld/%ld，已顺序触发全部恢复场景" "recovery matrix suite completion marker"
+check_contains "$SOURCE_CONTENT" "ERRecoveryHistoryLimit = 80" "expanded recovery history limit"
 check_contains "$SOURCE_CONTENT" "recoveryMatrix=1" "recovery matrix machine marker"
 check_contains "$SOURCE_CONTENT" "scenario=%@" "recovery matrix scenario marker"
 check_contains "$SOURCE_CONTENT" "section=recovery-matrix" "support bundle recovery matrix section marker"
@@ -236,6 +242,7 @@ DIAGNOSE_OUTPUT="$(APP_TARGET="$APP_BUNDLE" scripts/diagnose_app.sh)"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/display-change-trace"* ]] || fail "diagnostics missing display trace URL"
 [[ "$DIAGNOSE_OUTPUT" == *"== Recovery Matrix =="* ]] || fail "diagnostics missing recovery matrix section"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/recovery-matrix"* ]] || fail "diagnostics missing recovery matrix URL"
+[[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/recovery-matrix-suite"* ]] || fail "diagnostics missing recovery matrix suite URL"
 [[ "$DIAGNOSE_OUTPUT" == *"songyixia://diagnostics/window-layer"* ]] || fail "diagnostics missing window layer matrix URL"
 
 echo "==> Verifying changelog"
