@@ -1,0 +1,34 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  macos-build:
+    name: Build macOS app
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check shell scripts
+        run: |
+          bash -n scripts/build_app.sh
+          bash -n scripts/install_app.sh
+          bash -n scripts/smoke_test.sh
+
+      - name: Build app bundle
+        run: scripts/build_app.sh
+
+      - name: Verify app bundle
+        run: |
+          test -x outputs/EyeRest.app/Contents/MacOS/EyeRest
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' outputs/EyeRest.app/Contents/Info.plist | grep -q 'local.codex.eyerest'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' outputs/EyeRest.app/Contents/Info.plist | grep -q '松一下'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' outputs/EyeRest.app/Contents/Info.plist | grep -q 'songyixia'
+          strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'handleAutomationURL:'
+          strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'runRecoveryStressTest:'
+          strings outputs/EyeRest.app/Contents/MacOS/EyeRest | grep -q 'importBackupJSON:'

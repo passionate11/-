@@ -44,6 +44,8 @@ scripts/build_app.sh
 outputs/EyeRest.app
 ```
 
+GitHub Actions 会在 `main` 和 Pull Request 上运行 macOS 构建检查，覆盖 shell 语法、App bundle 生成、URL Scheme 和关键入口 selector。
+
 ## 运行
 
 ```bash
