@@ -104,6 +104,10 @@ check_contains "$SOURCE_CONTENT" "runOverlayYieldStressTest:" "overlay yield str
 check_contains "$SOURCE_CONTENT" "diagnostics/overlay-yield" "overlay yield automation URL"
 check_contains "$README_CONTENT" "songyixia://diagnostics/overlay-yield" "overlay yield docs"
 check_contains "$SOURCE_CONTENT" "窗口让开压测" "overlay yield diagnostics"
+check_contains "$SOURCE_CONTENT" "runWindowLayerPolicyStressTest:" "window layer policy stress action"
+check_contains "$SOURCE_CONTENT" "diagnostics/window-layer" "window layer policy automation URL"
+check_contains "$README_CONTENT" "songyixia://diagnostics/window-layer" "window layer policy docs"
+check_contains "$SOURCE_CONTENT" "窗口层级压测" "window layer policy diagnostics"
 check_contains "$SOURCE_CONTENT" "runAutomationPolicyStressTest:" "automation policy stress action"
 check_contains "$SOURCE_CONTENT" "diagnostics/automation-policy" "automation policy automation URL"
 check_contains "$README_CONTENT" "songyixia://diagnostics/automation-policy" "automation policy docs"
@@ -120,6 +124,8 @@ check_contains "$SOURCE_CONTENT" "restOverlayYielded" "yielded rest overlay stat
 check_contains "$SOURCE_CONTENT" "yieldRestOverlayForUserFocusChange" "rest overlay yield helper"
 check_contains "$SOURCE_CONTENT" "窗口让开" "rest overlay yield diagnostic"
 check_contains "$SOURCE_CONTENT" "applicationDidResignActive:" "rest overlay app resign yield"
+check_contains "$SOURCE_CONTENT" "normalizeWindowLevelsForCurrentSettings" "window level normalization"
+check_contains "$SOURCE_CONTENT" "demoteSettingsWindowAfterResignActive" "settings window demotion"
 check_contains "$SOURCE_CONTENT" "NSArray<NSView *> *interactiveViews" "rest overlay blank-area yield"
 check_contains "$SOURCE_CONTENT" "- (void)sendEvent:(NSEvent *)event" "rest overlay first-click event handling"
 check_contains "$SOURCE_CONTENT" "- (BOOL)acceptsFirstMouse:(NSEvent *)event" "rest overlay accepts first mouse"
@@ -152,6 +158,8 @@ if [[ "$BEGIN_REST_BLOCK" == *"settingsWindowController close"* ]]; then
   fail "manual rest must not close settings window when presenting"
 fi
 SETTINGS_PRESENT_BLOCK="$(awk '/- \(void\)presentSettingsWindow /{inside=1} inside && /}/{print; exit} inside{print}' "$SOURCE_FILE")"
+check_contains "$SOURCE_CONTENT" "settingsWindow.level = NSNormalWindowLevel;" "settings window normal level on present"
+check_contains "$SOURCE_CONTENT" "settingsWindow.collectionBehavior = NSWindowCollectionBehaviorManaged;" "settings window managed behavior on present"
 if [[ "$SETTINGS_PRESENT_BLOCK" == *"orderFrontRegardless"* ]]; then
   fail "settings window must not use orderFrontRegardless"
 fi

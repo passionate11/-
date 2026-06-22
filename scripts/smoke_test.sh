@@ -185,6 +185,16 @@ history_contains '休息页已让开' '\\U4f11\\U606f\\U9875\\U5df2\\U8ba9\\U5f0
 history_contains '设置页保留' '\\U8bbe\\U7f6e\\U9875\\U4fdd\\U7559' || fail "overlay yield stress did not preserve settings window"
 history_contains '休息计时继续' '\\U4f11\\U606f\\U8ba1\\U65f6\\U7ee7\\U7eed' || fail "overlay yield stress did not keep timer running"
 
+echo "==> Checking window layer policy URL"
+open "$URL_SCHEME://diagnostics/window-layer"
+sleep 4
+history_contains '窗口层级压测' '\\U7a97\\U53e3\\U5c42\\U7ea7\\U538b\\U6d4b' || fail "window layer policy stress did not run"
+history_contains '设置页普通层级' '\\U8bbe\\U7f6e\\U9875\\U666e\\U901a\\U5c42\\U7ea7' || fail "window layer policy did not keep settings normal"
+history_contains '普通休息页未置顶' '\\U666e\\U901a\\U4f11\\U606f\\U9875\\U672a\\U7f6e\\U9876' || fail "window layer policy did not keep normal rest non-topmost"
+history_contains '让开后未弹回' '\\U8ba9\\U5f00\\U540e\\U672a\\U5f39\\U56de' || fail "window layer policy did not preserve yielded rest"
+history_contains '强提醒才置顶' '\\U5f3a\\U63d0\\U9192\\U624d\\U7f6e\\U9876' || fail "window layer policy did not gate topmost mode"
+history_contains '测试状态已还原' '\\U6d4b\\U8bd5\\U72b6\\U6001\\U5df2\\U8fd8\\U539f' || fail "window layer policy did not restore test state"
+
 echo "==> Checking automation policy URL"
 open "$URL_SCHEME://diagnostics/automation-policy"
 sleep 4

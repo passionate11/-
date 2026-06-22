@@ -1434,6 +1434,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSUInteger displayRecoveryStressTestGeneration;
 @property(nonatomic) NSUInteger displayBoundsStressTestGeneration;
 @property(nonatomic) NSUInteger overlayYieldStressTestGeneration;
+@property(nonatomic) NSUInteger windowLayerPolicyStressTestGeneration;
 @property(nonatomic) NSUInteger automationPolicyStressTestGeneration;
 @property(nonatomic) NSUInteger longAwayRecoveryStressTestGeneration;
 @property(nonatomic, strong) NSDictionary<NSString *, NSNumber *> *longAwayRecoveryStatsSnapshot;
@@ -1454,6 +1455,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)scheduleRecoveryFollowUpChecksWithTitle:(NSString *)eventTitle;
 - (void)runRecoveryFollowUpCheckWithTitle:(NSString *)eventTitle pass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)applicationDidResignActive:(NSNotification *)notification;
+- (void)normalizeWindowLevelsForCurrentSettings;
+- (void)demoteSettingsWindowAfterResignActive;
 - (void)frontmostApplicationDidChange:(NSNotification *)notification;
 - (void)activeSpaceDidChange:(NSNotification *)notification;
 - (void)repairRestStateIfNeeded;
@@ -1479,6 +1482,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)runDisplayBoundsStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
 - (void)runOverlayYieldStressTest:(id)sender;
 - (void)runOverlayYieldStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation;
+- (void)runWindowLayerPolicyStressTest:(id)sender;
+- (void)runWindowLayerPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousTopmost:(BOOL)previousTopmost;
 - (void)runAutomationPolicyStressTest:(id)sender;
 - (void)runAutomationPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousSettings:(NSDictionary<NSString *, id> *)previousSettings previousEyeDueAt:(NSDate *)previousEyeDueAt;
 - (void)runLongAwayRecoveryStressTest:(id)sender;
@@ -3734,6 +3739,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     ERApplyLaunchAtLogin(self.settings.launchAtLogin);
     [self requestCalendarAccessIfNeeded];
     [self updateStatusItemAppearance];
+    [self normalizeWindowLevelsForCurrentSettings];
 }
 
 - (void)requestCalendarAccessIfNeeded {
@@ -3952,9 +3958,30 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (void)applicationDidResignActive:(NSNotification *)notification {
+    [self normalizeWindowLevelsForCurrentSettings];
+    [self demoteSettingsWindowAfterResignActive];
     if (self.restWindowController && self.restWindowController.window.visible && !self.settings.restWindowTopmost) {
         [self yieldRestOverlayForUserFocusChange];
     }
+}
+
+- (void)normalizeWindowLevelsForCurrentSettings {
+    NSWindow *settingsWindow = self.settingsWindowController.window;
+    if (settingsWindow) {
+        settingsWindow.level = NSNormalWindowLevel;
+        settingsWindow.collectionBehavior = NSWindowCollectionBehaviorManaged;
+    }
+    if (self.restWindowController) {
+        [self.restWindowController applyWindowLevelForSettings:self.settings];
+    }
+}
+
+- (void)demoteSettingsWindowAfterResignActive {
+    NSWindow *settingsWindow = self.settingsWindowController.window;
+    if (!settingsWindow || !settingsWindow.visible) return;
+    settingsWindow.level = NSNormalWindowLevel;
+    settingsWindow.collectionBehavior = NSWindowCollectionBehaviorManaged;
+    [settingsWindow orderBack:nil];
 }
 
 - (void)repairRestOverlayAfterDisplayChange {
@@ -4148,6 +4175,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     overlayYieldStressTest.target = self;
     [self.menu addItem:overlayYieldStressTest];
 
+    NSMenuItem *windowLayerPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行窗口层级压测" action:@selector(runWindowLayerPolicyStressTest:) keyEquivalent:@""];
+    windowLayerPolicyStressTest.target = self;
+    [self.menu addItem:windowLayerPolicyStressTest];
+
     NSMenuItem *automationPolicyStressTest = [[NSMenuItem alloc] initWithTitle:@"运行自动化策略压测" action:@selector(runAutomationPolicyStressTest:) keyEquivalent:@""];
     automationPolicyStressTest.target = self;
     [self.menu addItem:automationPolicyStressTest];
@@ -4188,6 +4219,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"运行显示恢复压测", ERAutomationURLString(@"diagnostics/display-recovery")],
         @[@"运行显示边界压测", ERAutomationURLString(@"diagnostics/display-bounds")],
         @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")],
+        @[@"运行窗口层级压测", ERAutomationURLString(@"diagnostics/window-layer")],
         @[@"运行自动化策略压测", ERAutomationURLString(@"diagnostics/automation-policy")]
     ];
     for (NSArray<NSString *> *itemInfo in automationURLs) {
@@ -5743,6 +5775,101 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self publishState];
 }
 
+- (void)runWindowLayerPolicyStressTest:(id)sender {
+    if (!self.settings.eyeEnabled || !self.settings.showRestWindow) {
+        [self noteRecoveryEventTitle:@"窗口层级压测" detail:@"眼睛提醒或休息页已关闭，跳过"];
+        [self publishState];
+        return;
+    }
+
+    self.windowLayerPolicyStressTestGeneration += 1;
+    NSUInteger generation = self.windowLayerPolicyStressTestGeneration;
+    NSInteger total = 4;
+    BOOL previousTopmost = self.settings.restWindowTopmost;
+
+    self.settings.restWindowTopmost = NO;
+    self.paused = NO;
+    self.pausedUntil = nil;
+    self.autoPauseActive = NO;
+    self.focusModeEnabled = NO;
+    self.eyeResting = YES;
+    self.eyeRestEndsAt = [NSDate dateWithTimeIntervalSinceNow:MAX(45, self.settings.eyeRestSeconds)];
+    self.standResting = NO;
+    self.standRestEndsAt = nil;
+    self.restOverlayYielded = NO;
+
+    [self presentSettingsWindow];
+    [self ensureRestWindowForKind:ERReminderKindEye remaining:[self remainingUntil:self.eyeRestEndsAt]];
+    [self noteRecoveryEventTitle:@"窗口层级压测" detail:@"已模拟设置页、普通休息页和置顶强提醒切换"];
+    [self publishState];
+
+    NSArray<NSNumber *> *delays = @[@0.0, @0.45, @1.0, @1.6];
+    for (NSInteger index = 0; index < delays.count; index++) {
+        NSTimeInterval delay = delays[index].doubleValue;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (generation != self.windowLayerPolicyStressTestGeneration) return;
+            if (index == 1) {
+                [self yieldRestOverlayForUserFocusChange];
+                [self repairRestOverlayAfterSystemEvent:nil];
+            } else if (index == 2) {
+                self.settings.restWindowTopmost = YES;
+                self.restOverlayYielded = NO;
+                [self normalizeWindowLevelsForCurrentSettings];
+                [self ensureRestWindowForKind:ERReminderKindEye remaining:[self remainingUntil:self.eyeRestEndsAt]];
+            }
+            [self runWindowLayerPolicyStressTestPass:index + 1 total:total generation:generation previousTopmost:previousTopmost];
+        });
+    }
+}
+
+- (void)runWindowLayerPolicyStressTestPass:(NSInteger)pass total:(NSInteger)total generation:(NSUInteger)generation previousTopmost:(BOOL)previousTopmost {
+    if (generation != self.windowLayerPolicyStressTestGeneration) return;
+
+    [self settleExpiredRests];
+    [self repairRestStateIfNeeded];
+    [self normalizeWindowLevelsForCurrentSettings];
+    NSInteger orphaned = [self closeOrphanRestWindows];
+
+    NSWindow *settingsWindow = self.settingsWindowController.window;
+    NSWindow *restWindow = self.restWindowController.window;
+    BOOL settingsNormal = !settingsWindow || (settingsWindow.level == NSNormalWindowLevel && settingsWindow.collectionBehavior == NSWindowCollectionBehaviorManaged);
+    BOOL restNormal = !restWindow || restWindow.level == NSNormalWindowLevel;
+    BOOL restTopmost = restWindow && restWindow.level == NSStatusWindowLevel;
+    BOOL yieldedHidden = self.restOverlayYielded && (!restWindow || !restWindow.visible);
+    BOOL settingsAlive = settingsWindow && settingsWindow.visible;
+    BOOL restContinues = self.eyeResting && self.eyeRestEndsAt && [self.eyeRestEndsAt timeIntervalSinceNow] > 0;
+
+    NSMutableArray<NSString *> *details = [NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%@ %ld/%ld",
+                                                                           pass == total ? @"完成" : @"复查",
+                                                                           (long)pass,
+                                                                           (long)total]];
+    [details addObject:settingsNormal ? @"设置页普通层级" : @"设置页层级异常"];
+    if (pass <= 2) {
+        [details addObject:restNormal ? @"普通休息页未置顶" : @"普通休息页层级异常"];
+    } else {
+        [details addObject:restTopmost ? @"强提醒才置顶" : @"强提醒层级异常"];
+    }
+    if (pass >= 2) {
+        [details addObject:yieldedHidden || self.settings.restWindowTopmost ? @"让开后未弹回" : @"让开后异常弹回"];
+    }
+    [details addObject:settingsAlive ? @"设置页保留" : @"设置页已关闭"];
+    [details addObject:restContinues ? @"休息计时继续" : @"休息计时异常"];
+    if (orphaned > 0) {
+        [details addObject:[NSString stringWithFormat:@"清理残留 %ld 个", (long)orphaned]];
+    }
+
+    if (pass == total) {
+        self.settings.restWindowTopmost = previousTopmost;
+        [self.settings save];
+        [self cleanupDiagnosticEyeRest];
+        [self.settingsWindowController close];
+        [details addObject:@"测试状态已还原"];
+    }
+
+    [self noteRecoveryEventTitle:@"窗口层级压测" detail:[details componentsJoinedByString:@"，"]];
+    [self publishState];
+}
+
 - (void)runAutomationPolicyStressTest:(id)sender {
     if (!self.settings.eyeEnabled || !self.settings.showRestWindow) {
         [self noteRecoveryEventTitle:@"自动化策略压测" detail:@"眼睛提醒或休息页已关闭，跳过"];
@@ -5919,9 +6046,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)yieldRestOverlayForUserFocusChange {
     if (!self.restWindowController || self.settings.restWindowTopmost) return;
+    BOOL alreadyYieldedAndHidden = self.restOverlayYielded && !self.restWindowController.window.visible;
     self.restOverlayYielded = YES;
     [self.restWindowController.window orderOut:nil];
-    [self noteRecoveryEventTitle:@"窗口让开" detail:@"用户切到其他窗口，非置顶休息页已隐藏，本轮计时继续"];
+    if (!alreadyYieldedAndHidden) {
+        [self noteRecoveryEventTitle:@"窗口让开" detail:@"用户切到其他窗口，非置顶休息页已隐藏，本轮计时继续"];
+    }
     [self publishState];
 }
 
@@ -6173,6 +6303,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"overlay-yield"] || [argument isEqualToString:@"yield"] || [argument isEqualToString:@"window-yield"]) {
             [self runOverlayYieldStressTest:nil];
             detail = @"运行窗口让开压测";
+        } else if ([argument isEqualToString:@"window-layer"] || [argument isEqualToString:@"layer"] || [argument isEqualToString:@"topmost-policy"]) {
+            [self runWindowLayerPolicyStressTest:nil];
+            detail = @"运行窗口层级压测";
         } else if ([argument isEqualToString:@"automation-policy"] || [argument isEqualToString:@"automation"] || [argument isEqualToString:@"policy"]) {
             [self runAutomationPolicyStressTest:nil];
             detail = @"运行自动化策略压测";
@@ -6363,6 +6496,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
     [self.settingsWindowController refreshControls];
     NSWindow *settingsWindow = self.settingsWindowController.window;
+    settingsWindow.level = NSNormalWindowLevel;
+    settingsWindow.collectionBehavior = NSWindowCollectionBehaviorManaged;
     NSScreen *screen = NSScreen.mainScreen ?: NSScreen.screens.firstObject;
     if (screen) {
         NSRect visibleFrame = screen.visibleFrame;

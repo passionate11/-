@@ -192,6 +192,7 @@ songyixia://diagnostics/long-away-recovery
 songyixia://diagnostics/display-recovery
 songyixia://diagnostics/display-bounds
 songyixia://diagnostics/overlay-yield
+songyixia://diagnostics/window-layer
 songyixia://diagnostics/automation-policy
 ```
 
@@ -250,6 +251,7 @@ songyixia://diagnostics/automation-policy
 - 显示恢复压测：可模拟休息页位于屏幕外，验证显示器切换或外接屏断开后会回到当前屏幕内。
 - 显示边界压测：可模拟休息页仍在屏幕内但尺寸继承旧显示器，验证会重新贴合当前屏幕并重排内容。
 - 窗口让开压测：可模拟非置顶休息页、设置页和用户切走场景，验证休息页让开后计时继续、设置页不被关闭。
+- 窗口层级压测：可验证设置页保持普通窗口层级、普通休息页让开后不弹回，且只有“置顶强提醒”才使用高层级。
 - 自动化策略压测：可模拟安静时段和自动暂停，验证只发通知、关闭休息页和顺延提醒时间。
 - 本机诊断脚本：一键输出安装包、签名、进程、窗口和关键偏好状态，方便排查置顶、卡住、多实例和安装异常。
 - 发布前检查脚本：统一本地和 CI 的构建、签名、打包、版本、变更记录和包体校验。

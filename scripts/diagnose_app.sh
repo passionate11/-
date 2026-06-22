@@ -137,7 +137,7 @@ print_section "Windows"
 if [[ -x "$WINDOW_LIST_TOOL" ]]; then
   print_kv "Source" "$WINDOW_LIST_TOOL"
   WINDOW_LINES="$("$WINDOW_LIST_TOOL" 2>&1 | awk '
-    /^[[:space:]]*[{]/ {
+    /[{][[:space:]]*$/ {
       in_block = 1
       block = $0 "\n"
       hit = 0
