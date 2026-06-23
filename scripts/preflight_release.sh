@@ -48,6 +48,7 @@ bash -n scripts/package_app.sh
 bash -n scripts/preflight_release.sh
 bash -n scripts/release_readiness.sh
 bash -n scripts/roadmap_status.sh
+bash -n scripts/settings_contract_readiness.sh
 bash -n scripts/smoke_test.sh
 bash -n scripts/swiftui_migration_readiness.sh
 
@@ -87,7 +88,7 @@ check_contains "$SOURCE_CONTENT" "overviewStandTimerLabel" "settings overview st
 check_contains "$SOURCE_CONTENT" "overviewStatusBand" "settings overview status band"
 check_contains "$SOURCE_CONTENT" "overviewStatusBadgeLabel" "settings overview status badge"
 check_contains "$SOURCE_CONTENT" "overviewActionBar" "settings overview action bar"
-check_contains "$SOURCE_CONTENT" "NSMakeRect(0, 0, 920, 592)" "settings wide window guard"
+check_contains "$SOURCE_CONTENT" "NSMakeRect(0, 0, 944, 592)" "settings wide window guard"
 check_contains "$SOURCE_CONTENT" "sidebarSelectionViews" "settings sidebar selection guard"
 check_contains "$SOURCE_CONTENT" "sidebarBrandBadge" "settings sidebar brand badge guard"
 check_contains "$SOURCE_CONTENT" "sidebarNavTitleLabels" "settings sidebar custom nav title guard"
@@ -134,7 +135,7 @@ check_contains "$README_CONTENT" "设置页侧栏选中态" "settings sidebar se
 check_contains "$README_CONTENT" "设置页标题图标" "settings page title icon docs"
 check_contains "$README_CONTENT" "设置页品牌化标题" "settings branded title docs"
 check_contains "$README_CONTENT" "设置页分栏精修" "settings column polish docs"
-check_contains "$SOURCE_CONTENT" "NSMakeRect(0, 0, 920, 592)" "settings polished window size"
+check_contains "$SOURCE_CONTENT" "NSMakeRect(0, 0, 944, 592)" "settings polished window size"
 check_contains "$SOURCE_CONTENT" "sidebarDividerView" "settings sidebar divider"
 check_contains "$SOURCE_CONTENT" "overviewActionButtonShells" "settings overview light action buttons"
 check_contains "$README_CONTENT" "songyixia://settings/eye" "settings eye URL docs"
@@ -188,7 +189,10 @@ check_contains "$README_CONTENT" "公证准备检查" "notarization readiness do
 check_contains "$README_CONTENT" "zip.sha256" "release checksum docs"
 check_contains "$(cat scripts/swiftui_migration_readiness.sh)" "prototype only" "SwiftUI migration prototype guard"
 check_contains "$(cat scripts/swiftui_migration_readiness.sh)" "Feature Parity" "SwiftUI migration parity section"
+check_contains "$(cat scripts/settings_contract_readiness.sh)" "settings contract assessed" "settings contract readiness summary"
+check_contains "$(cat scripts/settings_contract_readiness.sh)" "EyeRestSettings" "settings contract Swift storage guard"
 check_contains "$README_CONTENT" "SwiftUI 迁移准备检查" "SwiftUI migration docs"
+check_contains "$README_CONTENT" "设置合约准备检查" "settings contract docs"
 check_contains "$README_CONTENT" "v0.1.45 自动化真实体验补强" "next roadmap docs"
 check_contains "$SOURCE_CONTENT" "ERSettingsQuickSetupSeenKey" "quick setup seen preference"
 check_contains "$SOURCE_CONTENT" "快速配置..." "quick setup menu"
@@ -479,6 +483,11 @@ echo "==> Verifying SwiftUI migration readiness"
 SWIFTUI_READINESS_OUTPUT="$(scripts/swiftui_migration_readiness.sh --strict)"
 [[ "$SWIFTUI_READINESS_OUTPUT" == *"Readiness:"*"migration assessed"* ]] || fail "SwiftUI migration readiness did not complete"
 [[ "$SWIFTUI_READINESS_OUTPUT" == *"Migration status:"*"prototype only"* ]] || fail "SwiftUI migration status should remain explicit"
+
+echo "==> Verifying settings contract readiness"
+SETTINGS_CONTRACT_OUTPUT="$(scripts/settings_contract_readiness.sh --strict)"
+[[ "$SETTINGS_CONTRACT_OUTPUT" == *"Readiness:"*"settings contract assessed"* ]] || fail "settings contract readiness did not complete"
+[[ "$SETTINGS_CONTRACT_OUTPUT" == *"Contract status:"*"prototype only"* ]] || fail "settings contract should remain prototype until SwiftUI owns the shipping schema"
 
 echo "==> Verifying roadmap status"
 ROADMAP_STATUS_OUTPUT="$(scripts/roadmap_status.sh --strict)"

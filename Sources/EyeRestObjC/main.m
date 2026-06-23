@@ -1012,8 +1012,8 @@ static void ERAddStyleMotifLayers(CALayer *hostLayer, NSRect bounds, ERRestStyle
 
 static ERTheme ERThemeForStyle(ERRestStyle style) {
     ERTheme theme;
-    theme.settingsBackground = ERColor(0.95, 0.96, 0.98, 1);
-    theme.settingsHeader = [NSColor colorWithWhite:1 alpha:0.70];
+    theme.settingsBackground = ERColor(0.96, 0.97, 0.985, 1);
+    theme.settingsHeader = [NSColor colorWithWhite:1 alpha:0.58];
     theme.card = NSColor.whiteColor;
     theme.cardBorder = ERColor(0.82, 0.84, 0.88, 0.75);
     theme.backgroundA = ERColor(0.88, 0.93, 0.96, 1);
@@ -1031,7 +1031,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             theme.accent = ERColor(0.10, 0.55, 0.62, 1);
             break;
         case ERRestStyleForest:
-            theme.settingsBackground = ERColor(0.91, 0.95, 0.91, 1);
+            theme.settingsBackground = ERColor(0.93, 0.96, 0.93, 1);
             theme.card = ERColor(0.98, 1.00, 0.96, 1);
             theme.cardBorder = ERColor(0.72, 0.82, 0.70, 1);
             theme.backgroundA = ERColor(0.08, 0.27, 0.18, 1);
@@ -1041,7 +1041,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             theme.accent = ERColor(0.78, 0.96, 0.68, 1);
             break;
         case ERRestStylePixel:
-            theme.settingsBackground = ERColor(0.90, 0.94, 0.98, 1);
+            theme.settingsBackground = ERColor(0.92, 0.95, 0.99, 1);
             theme.card = ERColor(0.98, 0.99, 1.00, 1);
             theme.cardBorder = ERColor(0.48, 0.58, 0.72, 1);
             theme.backgroundA = ERColor(0.31, 0.64, 0.88, 1);
@@ -1051,7 +1051,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             theme.pixel = YES;
             break;
         case ERRestStyleToy:
-            theme.settingsBackground = ERColor(1.00, 0.94, 0.95, 1);
+            theme.settingsBackground = ERColor(1.00, 0.955, 0.965, 1);
             theme.card = ERColor(1.00, 0.98, 0.99, 1);
             theme.cardBorder = ERColor(0.96, 0.72, 0.78, 1);
             theme.backgroundA = ERColor(1.00, 0.70, 0.78, 1);
@@ -1866,7 +1866,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @implementation ERSettingsWindowController
 
 - (instancetype)initWithSettings:(ERSettings *)settings appDelegate:(ERAppDelegate *)appDelegate {
-    NSRect frame = NSMakeRect(0, 0, 920, 592);
+    NSRect frame = NSMakeRect(0, 0, 944, 592);
     ERSettingsWindow *window = [[ERSettingsWindow alloc] initWithContentRect:frame
                                                                    styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable
                                                                      backing:NSBackingStoreBuffered
@@ -1935,18 +1935,18 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [header addSubview:subtitle];
     self.sidebarSubtitleLabel = subtitle;
 
-    self.sidebarSummaryCard = ERRoundedView(NSMakeRect(20, 432, 192, 58), [NSColor colorWithWhite:1 alpha:0.36], 12);
+    self.sidebarSummaryCard = ERRoundedView(NSMakeRect(20, 426, 192, 66), [NSColor colorWithWhite:1 alpha:0.36], 12);
     self.sidebarSummaryCard.layer.borderWidth = 1;
     self.sidebarSummaryCard.layer.masksToBounds = NO;
     [header addSubview:self.sidebarSummaryCard];
 
     self.sidebarEyebrowLabel = [NSTextField labelWithString:@"今日节奏"];
-    self.sidebarEyebrowLabel.frame = NSMakeRect(14, 36, 150, 16);
+    self.sidebarEyebrowLabel.frame = NSMakeRect(14, 42, 150, 16);
     self.sidebarEyebrowLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
     [self.sidebarSummaryCard addSubview:self.sidebarEyebrowLabel];
 
     self.summaryLabel = [NSTextField labelWithString:@""];
-    self.summaryLabel.frame = NSMakeRect(14, 8, 164, 27);
+    self.summaryLabel.frame = NSMakeRect(14, 10, 164, 31);
     self.summaryLabel.font = [NSFont monospacedDigitSystemFontOfSize:11.5 weight:NSFontWeightMedium];
     self.summaryLabel.textColor = NSColor.secondaryLabelColor;
     [self.sidebarSummaryCard addSubview:self.summaryLabel];
@@ -1990,7 +1990,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMutableArray *navTitleLabels = [NSMutableArray arrayWithCapacity:navTitles.count];
     NSMutableArray *navIconViews = [NSMutableArray arrayWithCapacity:navTitles.count];
     for (NSInteger index = 0; index < navTitles.count; index++) {
-        NSView *selection = ERRoundedView(NSMakeRect(20, 350 - index * 40, 192, 34), NSColor.clearColor, 9);
+        NSView *selection = ERRoundedView(NSMakeRect(20, 348 - index * 40, 192, 34), NSColor.clearColor, 9);
         selection.layer.masksToBounds = NO;
         [header addSubview:selection];
         [selectionViews addObject:selection];
@@ -2072,26 +2072,26 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [statsPage.subviews objectAtIndex:1]
     ];
 
-    NSVisualEffectView *footer = [[NSVisualEffectView alloc] initWithFrame:NSMakeRect(232, 0, 688, 66)];
+    NSVisualEffectView *footer = [[NSVisualEffectView alloc] initWithFrame:NSMakeRect(232, 0, 712, 66)];
     footer.material = NSVisualEffectMaterialContentBackground;
     footer.blendingMode = NSVisualEffectBlendingModeWithinWindow;
     footer.state = NSVisualEffectStateActive;
     [content addSubview:footer positioned:NSWindowAbove relativeTo:nil];
     self.footerView = footer;
 
-    NSView *footerDivider = [[NSView alloc] initWithFrame:NSMakeRect(0, 65, 688, 1)];
+    NSView *footerDivider = [[NSView alloc] initWithFrame:NSMakeRect(0, 65, 712, 1)];
     footerDivider.wantsLayer = YES;
     [footer addSubview:footerDivider];
     self.footerDivider = footerDivider;
 
     self.applyButton = [NSButton buttonWithTitle:@"应用" target:self action:@selector(applySettings:)];
-    self.applyButton.frame = NSMakeRect(568, 17, 88, 32);
+    self.applyButton.frame = NSMakeRect(592, 17, 88, 32);
     self.applyButton.bezelStyle = NSBezelStyleRounded;
     self.applyButton.keyEquivalent = @"\r";
     [footer addSubview:self.applyButton];
 
     self.resetButton = [NSButton buttonWithTitle:@"恢复默认" target:self action:@selector(resetDefaults:)];
-    self.resetButton.frame = NSMakeRect(456, 17, 96, 32);
+    self.resetButton.frame = NSMakeRect(480, 17, 96, 32);
     self.resetButton.bezelStyle = NSBezelStyleRounded;
     [footer addSubview:self.resetButton];
 
@@ -2106,24 +2106,25 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 }
 
 - (NSView *)pageViewWithTitle:(NSString *)titleText subtitle:(NSString *)subtitle symbol:(NSString *)symbolName {
-    NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(284, 92, 608, 406)];
+    NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(260, 90, 632, 424)];
 
     NSTextField *title = [NSTextField labelWithString:titleText];
-    title.frame = NSMakeRect(54, 364, 450, 30);
-    title.font = [NSFont systemFontOfSize:24 weight:NSFontWeightSemibold];
+    title.frame = NSMakeRect(54, 382, 470, 30);
+    title.font = [NSFont systemFontOfSize:23 weight:NSFontWeightSemibold];
     [view addSubview:title];
 
     NSTextField *sub = [NSTextField wrappingLabelWithString:subtitle];
-    sub.frame = NSMakeRect(54, 322, 528, 36);
+    sub.frame = NSMakeRect(54, 338, 552, 38);
     sub.font = [NSFont systemFontOfSize:13];
     sub.textColor = NSColor.secondaryLabelColor;
+    sub.maximumNumberOfLines = 2;
     [view addSubview:sub];
 
-    NSView *accent = ERRoundedView(NSMakeRect(54, 356, 82, 3), NSColor.controlAccentColor, 1.5);
+    NSView *accent = ERRoundedView(NSMakeRect(54, 374, 84, 3), NSColor.controlAccentColor, 1.5);
     [view addSubview:accent];
     self.pageAccentViews = [self.pageAccentViews arrayByAddingObject:accent] ?: @[accent];
 
-    NSView *iconBadge = ERRoundedView(NSMakeRect(0, 354, 42, 42), [NSColor colorWithWhite:1 alpha:0.48], 12);
+    NSView *iconBadge = ERRoundedView(NSMakeRect(0, 372, 42, 42), [NSColor colorWithWhite:1 alpha:0.48], 12);
     iconBadge.layer.borderWidth = 1;
     [view addSubview:iconBadge];
 
@@ -2134,7 +2135,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.pageIconBadgeViews = [self.pageIconBadgeViews arrayByAddingObject:iconBadge] ?: @[iconBadge];
     self.pageIconViews = [self.pageIconViews arrayByAddingObject:icon] ?: @[icon];
 
-    NSView *card = ERRoundedView(NSMakeRect(0, 0, 608, 282), NSColor.whiteColor, 16);
+    NSView *card = ERRoundedView(NSMakeRect(0, 0, 632, 292), NSColor.whiteColor, 14);
     card.layer.borderColor = ERColor(0.82, 0.84, 0.88, 0.56).CGColor;
     card.layer.borderWidth = 1;
     card.layer.masksToBounds = NO;
@@ -2226,7 +2227,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMutableArray<NSTextField *> *labels = [NSMutableArray array];
     NSMutableArray<NSView *> *actionShells = [NSMutableArray array];
 
-    self.overviewStatusBand = ERRoundedView(NSMakeRect(20, 216, 568, 50), [NSColor colorWithWhite:1 alpha:0.38], 14);
+    self.overviewStatusBand = ERRoundedView(NSMakeRect(22, 224, 588, 50), [NSColor colorWithWhite:1 alpha:0.38], 13);
     self.overviewStatusBand.layer.borderWidth = 1;
     [card addSubview:self.overviewStatusBand];
     [tiles addObject:self.overviewStatusBand];
@@ -2236,30 +2237,30 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [self.overviewStatusBand addSubview:self.overviewStatusIcon];
 
     self.overviewStatusTitleLabel = [NSTextField labelWithString:@""];
-    self.overviewStatusTitleLabel.frame = NSMakeRect(52, 25, 300, 18);
+    self.overviewStatusTitleLabel.frame = NSMakeRect(52, 25, 324, 18);
     self.overviewStatusTitleLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
     [self.overviewStatusBand addSubview:self.overviewStatusTitleLabel];
     [labels addObject:self.overviewStatusTitleLabel];
 
     self.overviewStatusDetailLabel = [NSTextField labelWithString:@""];
-    self.overviewStatusDetailLabel.frame = NSMakeRect(52, 9, 378, 16);
+    self.overviewStatusDetailLabel.frame = NSMakeRect(52, 9, 398, 16);
     self.overviewStatusDetailLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     [self.overviewStatusBand addSubview:self.overviewStatusDetailLabel];
     [labels addObject:self.overviewStatusDetailLabel];
 
     self.overviewStatusBadgeLabel = [NSTextField labelWithString:@""];
-    self.overviewStatusBadgeLabel.frame = NSMakeRect(440, 15, 108, 20);
+    self.overviewStatusBadgeLabel.frame = NSMakeRect(462, 15, 106, 20);
     self.overviewStatusBadgeLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
     self.overviewStatusBadgeLabel.alignment = NSTextAlignmentRight;
     [self.overviewStatusBand addSubview:self.overviewStatusBadgeLabel];
     [labels addObject:self.overviewStatusBadgeLabel];
 
-    NSView *eyeTile = ERRoundedView(NSMakeRect(20, 116, 274, 88), [NSColor colorWithWhite:1 alpha:0.38], 14);
+    NSView *eyeTile = ERRoundedView(NSMakeRect(22, 124, 284, 88), [NSColor colorWithWhite:1 alpha:0.38], 13);
     eyeTile.layer.borderWidth = 1;
     [card addSubview:eyeTile];
     [tiles addObject:eyeTile];
 
-    NSView *standTile = ERRoundedView(NSMakeRect(314, 116, 274, 88), [NSColor colorWithWhite:1 alpha:0.38], 14);
+    NSView *standTile = ERRoundedView(NSMakeRect(326, 124, 284, 88), [NSColor colorWithWhite:1 alpha:0.38], 13);
     standTile.layer.borderWidth = 1;
     [card addSubview:standTile];
     [tiles addObject:standTile];
@@ -2276,16 +2277,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [labels addObject:self.overviewEyeStatusLabel];
 
     self.overviewEyeTimerLabel = [NSTextField labelWithString:@""];
-    self.overviewEyeTimerLabel.frame = NSMakeRect(16, 25, 242, 32);
+    self.overviewEyeTimerLabel.frame = NSMakeRect(16, 25, 252, 32);
     self.overviewEyeTimerLabel.font = [NSFont monospacedDigitSystemFontOfSize:29 weight:NSFontWeightSemibold];
     [eyeTile addSubview:self.overviewEyeTimerLabel];
     [labels addObject:self.overviewEyeTimerLabel];
 
-    self.overviewEyeProgress = [self overviewProgressWithFrame:NSMakeRect(16, 20, 242, 4)];
+    self.overviewEyeProgress = [self overviewProgressWithFrame:NSMakeRect(16, 20, 252, 4)];
     [eyeTile addSubview:self.overviewEyeProgress];
 
     self.overviewEyeMetaLabel = [NSTextField labelWithString:@""];
-    self.overviewEyeMetaLabel.frame = NSMakeRect(16, 4, 242, 15);
+    self.overviewEyeMetaLabel.frame = NSMakeRect(16, 4, 252, 15);
     self.overviewEyeMetaLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     [eyeTile addSubview:self.overviewEyeMetaLabel];
     [labels addObject:self.overviewEyeMetaLabel];
@@ -2302,52 +2303,52 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [labels addObject:self.overviewStandStatusLabel];
 
     self.overviewStandTimerLabel = [NSTextField labelWithString:@""];
-    self.overviewStandTimerLabel.frame = NSMakeRect(16, 25, 242, 32);
+    self.overviewStandTimerLabel.frame = NSMakeRect(16, 25, 252, 32);
     self.overviewStandTimerLabel.font = [NSFont monospacedDigitSystemFontOfSize:29 weight:NSFontWeightSemibold];
     [standTile addSubview:self.overviewStandTimerLabel];
     [labels addObject:self.overviewStandTimerLabel];
 
-    self.overviewStandProgress = [self overviewProgressWithFrame:NSMakeRect(16, 20, 242, 4)];
+    self.overviewStandProgress = [self overviewProgressWithFrame:NSMakeRect(16, 20, 252, 4)];
     [standTile addSubview:self.overviewStandProgress];
 
     self.overviewStandMetaLabel = [NSTextField labelWithString:@""];
-    self.overviewStandMetaLabel.frame = NSMakeRect(16, 4, 242, 15);
+    self.overviewStandMetaLabel.frame = NSMakeRect(16, 4, 252, 15);
     self.overviewStandMetaLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     [standTile addSubview:self.overviewStandMetaLabel];
     [labels addObject:self.overviewStandMetaLabel];
 
     self.overviewTodayLabel = [NSTextField wrappingLabelWithString:@""];
-    self.overviewTodayLabel.frame = NSMakeRect(26, 86, 268, 18);
+    self.overviewTodayLabel.frame = NSMakeRect(28, 92, 278, 18);
     self.overviewTodayLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.overviewTodayLabel.maximumNumberOfLines = 2;
     [card addSubview:self.overviewTodayLabel];
     [labels addObject:self.overviewTodayLabel];
 
     self.overviewModeLabel = [NSTextField wrappingLabelWithString:@""];
-    self.overviewModeLabel.frame = NSMakeRect(314, 86, 254, 18);
+    self.overviewModeLabel.frame = NSMakeRect(326, 92, 272, 18);
     self.overviewModeLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.overviewModeLabel.maximumNumberOfLines = 2;
     [card addSubview:self.overviewModeLabel];
     [labels addObject:self.overviewModeLabel];
 
     self.overviewHintLabel = [NSTextField wrappingLabelWithString:@""];
-    self.overviewHintLabel.frame = NSMakeRect(26, 58, 542, 18);
+    self.overviewHintLabel.frame = NSMakeRect(28, 62, 570, 18);
     self.overviewHintLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.overviewHintLabel.maximumNumberOfLines = 1;
     [card addSubview:self.overviewHintLabel];
     [labels addObject:self.overviewHintLabel];
 
-    self.overviewActionBar = ERRoundedView(NSMakeRect(20, 16, 568, 32), [NSColor colorWithWhite:1 alpha:0.25], 11);
+    self.overviewActionBar = ERRoundedView(NSMakeRect(22, 18, 588, 34), [NSColor colorWithWhite:1 alpha:0.25], 11);
     self.overviewActionBar.layer.borderWidth = 1;
     [card addSubview:self.overviewActionBar];
     [tiles addObject:self.overviewActionBar];
 
     NSArray<NSValue *> *actionFrames = @[
-        [NSValue valueWithRect:NSMakeRect(6, 4, 104, 24)],
-        [NSValue valueWithRect:NSMakeRect(116, 4, 104, 24)],
-        [NSValue valueWithRect:NSMakeRect(226, 4, 104, 24)],
-        [NSValue valueWithRect:NSMakeRect(336, 4, 104, 24)],
-        [NSValue valueWithRect:NSMakeRect(446, 4, 116, 24)]
+        [NSValue valueWithRect:NSMakeRect(7, 5, 108, 24)],
+        [NSValue valueWithRect:NSMakeRect(122, 5, 108, 24)],
+        [NSValue valueWithRect:NSMakeRect(237, 5, 108, 24)],
+        [NSValue valueWithRect:NSMakeRect(352, 5, 108, 24)],
+        [NSValue valueWithRect:NSMakeRect(467, 5, 114, 24)]
     ];
     for (NSValue *value in actionFrames) {
         NSView *shell = ERRoundedView(value.rectValue, [NSColor colorWithWhite:1 alpha:0.34], 7);
@@ -2396,7 +2397,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSTextField *eyeSummaryDetail = nil;
     NSTextField *eyeSummaryBadge = nil;
     self.eyeSummaryBand = [self summaryBandInCard:card
-                                            frame:NSMakeRect(20, 212, 568, 54)
+                                            frame:NSMakeRect(22, 220, 588, 54)
                                            symbol:@"eye"
                                              icon:&eyeSummaryIcon
                                             title:&eyeSummaryTitle
@@ -2407,31 +2408,31 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.eyeSummaryDetailLabel = eyeSummaryDetail;
     self.eyeSummaryBadgeLabel = eyeSummaryBadge;
     [self addSettingRowsToCard:card frames:@[
-        [NSValue valueWithRect:NSMakeRect(20, 160, 568, 40)],
-        [NSValue valueWithRect:NSMakeRect(20, 114, 568, 42)],
-        [NSValue valueWithRect:NSMakeRect(20, 68, 568, 42)],
-        [NSValue valueWithRect:NSMakeRect(20, 22, 568, 40)]
-    ] dividerX:150 dividerWidth:418];
+        [NSValue valueWithRect:NSMakeRect(22, 166, 588, 40)],
+        [NSValue valueWithRect:NSMakeRect(22, 120, 588, 42)],
+        [NSValue valueWithRect:NSMakeRect(22, 74, 588, 42)],
+        [NSValue valueWithRect:NSMakeRect(22, 28, 588, 40)]
+    ] dividerX:152 dividerWidth:438];
 
     self.eyeEnabledSwitch = [NSButton checkboxWithTitle:@"启用眼睛休息提醒" target:self action:@selector(toggleOnly:)];
-    self.eyeEnabledSwitch.frame = NSMakeRect(32, 168, 180, 24);
+    self.eyeEnabledSwitch.frame = NSMakeRect(34, 174, 180, 24);
     [card addSubview:self.eyeEnabledSwitch];
 
-    [card addSubview:[self fieldLabel:@"使用电脑：" frame:NSMakeRect(32, 125, 100, 22)]];
-    self.eyeFocusInput = [self addTimeFieldsToView:card x:160 y:121];
+    [card addSubview:[self fieldLabel:@"使用电脑：" frame:NSMakeRect(34, 131, 100, 22)]];
+    self.eyeFocusInput = [self addTimeFieldsToView:card x:166 y:127];
 
-    [card addSubview:[self fieldLabel:@"休息：" frame:NSMakeRect(32, 79, 100, 22)]];
-    self.eyeRestInput = [self addTimeFieldsToView:card x:160 y:75];
+    [card addSubview:[self fieldLabel:@"休息：" frame:NSMakeRect(34, 85, 100, 22)]];
+    self.eyeRestInput = [self addTimeFieldsToView:card x:166 y:81];
 
-    [card addSubview:[self fieldLabel:@"节奏：" frame:NSMakeRect(32, 33, 100, 22)]];
-    self.eyeModePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(160, 29, 210, 30) pullsDown:NO];
+    [card addSubview:[self fieldLabel:@"节奏：" frame:NSMakeRect(34, 39, 100, 22)]];
+    self.eyeModePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(166, 35, 220, 30) pullsDown:NO];
     [self.eyeModePopup addItemsWithTitles:@[EREyeModeTitle(EREyeMode202020), EREyeModeTitle(EREyeModePomodoro), EREyeModeTitle(EREyeModeCustom)]];
     self.eyeModePopup.target = self;
     self.eyeModePopup.action = @selector(eyeModeChanged:);
     [card addSubview:self.eyeModePopup];
 
     NSButton *ruleButton = [NSButton buttonWithTitle:@"20-20-20" target:self action:@selector(use202020:)];
-    ruleButton.frame = NSMakeRect(392, 29, 108, 30);
+    ruleButton.frame = NSMakeRect(410, 35, 108, 30);
     ruleButton.bezelStyle = NSBezelStyleRounded;
     [card addSubview:ruleButton];
 }
@@ -2443,7 +2444,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSTextField *standSummaryDetail = nil;
     NSTextField *standSummaryBadge = nil;
     self.standSummaryBand = [self summaryBandInCard:card
-                                              frame:NSMakeRect(20, 212, 568, 54)
+                                              frame:NSMakeRect(22, 220, 588, 54)
                                              symbol:@"figure.stand"
                                                icon:&standSummaryIcon
                                               title:&standSummaryTitle
@@ -2454,36 +2455,36 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.standSummaryDetailLabel = standSummaryDetail;
     self.standSummaryBadgeLabel = standSummaryBadge;
     [self addSettingRowsToCard:card frames:@[
-        [NSValue valueWithRect:NSMakeRect(20, 168, 568, 34)],
-        [NSValue valueWithRect:NSMakeRect(20, 130, 568, 34)],
-        [NSValue valueWithRect:NSMakeRect(20, 92, 568, 34)],
-        [NSValue valueWithRect:NSMakeRect(20, 54, 568, 34)],
-        [NSValue valueWithRect:NSMakeRect(20, 18, 568, 32)]
-    ] dividerX:150 dividerWidth:418];
+        [NSValue valueWithRect:NSMakeRect(22, 174, 588, 34)],
+        [NSValue valueWithRect:NSMakeRect(22, 136, 588, 34)],
+        [NSValue valueWithRect:NSMakeRect(22, 98, 588, 34)],
+        [NSValue valueWithRect:NSMakeRect(22, 60, 588, 34)],
+        [NSValue valueWithRect:NSMakeRect(22, 24, 588, 32)]
+    ] dividerX:152 dividerWidth:438];
 
     self.standEnabledSwitch = [NSButton checkboxWithTitle:@"启用站立提醒" target:self action:@selector(toggleOnly:)];
-    self.standEnabledSwitch.frame = NSMakeRect(32, 173, 160, 24);
+    self.standEnabledSwitch.frame = NSMakeRect(34, 179, 160, 24);
     [card addSubview:self.standEnabledSwitch];
 
     self.standCustomStagesSummaryLabel = [NSTextField labelWithString:@""];
-    self.standCustomStagesSummaryLabel.frame = NSMakeRect(218, 174, 168, 22);
+    self.standCustomStagesSummaryLabel.frame = NSMakeRect(220, 180, 176, 22);
     self.standCustomStagesSummaryLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     self.standCustomStagesSummaryLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.standCustomStagesSummaryLabel];
 
     self.standCustomStagesButton = [NSButton buttonWithTitle:@"编辑阶段..." target:self action:@selector(editStandCustomStages:)];
-    self.standCustomStagesButton.frame = NSMakeRect(426, 170, 132, 28);
+    self.standCustomStagesButton.frame = NSMakeRect(446, 176, 132, 28);
     self.standCustomStagesButton.bezelStyle = NSBezelStyleRounded;
     [card addSubview:self.standCustomStagesButton];
 
-    [card addSubview:[self fieldLabel:@"每隔：" frame:NSMakeRect(32, 137, 100, 22)]];
-    self.standIntervalInput = [self addTimeFieldsToView:card x:160 y:133];
+    [card addSubview:[self fieldLabel:@"每隔：" frame:NSMakeRect(34, 143, 100, 22)]];
+    self.standIntervalInput = [self addTimeFieldsToView:card x:166 y:139];
 
-    [card addSubview:[self fieldLabel:@"站立：" frame:NSMakeRect(32, 99, 100, 22)]];
-    self.standDurationInput = [self addTimeFieldsToView:card x:160 y:95];
+    [card addSubview:[self fieldLabel:@"站立：" frame:NSMakeRect(34, 105, 100, 22)]];
+    self.standDurationInput = [self addTimeFieldsToView:card x:166 y:101];
 
-    [card addSubview:[self fieldLabel:@"动作组合：" frame:NSMakeRect(32, 61, 100, 22)]];
-    self.standRoutinePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(160, 57, 180, 28) pullsDown:NO];
+    [card addSubview:[self fieldLabel:@"动作组合：" frame:NSMakeRect(34, 67, 100, 22)]];
+    self.standRoutinePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(166, 63, 188, 28) pullsDown:NO];
     [self.standRoutinePopup addItemsWithTitles:@[
         ERStandRoutineTitle(ERStandRoutineBalanced),
         ERStandRoutineTitle(ERStandRoutineNeckShoulder),
@@ -2495,14 +2496,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.standRoutinePopup];
 
     self.standRoutineHintLabel = [NSTextField wrappingLabelWithString:@""];
-    self.standRoutineHintLabel.frame = NSMakeRect(358, 55, 204, 34);
+    self.standRoutineHintLabel.frame = NSMakeRect(374, 61, 208, 34);
     self.standRoutineHintLabel.font = [NSFont systemFontOfSize:10.5 weight:NSFontWeightMedium];
     self.standRoutineHintLabel.maximumNumberOfLines = 2;
     self.standRoutineHintLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.standRoutineHintLabel];
 
-    [card addSubview:[self fieldLabel:@"强度：" frame:NSMakeRect(32, 25, 100, 18)]];
-    self.standIntensityPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(160, 20, 180, 28) pullsDown:NO];
+    [card addSubview:[self fieldLabel:@"强度：" frame:NSMakeRect(34, 31, 100, 18)]];
+    self.standIntensityPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(166, 26, 188, 28) pullsDown:NO];
     [self.standIntensityPopup addItemsWithTitles:@[
         ERStandIntensityTitle(ERStandIntensityGentle),
         ERStandIntensityTitle(ERStandIntensityStandard),
@@ -2513,7 +2514,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.standIntensityPopup];
 
     self.standIntensityHintLabel = [NSTextField wrappingLabelWithString:@""];
-    self.standIntensityHintLabel.frame = NSMakeRect(358, 20, 204, 26);
+    self.standIntensityHintLabel.frame = NSMakeRect(374, 26, 208, 26);
     self.standIntensityHintLabel.font = [NSFont systemFontOfSize:10.5 weight:NSFontWeightMedium];
     self.standIntensityHintLabel.maximumNumberOfLines = 2;
     self.standIntensityHintLabel.textColor = NSColor.secondaryLabelColor;
@@ -2523,32 +2524,32 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)buildAlertSectionInView:(NSView *)view {
     NSView *card = self.alertCard;
     [self addSettingRowsToCard:card frames:@[
-        [NSValue valueWithRect:NSMakeRect(18, 214, 340, 32)],
-        [NSValue valueWithRect:NSMakeRect(18, 178, 340, 32)],
-        [NSValue valueWithRect:NSMakeRect(18, 142, 340, 32)],
-        [NSValue valueWithRect:NSMakeRect(18, 106, 340, 32)],
-        [NSValue valueWithRect:NSMakeRect(18, 70, 340, 32)],
-        [NSValue valueWithRect:NSMakeRect(18, 34, 340, 32)]
-    ] dividerX:148 dividerWidth:190];
+        [NSValue valueWithRect:NSMakeRect(22, 220, 358, 32)],
+        [NSValue valueWithRect:NSMakeRect(22, 184, 358, 32)],
+        [NSValue valueWithRect:NSMakeRect(22, 148, 358, 32)],
+        [NSValue valueWithRect:NSMakeRect(22, 112, 358, 32)],
+        [NSValue valueWithRect:NSMakeRect(22, 76, 358, 32)],
+        [NSValue valueWithRect:NSMakeRect(22, 40, 358, 32)]
+    ] dividerX:152 dividerWidth:208];
 
     self.notificationSwitch = [NSButton checkboxWithTitle:@"系统通知" target:self action:@selector(toggleOnly:)];
-    self.notificationSwitch.frame = NSMakeRect(30, 218, 160, 24);
+    self.notificationSwitch.frame = NSMakeRect(34, 224, 160, 24);
     [card addSubview:self.notificationSwitch];
 
     self.restWindowSwitch = [NSButton checkboxWithTitle:@"提醒窗口" target:self action:@selector(toggleOnly:)];
-    self.restWindowSwitch.frame = NSMakeRect(30, 182, 160, 24);
+    self.restWindowSwitch.frame = NSMakeRect(34, 188, 160, 24);
     [card addSubview:self.restWindowSwitch];
 
     self.restWindowTopmostSwitch = [NSButton checkboxWithTitle:@"置顶强提醒" target:self action:@selector(toggleOnly:)];
-    self.restWindowTopmostSwitch.frame = NSMakeRect(30, 146, 160, 24);
+    self.restWindowTopmostSwitch.frame = NSMakeRect(34, 152, 160, 24);
     [card addSubview:self.restWindowTopmostSwitch];
 
     self.launchAtLoginSwitch = [NSButton checkboxWithTitle:@"登录时自动启动" target:self action:@selector(toggleOnly:)];
-    self.launchAtLoginSwitch.frame = NSMakeRect(30, 110, 180, 24);
+    self.launchAtLoginSwitch.frame = NSMakeRect(34, 116, 180, 24);
     [card addSubview:self.launchAtLoginSwitch];
 
-    [card addSubview:[self fieldLabel:@"菜单栏：" frame:NSMakeRect(30, 78, 100, 22)]];
-    self.menuBarModePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(156, 73, 190, 30) pullsDown:NO];
+    [card addSubview:[self fieldLabel:@"菜单栏：" frame:NSMakeRect(34, 84, 100, 22)]];
+    self.menuBarModePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(166, 79, 190, 30) pullsDown:NO];
     [self.menuBarModePopup addItemsWithTitles:@[
         ERMenuBarModeTitle(ERMenuBarModeBoth),
         ERMenuBarModeTitle(ERMenuBarModeEye),
@@ -2560,8 +2561,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.menuBarModePopup.action = @selector(toggleOnly:);
     [card addSubview:self.menuBarModePopup];
 
-    [card addSubview:[self fieldLabel:@"画面风格：" frame:NSMakeRect(30, 42, 100, 22)]];
-    self.restStylePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(156, 37, 190, 30) pullsDown:NO];
+    [card addSubview:[self fieldLabel:@"画面风格：" frame:NSMakeRect(34, 48, 100, 22)]];
+    self.restStylePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(166, 43, 190, 30) pullsDown:NO];
     [self.restStylePopup addItemsWithTitles:@[
         ERRestStyleTitle(ERRestStyleBreath),
         ERRestStyleTitle(ERRestStyleForest),
@@ -2573,36 +2574,36 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.restStylePopup.action = @selector(toggleOnly:);
     [card addSubview:self.restStylePopup];
 
-    self.stylePreviewShell = ERRoundedView(NSMakeRect(382, 34, 168, 196), [NSColor colorWithWhite:1 alpha:0.42], 16);
+    self.stylePreviewShell = ERRoundedView(NSMakeRect(408, 40, 184, 202), [NSColor colorWithWhite:1 alpha:0.42], 16);
     self.stylePreviewShell.layer.borderWidth = 1;
     [card addSubview:self.stylePreviewShell];
 
     self.stylePreviewEyebrow = [NSTextField labelWithString:@"风格预览"];
-    self.stylePreviewEyebrow.frame = NSMakeRect(16, 164, 136, 18);
+    self.stylePreviewEyebrow.frame = NSMakeRect(16, 170, 152, 18);
     self.stylePreviewEyebrow.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
     [self.stylePreviewShell addSubview:self.stylePreviewEyebrow];
 
-    self.stylePreviewCanvas = ERRoundedView(NSMakeRect(16, 76, 136, 80), NSColor.whiteColor, 14);
+    self.stylePreviewCanvas = ERRoundedView(NSMakeRect(16, 80, 152, 84), NSColor.whiteColor, 14);
     self.stylePreviewCanvas.layer.borderWidth = 1;
     [self.stylePreviewShell addSubview:self.stylePreviewCanvas];
 
-    self.stylePreviewIcon = [[NSImageView alloc] initWithFrame:NSMakeRect(18, 26, 28, 28)];
+    self.stylePreviewIcon = [[NSImageView alloc] initWithFrame:NSMakeRect(20, 28, 28, 28)];
     self.stylePreviewIcon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:24 weight:NSFontWeightSemibold];
     [self.stylePreviewCanvas addSubview:self.stylePreviewIcon];
 
     self.stylePreviewTimer = [NSTextField labelWithString:@"00:20"];
-    self.stylePreviewTimer.frame = NSMakeRect(54, 28, 62, 24);
+    self.stylePreviewTimer.frame = NSMakeRect(66, 30, 64, 24);
     self.stylePreviewTimer.font = [NSFont monospacedDigitSystemFontOfSize:19 weight:NSFontWeightSemibold];
     self.stylePreviewTimer.alignment = NSTextAlignmentRight;
     [self.stylePreviewCanvas addSubview:self.stylePreviewTimer];
 
     self.stylePreviewTitle = [NSTextField labelWithString:@""];
-    self.stylePreviewTitle.frame = NSMakeRect(16, 46, 136, 20);
+    self.stylePreviewTitle.frame = NSMakeRect(16, 50, 152, 20);
     self.stylePreviewTitle.font = [NSFont systemFontOfSize:14 weight:NSFontWeightSemibold];
     [self.stylePreviewShell addSubview:self.stylePreviewTitle];
 
     self.stylePreviewHint = [NSTextField wrappingLabelWithString:@""];
-    self.stylePreviewHint.frame = NSMakeRect(16, 12, 136, 32);
+    self.stylePreviewHint.frame = NSMakeRect(16, 14, 152, 32);
     self.stylePreviewHint.font = [NSFont systemFontOfSize:10.5 weight:NSFontWeightRegular];
     [self.stylePreviewShell addSubview:self.stylePreviewHint];
 }
@@ -2610,22 +2611,22 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)buildAutomationSectionInView:(NSView *)view {
     NSView *card = self.automationCard;
     [self addSettingRowsToCard:card frames:@[
-        [NSValue valueWithRect:NSMakeRect(18, 174, 548, 74)],
-        [NSValue valueWithRect:NSMakeRect(18, 116, 548, 52)],
-        [NSValue valueWithRect:NSMakeRect(18, 62, 548, 48)],
-        [NSValue valueWithRect:NSMakeRect(18, 18, 548, 38)]
-    ] dividerX:30 dividerWidth:516];
+        [NSValue valueWithRect:NSMakeRect(22, 180, 588, 76)],
+        [NSValue valueWithRect:NSMakeRect(22, 120, 588, 54)],
+        [NSValue valueWithRect:NSMakeRect(22, 66, 588, 48)],
+        [NSValue valueWithRect:NSMakeRect(22, 22, 588, 38)]
+    ] dividerX:34 dividerWidth:544];
 
-    self.automationStatusStripe = ERRoundedView(NSMakeRect(174, 188, 3, 42), NSColor.controlAccentColor, 1.5);
+    self.automationStatusStripe = ERRoundedView(NSMakeRect(180, 194, 3, 42), NSColor.controlAccentColor, 1.5);
     [card addSubview:self.automationStatusStripe];
 
-    [card addSubview:[self captionLabel:@"策略结论" frame:NSMakeRect(30, 222, 100, 16)]];
+    [card addSubview:[self captionLabel:@"策略结论" frame:NSMakeRect(34, 228, 100, 16)]];
     self.autoFocusSwitch = [NSButton checkboxWithTitle:@"启用自动策略" target:self action:@selector(toggleOnly:)];
-    self.autoFocusSwitch.frame = NSMakeRect(30, 196, 126, 22);
+    self.autoFocusSwitch.frame = NSMakeRect(34, 202, 126, 22);
     [card addSubview:self.autoFocusSwitch];
 
     self.focusAppMatchLabel = [NSTextField wrappingLabelWithString:@""];
-    self.focusAppMatchLabel.frame = NSMakeRect(190, 214, 338, 18);
+    self.focusAppMatchLabel.frame = NSMakeRect(198, 220, 360, 18);
     self.focusAppMatchLabel.font = [NSFont systemFontOfSize:12.5 weight:NSFontWeightSemibold];
     self.focusAppMatchLabel.maximumNumberOfLines = 1;
     self.focusAppMatchLabel.lineBreakMode = NSLineBreakByTruncatingTail;
@@ -2633,7 +2634,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.focusAppMatchLabel];
 
     self.automationPolicyLabel = [NSTextField wrappingLabelWithString:@""];
-    self.automationPolicyLabel.frame = NSMakeRect(190, 197, 338, 16);
+    self.automationPolicyLabel.frame = NSMakeRect(198, 203, 360, 16);
     self.automationPolicyLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     self.automationPolicyLabel.maximumNumberOfLines = 1;
     self.automationPolicyLabel.lineBreakMode = NSLineBreakByTruncatingTail;
@@ -2641,35 +2642,35 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.automationPolicyLabel];
 
     self.automationLastActionLabel = [NSTextField wrappingLabelWithString:@""];
-    self.automationLastActionLabel.frame = NSMakeRect(190, 180, 338, 16);
+    self.automationLastActionLabel.frame = NSMakeRect(198, 186, 360, 16);
     self.automationLastActionLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightRegular];
     self.automationLastActionLabel.maximumNumberOfLines = 1;
     self.automationLastActionLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     self.automationLastActionLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.automationLastActionLabel];
 
-    [card addSubview:[self captionLabel:@"场景模式" frame:NSMakeRect(30, 144, 100, 16)]];
+    [card addSubview:[self captionLabel:@"场景模式" frame:NSMakeRect(34, 148, 100, 16)]];
     self.calendarFocusSwitch = [NSButton checkboxWithTitle:@"日历会议" target:self action:@selector(toggleOnly:)];
-    self.calendarFocusSwitch.frame = NSMakeRect(30, 124, 100, 22);
+    self.calendarFocusSwitch.frame = NSMakeRect(34, 128, 100, 22);
     [card addSubview:self.calendarFocusSwitch];
 
     self.presentationFocusSwitch = [NSButton checkboxWithTitle:@"全屏/演示" target:self action:@selector(toggleOnly:)];
-    self.presentationFocusSwitch.frame = NSMakeRect(140, 124, 120, 22);
+    self.presentationFocusSwitch.frame = NSMakeRect(144, 128, 120, 22);
     [card addSubview:self.presentationFocusSwitch];
 
     self.calendarStatusLabel = [NSTextField wrappingLabelWithString:@""];
-    self.calendarStatusLabel.frame = NSMakeRect(286, 120, 242, 34);
+    self.calendarStatusLabel.frame = NSMakeRect(304, 124, 264, 34);
     self.calendarStatusLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.calendarStatusLabel.maximumNumberOfLines = 2;
     self.calendarStatusLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.calendarStatusLabel];
 
-    [card addSubview:[self captionLabel:@"固定时段" frame:NSMakeRect(30, 90, 100, 16)]];
+    [card addSubview:[self captionLabel:@"固定时段" frame:NSMakeRect(34, 94, 100, 16)]];
     self.quietHoursSwitch = [NSButton checkboxWithTitle:@"安静时段" target:self action:@selector(toggleOnly:)];
-    self.quietHoursSwitch.frame = NSMakeRect(30, 70, 108, 22);
+    self.quietHoursSwitch.frame = NSMakeRect(34, 74, 108, 22);
     [card addSubview:self.quietHoursSwitch];
 
-    self.quietHoursStartField = [[NSTextField alloc] initWithFrame:NSMakeRect(152, 69, 64, 24)];
+    self.quietHoursStartField = [[NSTextField alloc] initWithFrame:NSMakeRect(160, 73, 64, 24)];
     self.quietHoursStartField.font = [NSFont monospacedDigitSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.quietHoursStartField.bezelStyle = NSTextFieldRoundedBezel;
     self.quietHoursStartField.alignment = NSTextAlignmentCenter;
@@ -2679,11 +2680,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.quietHoursStartField];
 
     NSTextField *quietHoursToLabel = [NSTextField labelWithString:@"到"];
-    quietHoursToLabel.frame = NSMakeRect(224, 72, 20, 18);
+    quietHoursToLabel.frame = NSMakeRect(232, 76, 20, 18);
     quietHoursToLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:quietHoursToLabel];
 
-    self.quietHoursEndField = [[NSTextField alloc] initWithFrame:NSMakeRect(250, 69, 64, 24)];
+    self.quietHoursEndField = [[NSTextField alloc] initWithFrame:NSMakeRect(258, 73, 64, 24)];
     self.quietHoursEndField.font = [NSFont monospacedDigitSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.quietHoursEndField.bezelStyle = NSTextFieldRoundedBezel;
     self.quietHoursEndField.alignment = NSTextAlignmentCenter;
@@ -2693,25 +2694,25 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.quietHoursEndField];
 
     self.quietHoursStatusLabel = [NSTextField wrappingLabelWithString:@""];
-    self.quietHoursStatusLabel.frame = NSMakeRect(330, 64, 198, 34);
+    self.quietHoursStatusLabel.frame = NSMakeRect(340, 68, 228, 34);
     self.quietHoursStatusLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     self.quietHoursStatusLabel.maximumNumberOfLines = 2;
     self.quietHoursStatusLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.quietHoursStatusLabel];
 
-    [card addSubview:[self captionLabel:@"高级策略" frame:NSMakeRect(30, 40, 100, 16)]];
+    [card addSubview:[self captionLabel:@"高级策略" frame:NSMakeRect(34, 44, 100, 16)]];
     NSButton *editKeywordsButton = [NSButton buttonWithTitle:@"编辑策略关键词..." target:self action:@selector(editAutomationKeywords:)];
-    editKeywordsButton.frame = NSMakeRect(132, 24, 142, 28);
+    editKeywordsButton.frame = NSMakeRect(138, 28, 142, 28);
     editKeywordsButton.bezelStyle = NSBezelStyleRounded;
     [card addSubview:editKeywordsButton];
 
     self.focusAppResetButton = [NSButton buttonWithTitle:@"默认" target:self action:@selector(resetFocusApps:)];
-    self.focusAppResetButton.frame = NSMakeRect(462, 24, 72, 28);
+    self.focusAppResetButton.frame = NSMakeRect(496, 28, 72, 28);
     self.focusAppResetButton.bezelStyle = NSBezelStyleRounded;
     [card addSubview:self.focusAppResetButton];
 
     self.focusAppHintLabel = [NSTextField wrappingLabelWithString:@"优先级：不处理 > 自动暂停 > 只发通知。"];
-    self.focusAppHintLabel.frame = NSMakeRect(288, 22, 160, 32);
+    self.focusAppHintLabel.frame = NSMakeRect(304, 26, 176, 32);
     self.focusAppHintLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightRegular];
     self.focusAppHintLabel.maximumNumberOfLines = 2;
     self.focusAppHintLabel.textColor = NSColor.secondaryLabelColor;
@@ -3535,23 +3536,23 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.headerView.wantsLayer = YES;
     self.headerView.material = settingsDarkStyle ? NSVisualEffectMaterialUnderWindowBackground : NSVisualEffectMaterialSidebar;
     self.headerView.layer.backgroundColor = theme.settingsHeader.CGColor;
-    self.sidebarDividerView.layer.backgroundColor = [theme.cardBorder colorWithAlphaComponent:settingsDarkStyle ? 0.44 : 0.52].CGColor;
+    self.sidebarDividerView.layer.backgroundColor = [theme.cardBorder colorWithAlphaComponent:settingsDarkStyle ? 0.34 : 0.38].CGColor;
     self.sidebarBrandBadge.layer.backgroundColor = (settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.075]
-        : [theme.card colorWithAlphaComponent:0.68]).CGColor;
-    self.sidebarBrandBadge.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:settingsDarkStyle ? 0.50 : 0.58].CGColor;
+        : [theme.card colorWithAlphaComponent:0.62]).CGColor;
+    self.sidebarBrandBadge.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:settingsDarkStyle ? 0.42 : 0.46].CGColor;
     self.sidebarBrandBadge.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 13;
     self.sidebarBrandIcon.contentTintColor = theme.accent;
     self.sidebarSummaryCard.layer.backgroundColor = (settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.065]
-        : [NSColor colorWithWhite:1 alpha:0.34]).CGColor;
+        : [NSColor colorWithWhite:1 alpha:0.30]).CGColor;
     self.sidebarSummaryCard.layer.borderColor = (settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.10]
-        : [NSColor colorWithWhite:1 alpha:0.42]).CGColor;
+        : [NSColor colorWithWhite:1 alpha:0.34]).CGColor;
     self.sidebarSummaryCard.layer.cornerRadius = 12;
     self.sidebarSummaryCard.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:settingsDarkStyle ? 0.34 : 0.14].CGColor;
-    self.sidebarSummaryCard.layer.shadowOpacity = settingsDarkStyle ? 0.08 : 0.04;
-    self.sidebarSummaryCard.layer.shadowRadius = 10;
+    self.sidebarSummaryCard.layer.shadowOpacity = settingsDarkStyle ? 0.08 : 0.025;
+    self.sidebarSummaryCard.layer.shadowRadius = 8;
     self.sidebarSummaryCard.layer.shadowOffset = CGSizeMake(0, -2);
     self.footerView.wantsLayer = YES;
     self.footerView.material = settingsDarkStyle ? NSVisualEffectMaterialUnderWindowBackground : NSVisualEffectMaterialContentBackground;
@@ -3578,13 +3579,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSArray<NSView *> *themeCards = @[self.overviewCard, self.eyeCard, self.standCard, self.alertCard, self.automationCard, self.statsCard];
     for (NSView *card in themeCards) {
         card.layer.masksToBounds = NO;
-        card.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:settingsDarkStyle ? 0.34 : 0.16].CGColor;
-        card.layer.shadowOpacity = settingsDarkStyle ? 0.18 : 0.07;
-        card.layer.shadowRadius = settingsDarkStyle ? 22 : 18;
-        card.layer.shadowOffset = CGSizeMake(0, -5);
+        card.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:settingsDarkStyle ? 0.30 : 0.12].CGColor;
+        card.layer.shadowOpacity = settingsDarkStyle ? 0.16 : 0.045;
+        card.layer.shadowRadius = settingsDarkStyle ? 18 : 14;
+        card.layer.shadowOffset = CGSizeMake(0, -3);
         ERRemoveStyleMotifLayers(card.layer, @"settings-card-motif");
         if (self.settings.restStyle == ERRestStylePixel || self.settings.restStyle == ERRestStyleToy) {
-            ERAddStyleMotifLayers(card.layer, card.bounds, self.settings.restStyle, theme, @"settings-card-motif", 0.12, YES, 0);
+            ERAddStyleMotifLayers(card.layer, card.bounds, self.settings.restStyle, theme, @"settings-card-motif", 0.08, YES, 0);
         }
     }
     self.titleLabel.textColor = settingsPrimaryTextColor;
@@ -3676,34 +3677,34 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
     NSColor *rowColor = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.035]
-        : [NSColor colorWithWhite:1 alpha:0.20];
+        : [NSColor colorWithWhite:1 alpha:0.13];
     NSColor *tileColor = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.095]
-        : [NSColor colorWithWhite:1 alpha:0.46];
+        : [NSColor colorWithWhite:1 alpha:0.34];
     NSColor *dividerColor = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.10]
-        : [theme.cardBorder colorWithAlphaComponent:0.48];
+        : [theme.cardBorder colorWithAlphaComponent:0.34];
     for (NSView *tile in self.overviewTiles) {
         tile.layer.backgroundColor = tileColor.CGColor;
-        tile.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.70].CGColor;
+        tile.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.56].CGColor;
         tile.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 14;
     }
     for (NSView *band in self.summaryBandViews) {
         band.layer.backgroundColor = tileColor.CGColor;
-        band.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.70].CGColor;
+        band.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.56].CGColor;
         band.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 14;
     }
     self.overviewActionBar.layer.backgroundColor = (settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.075]
-        : [NSColor colorWithWhite:1 alpha:0.24]).CGColor;
-    self.overviewActionBar.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.46].CGColor;
+        : [NSColor colorWithWhite:1 alpha:0.18]).CGColor;
+    self.overviewActionBar.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.34].CGColor;
     self.overviewActionBar.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 10;
     NSColor *actionShellColor = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.070]
-        : [NSColor colorWithWhite:1 alpha:0.40];
+        : [NSColor colorWithWhite:1 alpha:0.33];
     NSColor *actionShellBorder = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.10]
-        : [theme.cardBorder colorWithAlphaComponent:0.42];
+        : [theme.cardBorder colorWithAlphaComponent:0.30];
     for (NSView *shell in self.overviewActionButtonShells) {
         shell.layer.backgroundColor = actionShellColor.CGColor;
         shell.layer.borderColor = actionShellBorder.CGColor;
@@ -6690,7 +6691,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"nextCheck=复制自动化诊断或问题反馈包，确认最终动作/命中原因/最近动作都能读懂。\n\n"
             @"v0.1.46 设置页继续打磨\n"
             @"status=implemented-polish-pass\n"
-            @"evidence=920x592-settings-window,sidebarDividerView,overviewActionButtonShells,pageIconBadgeViews,stylePreviewMotif\n"
+            @"evidence=944x592-settings-window,sidebarDividerView,overviewActionButtonShells,pageIconBadgeViews,stylePreviewMotif\n"
             @"currentWindow=设置页使用左侧导航、节奏摘要、右侧图标标题、浅阴影主卡片和轻按钮概览操作条。\n"
             @"nextCheck=必要时只打开设置页截图，不跑全屏冒烟，重点看夜间/像素/玩具风格文字是否清楚。\n\n"
             @"v0.1.47 分发和长期维护\n"

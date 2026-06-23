@@ -232,6 +232,14 @@ scripts/swiftui_migration_readiness.sh
 
 脚本只读地比较当前 Objective-C/AppKit 版本和 `Sources/EyeRest/main.swift` SwiftUI 草稿，列出双计时、设置页、恢复、自动化、统计、更新/反馈等迁移缺口。当前结论会明确标记为 `prototype only`，避免误把 SwiftUI 草稿当成可替换的正式版本。
 
+## 设置合约准备检查
+
+```bash
+scripts/settings_contract_readiness.sh
+```
+
+脚本只读地检查当前 Objective-C/AppKit 正式版的 UserDefaults 设置键、默认值注册、备份恢复和旧键迁移，并对比 `Sources/EyeRest/main.swift` SwiftUI 草稿的存储方式。当前 SwiftUI 草稿仍使用单个 `EyeRestSettings` JSON blob，尚未共享正式版 per-key schema，因此只能作为 prototype，不能直接替换正式版本。
+
 ## 本机诊断
 
 ```bash
@@ -401,7 +409,8 @@ songyixia://diagnostics/calendar-live
 - 设置页主题降噪：主卡片减少大面积图案层，像素/玩具只保留轻量点缀，避免主题装饰压过设置内容。
 - 设置页标题图标：右侧每个设置页都有跟随主题色的原生图标徽章，让二级页面更像同一套 macOS 小工具。
 - 设置页品牌化标题：左侧增加应用徽章，导航改成透明点击层加自绘图标文字，右侧标题增加主题强调线，减少按钮框和工程面板感。
-- 设置页分栏精修：设置窗口扩大到 920px，侧栏分隔线、节奏摘要阴影、列表选中态和概览快捷操作条统一成更轻的 macOS 设置面板风格。
+- 设置页分栏精修：设置窗口扩大到 944px，右侧内容区加宽，侧栏分隔线、节奏摘要阴影、列表选中态和概览快捷操作条统一成更轻的 macOS 设置面板风格。
+- 设置页视觉降噪：整体背景、卡片阴影、行底色和主题图案透明度继续调轻，保留风格差异但让设置项优先清晰可读。
 - 产品化反馈闭环：关于窗口、检查更新、下载页、问题反馈和问题反馈包串成一条普通用户能走完的链路。
 - 更新资源直达：检查更新会解析 GitHub Release assets，优先打开 `songyixia-*.zip` 的直接下载链接，减少用户在发布页里找文件。
 - 分发维护方案：菜单栏可复制当前 Release 发布方式、安装状态、正式签名/公证计划和自动更新评估，让 v0.1.47 的长期维护路径更明确。
@@ -412,6 +421,7 @@ songyixia://diagnostics/calendar-live
 - 发布包校验：打包时生成 `songyixia-*.zip.sha256`，发布前检查和发布就绪检查都会验证 checksum，GitHub artifact 和 Release 一起上传。
 - 发布说明生成：新增 Release Notes 脚本，把下载文件、SHA256、安装步骤、本次更新和反馈入口整理成用户可读的 GitHub Release 正文。
 - SwiftUI 迁移准备：新增只读迁移检查脚本，明确 SwiftUI 草稿仍是 prototype，并列出正式切换前必须补齐的功能缺口。
+- 设置合约准备：新增只读脚本检查正式版 UserDefaults per-key schema 和 SwiftUI 草稿 JSON 存储的差距，避免未来迁移导致设置丢失。
 
 ### 下一批优先级
 
