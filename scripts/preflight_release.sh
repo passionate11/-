@@ -37,6 +37,7 @@ bash -n scripts/generate_icon.sh
 bash -n scripts/install_app.sh
 bash -n scripts/package_app.sh
 bash -n scripts/preflight_release.sh
+bash -n scripts/release_readiness.sh
 bash -n scripts/smoke_test.sh
 
 echo "==> Building app"
@@ -139,6 +140,8 @@ check_contains "$SOURCE_CONTENT" "Sparkle" "distribution auto update plan"
 check_contains "$README_CONTENT" "复制安装更新说明" "install guide docs"
 check_contains "$README_CONTENT" "分发维护方案" "distribution plan docs"
 check_contains "$README_CONTENT" "正式签名/公证计划" "distribution signing docs"
+check_contains "$README_CONTENT" "发布就绪检查" "release readiness docs"
+check_contains "$(cat scripts/release_readiness.sh)" "ready for current GitHub zip flow" "release readiness summary"
 check_contains "$README_CONTENT" "v0.1.45 自动化真实体验补强" "next roadmap docs"
 check_contains "$SOURCE_CONTENT" "ERSettingsQuickSetupSeenKey" "quick setup seen preference"
 check_contains "$SOURCE_CONTENT" "快速配置..." "quick setup menu"
@@ -405,5 +408,9 @@ ditto -x -k "$ARCHIVE" "$TMPDIR_RELEASE"
 codesign --verify --deep --strict "$TMPDIR_RELEASE/松一下.app"
 PACKAGED_DIAGNOSE_OUTPUT="$(APP_TARGET="$TMPDIR_RELEASE/松一下.app" scripts/diagnose_app.sh)"
 [[ "$PACKAGED_DIAGNOSE_OUTPUT" =~ codesign[[:space:]]verify:[[:space:]]+ok ]] || fail "packaged app diagnostics failed"
+
+echo "==> Verifying release readiness"
+READINESS_OUTPUT="$(APP_TARGET="$APP_BUNDLE" ARCHIVE_PATH="$ARCHIVE" scripts/release_readiness.sh --strict)"
+[[ "$READINESS_OUTPUT" == *"Readiness:"*"ready for current GitHub zip flow"* ]] || fail "release readiness did not pass current zip flow"
 
 echo "==> Preflight passed: $ARCHIVE"

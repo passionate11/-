@@ -25,6 +25,9 @@ jobs:
       - name: Release preflight
         run: scripts/preflight_release.sh
 
+      - name: Release readiness
+        run: APP_TARGET=outputs/EyeRest.app scripts/release_readiness.sh --strict
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:

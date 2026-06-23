@@ -22,6 +22,7 @@ jobs:
           bash -n scripts/install_app.sh
           bash -n scripts/package_app.sh
           bash -n scripts/preflight_release.sh
+          bash -n scripts/release_readiness.sh
           bash -n scripts/smoke_test.sh
 
       - name: Release preflight

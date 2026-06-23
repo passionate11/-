@@ -185,6 +185,14 @@ scripts/preflight_release.sh
 
 脚本会构建、签名、诊断、检查版本和 changelog、打包 zip、解包后再次校验签名与包内容。GitHub Actions 也使用同一套检查，避免本地发布和 CI 校验不一致。
 
+## 发布就绪检查
+
+```bash
+scripts/release_readiness.sh
+```
+
+脚本只读地汇总版本、git 状态、发布 zip、已构建/已安装 App、签名、Gatekeeper、GitHub Release workflow 和自动更新当前方案；`scripts/release_readiness.sh --strict` 会在关键失败时返回非零，适合发版前留存一份不打扰工作的检查快照。
+
 ## 本机诊断
 
 ```bash
@@ -356,6 +364,7 @@ songyixia://diagnostics/calendar-live
 - 设置页品牌化标题：左侧增加应用徽章，导航改成透明点击层加自绘图标文字，右侧标题增加主题强调线，减少按钮框和工程面板感。
 - 产品化反馈闭环：关于窗口、检查更新、下载页、问题反馈和问题反馈包串成一条普通用户能走完的链路。
 - 分发维护方案：菜单栏可复制当前 Release 发布方式、安装状态、正式签名/公证计划和自动更新评估，让 v0.1.47 的长期维护路径更明确。
+- 发布就绪检查：新增只读脚本汇总版本、git/tag、zip、App bundle、签名、Gatekeeper、Release workflow 和自动更新方案，CI 发布前也会跑 strict 检查。
 
 ### 下一批优先级
 
