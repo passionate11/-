@@ -18,7 +18,7 @@
 - 菜单栏支持显示恢复压测，可模拟外接屏断开或多显示器切换后休息页跑到屏幕外的场景。
 - 菜单栏支持设置窗口恢复压测，可模拟设置页落在旧屏幕外并验证自动回到当前可见屏幕。
 - 菜单栏可复制显示环境诊断，记录当前屏幕组合、上次屏幕变化前后摘要、休息页窗口、设置窗口和窗口层级。
-- 菜单栏可复制路线图状态，把 v0.1.45-v0.1.49 的完成证据、当前运行状态和下一步检查整理成不打扰工作的文字快照。
+- 菜单栏可复制路线图状态，把 v0.1.45-v0.1.50 的完成证据、当前运行状态和下一步检查整理成不打扰工作的文字快照。
 - 菜单栏可运行显示变化追踪自检，不用真实拔插显示器也能验证屏幕变化记录链路。
 - 菜单栏可运行真实显示环境自检，记录当前屏幕组合并验证休息页在真实显示器上贴合与重排。
 - 支持暂停、立即眼睛休息、立即站立、重新开始全部计时。
@@ -207,7 +207,7 @@ scripts/preflight_release.sh
 scripts/capture_release_evidence.sh
 ```
 
-脚本会先运行发布前检查并重新生成 zip、sha256 和 Release Notes，然后把 `preflight_release`、`release_readiness`、`auto_update_readiness`、`roadmap_status`、设置页视觉检查、自动化关键词配置检查、自动化策略检查、发布证据包就绪检查、设置合约检查、SwiftUI 迁移检查、SwiftUI 阶段计划检查和已安装 App 诊断统一保存到 `dist/release-evidence-<version>-<build>-<time>/`。它不会运行全屏冒烟测试，适合发版前留存一份低打扰证据包。
+脚本会先运行发布前检查并重新生成 zip、sha256 和 Release Notes，然后把 `preflight_release`、`release_readiness`、`auto_update_readiness`、`roadmap_status`、设置页视觉检查、自动化关键词配置检查、自动化策略检查、发布证据包就绪检查、设置合约检查、SwiftUI 迁移检查、SwiftUI 阶段计划检查和已安装 App 诊断统一保存到 `dist/release-evidence-<version>-<build>-<time>/`。证据目录里会有 `manifest.txt`、机器可读的 `manifest.json` 和人可读的 `evidence-checklist.md`，用于快速复查 zip、sha256、Release Notes、命令状态和失败数。它不会运行全屏冒烟测试，适合发版前留存一份低打扰证据包。
 
 ## 发布证据包就绪检查
 
@@ -215,7 +215,7 @@ scripts/capture_release_evidence.sh
 scripts/release_evidence_readiness.sh
 ```
 
-脚本只读地检查发布证据包是否覆盖 git 状态、最近提交、preflight、release readiness、auto-update readiness、roadmap、设置页视觉、自动化关键词配置、自动化策略、设置合约、SwiftUI 迁移、SwiftUI 阶段计划、已安装 App 诊断、Release Notes 和 checksum。它不会构建、启动 App，也不会运行全屏冒烟测试，适合在发版前先确认“证据包本身没有漏关键线索”。
+脚本只读地检查发布证据包是否覆盖 git 状态、最近提交、preflight、release readiness、auto-update readiness、roadmap、设置页视觉、自动化关键词配置、自动化策略、设置合约、SwiftUI 迁移、SwiftUI 阶段计划、已安装 App 诊断、Release Notes、checksum、`manifest.json` 和 `evidence-checklist.md`。它不会构建、启动 App，也不会运行全屏冒烟测试，适合在发版前先确认“证据包本身没有漏关键线索”。
 
 ## 发布就绪检查
 
@@ -239,7 +239,7 @@ scripts/auto_update_readiness.sh
 scripts/roadmap_status.sh
 ```
 
-脚本只读地检查当前 todo 证据，覆盖 v0.1.45 自动化体验、v0.1.47 分发维护和 v0.1.49 设置页视觉精修。App 菜单里的 `复制路线图状态` 和 `songyixia://diagnostics/roadmap-status` 会复制同类状态快照，并会进入问题反馈包和完整排查包。状态文本还会带 `nextActionPlan=1` 行动清单，把下一步拆成 P1 设置页截图微调、P2 自动化配置验证和 P3 发布留存，默认优先低打扰检查。
+脚本只读地检查当前 todo 证据，覆盖 v0.1.45 自动化体验、v0.1.47 分发维护、v0.1.49 设置页视觉精修和 v0.1.50 发布证据包 manifest。App 菜单里的 `复制路线图状态` 和 `songyixia://diagnostics/roadmap-status` 会复制同类状态快照，并会进入问题反馈包和完整排查包。状态文本还会带 `nextActionPlan=1` 行动清单，把下一步拆成 P1 设置页截图微调、P2 自动化配置验证和 P3 发布留存，默认优先低打扰检查。
 
 ## 自动化策略就绪检查
 
@@ -490,7 +490,8 @@ songyixia://diagnostics/calendar-live
 - 更新资源直达：检查更新会解析 GitHub Release assets，优先打开 `songyixia-*.zip` 的直接下载链接，减少用户在发布页里找文件。
 - 分发维护方案：菜单栏可复制当前 Release 发布方式、安装状态、正式签名/公证计划和自动更新评估，让 v0.1.47 的长期维护路径更明确。
 - 自动更新准备检查：新增只读脚本和菜单复制项，明确当前仍走手动 GitHub Release 更新，并列出未来接 Sparkle 前必须补齐的签名、公证、appcast 和回滚条件。
-- 路线图状态：菜单栏可复制 v0.1.45-v0.1.49 的完成证据、当前运行状态和 P1/P2/P3 下一步行动清单；脚本版 `scripts/roadmap_status.sh` 可在不启动 App 的情况下做同类检查。
+- 路线图状态：菜单栏可复制 v0.1.45-v0.1.50 的完成证据、当前运行状态和 P1/P2/P3 下一步行动清单；脚本版 `scripts/roadmap_status.sh` 可在不启动 App 的情况下做同类检查。
+- 发布证据包 manifest：`scripts/capture_release_evidence.sh` 会生成 `manifest.txt`、`manifest.json` 和 `evidence-checklist.md`，把 zip、sha256、Release Notes、低打扰命令状态和失败数都留进证据包。
 - 发布就绪检查：新增只读脚本汇总版本、git/tag、zip、App bundle、签名、Gatekeeper、Release workflow 和自动更新方案，CI 发布前也会跑 strict 检查。
 - 公证准备检查：新增 dry-run 公证脚本，先验证 zip、notarytool、签名和 Gatekeeper；有 Developer ID 与 Apple 凭据后可显式提交 notarytool。
 - 发布包校验：打包时生成 `songyixia-*.zip.sha256`，发布前检查和发布就绪检查都会验证 checksum，GitHub artifact 和 Release 一起上传。

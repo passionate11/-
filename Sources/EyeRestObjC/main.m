@@ -7163,6 +7163,11 @@ static NSColor *ERSettingsAccentColor(ERRestStyle style, ERTheme theme) {
             @"evidence=sidebarNavGroupView,34px-brand-badge,184x54-summary-card,664x340-quiet-card,616px-overview-status,overviewSoftAccentViews,statusBadgePill,overviewInsightBand,0.002-card-shadow\n"
             @"currentWindow=侧栏成组 source list 继续收紧，品牌徽章和节奏摘要进一步缩小，概览页状态带增加状态胶囊和图标底座，双计时、信息带和轻工具条留白更舒展，减少灰框按钮和硬卡片感。\n"
             @"nextCheck=继续用 settings_visual_readiness.sh --strict 做低打扰验证；必要时只截设置页，不触发全屏休息页。\n\n"
+            @"v0.1.50 发布证据包 manifest\n"
+            @"status=implemented-evidence-manifest\n"
+            @"evidence=capture_release_evidence.sh,manifest.txt,manifest.json,evidence-checklist.md,archiveSha256,release_evidence_readiness.sh\n"
+            @"currentDistribution=发布证据包现在同时生成文本 manifest、机器可读 JSON manifest 和人可读 checklist，方便发版后复查 zip、sha256、Release Notes、preflight、readiness 和诊断是否齐全。\n"
+            @"nextCheck=发布前运行 release_evidence_readiness.sh --strict 和 capture_release_evidence.sh，确认 manifest.json 与 evidence-checklist.md 都进入 dist/release-evidence-*。\n\n"
             @"v0.1.47 分发和长期维护\n"
             @"status=implemented-release-readiness\n"
             @"evidence=release_readiness.sh,notarize_release.sh,auto_update_readiness.sh,release_evidence_readiness.sh,swiftui_migration_readiness.sh,capture_release_evidence.sh,zip.sha256,generate_release_notes.sh\n"
@@ -7178,7 +7183,7 @@ static NSColor *ERSettingsAccentColor(ERRestStyle style, ERTheme theme) {
             @"verify=P1:scripts/settings_visual_readiness.sh --strict；必要时只做设置窗口截图，不跑全屏冒烟。\n"
             @"P2 自动化配置验证：用推荐模板、当前应用、当前日程各走一遍关键词弹窗，确认只追加去重、不覆盖已有配置。\n"
             @"verify=P2:scripts/automation_keyword_config_readiness.sh --strict + scripts/automation_policy_readiness.sh --strict + 复制自动化诊断。\n"
-            @"P3 发布留存：发版前运行 scripts/release_evidence_readiness.sh 和 scripts/capture_release_evidence.sh，生成 dist/release-evidence-* 证据包。\n"
+            @"P3 发布留存：发版前运行 scripts/release_evidence_readiness.sh 和 scripts/capture_release_evidence.sh，生成带 manifest.json 和 evidence-checklist.md 的 dist/release-evidence-* 证据包。\n"
             @"verify=P3:scripts/release_evidence_readiness.sh --strict + scripts/capture_release_evidence.sh + scripts/preflight_release.sh + scripts/release_readiness.sh --strict + scripts/auto_update_readiness.sh --strict。\n"
             @"defer=Developer ID 签名、公证、Sparkle 自动更新；这些只在公开分发前推进。",
             ERBrandName,

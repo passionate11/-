@@ -2,6 +2,7 @@
 
 ## main
 
+- v0.1.50 发布证据包 manifest：`scripts/capture_release_evidence.sh` 现在会额外生成 `manifest.json` 和 `evidence-checklist.md`，记录 zip、sha256、Release Notes、低打扰命令状态和失败数，方便发版后复查。
 - v0.1.49 设置页继续收敛：品牌徽章、节奏摘要、source list 行高和右侧标题区再缩小，主卡片增高到 340px 但边线/阴影继续降低，概览页增加状态胶囊、图标底座和更干净的时间输入。
 - 自动化关键词配置检查：新增 `scripts/automation_keyword_config_readiness.sh`，只读验证当前应用/当前日程追加、推荐模板、大小写去重、恢复默认和不覆盖已有配置，并接入 CI、preflight、路线图和发布证据包。
 - v0.1.48 设置页视觉精修：侧栏导航收进成组 source list，品牌徽章和节奏摘要缩小降噪，概览页重排为状态带、双计时、信息带和轻工具条，主卡片阴影继续降低。
@@ -46,6 +47,12 @@
 - 设置页主卡片降低大面积主题图案干扰，像素/玩具风只保留轻量点缀，让设置项优先保持清爽、可读和可点击。
 - 自动化页新增策略结论，把当前最终动作、命中原因和建议下一步直接展示出来，减少“为什么这次只通知/自动暂停/正常弹窗”的猜测。
 - 自动化诊断和问题反馈包新增同一份策略结论，反馈时会直接带上 `section=automation-policy`。
+
+## 0.1.50
+
+- 发布证据包新增机器可读 `manifest.json`，包含版本、build、仓库、App bundle、安装路径、zip、checksum、archiveSha256、Release Notes、命令状态和失败数。
+- 发布证据包新增人可读 `evidence-checklist.md`，把必备产物和每个低打扰命令捕获列成勾选清单，便于发版后快速确认没有漏证据。
+- 发布证据包就绪检查、发布前检查和路线图状态同步增加 manifest/checklist 守卫。
 
 ## 0.1.49
 

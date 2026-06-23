@@ -63,6 +63,81 @@ run_capture() {
   fi
 }
 
+json_escape() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  printf '%s' "$value"
+}
+
+write_manifest_json() {
+  local output="$1"
+  local release_notes_path="$2"
+  local archive_sha256="$3"
+  {
+    printf '{\n'
+    printf '  "releaseEvidence": true,\n'
+    printf '  "generatedAt": "%s",\n' "$(json_escape "$(date '+%Y-%m-%d %H:%M:%S %z')")"
+    printf '  "version": "%s",\n' "$(json_escape "${VERSION:-unknown}")"
+    printf '  "build": "%s",\n' "$(json_escape "${BUILD:-unknown}")"
+    printf '  "repository": "%s",\n' "$(json_escape "$ROOT_DIR")"
+    printf '  "appBundle": "%s",\n' "$(json_escape "$APP_BUNDLE")"
+    printf '  "installedApp": "%s",\n' "$(json_escape "$APP_INSTALLED")"
+    printf '  "archive": "%s",\n' "$(json_escape "${ARCHIVE_PATH:-missing}")"
+    printf '  "checksum": "%s",\n' "$(json_escape "${CHECKSUM_PATH:-missing}")"
+    printf '  "archiveSha256": "%s",\n' "$(json_escape "${archive_sha256:-missing}")"
+    printf '  "releaseNotes": "%s",\n' "$(json_escape "${release_notes_path:-missing}")"
+    printf '  "doesNotRun": "full-screen smoke test",\n'
+    printf '  "failures": %s,\n' "$FAILURES"
+    printf '  "commands": [\n'
+    local first=1
+    while IFS='=' read -r label status; do
+      [[ -z "$label" ]] && continue
+      if [[ "$first" == "1" ]]; then
+        first=0
+      else
+        printf ',\n'
+      fi
+      printf '    {"label": "%s", "status": "%s", "file": "%s.txt"}' \
+        "$(json_escape "$label")" \
+        "$(json_escape "$status")" \
+        "$(json_escape "$label")"
+    done <<< "$STATUS_LINES"
+    printf '\n  ]\n'
+    printf '}\n'
+  } > "$output"
+}
+
+write_evidence_checklist() {
+  local output="$1"
+  local release_notes_path="$2"
+  local archive_sha256="$3"
+  {
+    printf '# Release Evidence Checklist\n\n'
+    printf -- '- version: %s\n' "${VERSION:-unknown}"
+    printf -- '- build: %s\n' "${BUILD:-unknown}"
+    printf -- '- generatedAt: %s\n' "$(date '+%Y-%m-%d %H:%M:%S %z')"
+    printf -- '- doesNotRun: full-screen smoke test\n\n'
+    printf '## Required Artifacts\n\n'
+    printf -- '- [%s] archive: %s\n' "$([[ -n "${ARCHIVE_PATH:-}" && -f "$ARCHIVE_PATH" ]] && echo x || echo ' ')" "${ARCHIVE_PATH:-missing}"
+    printf -- '- [%s] checksum: %s\n' "$([[ -n "${CHECKSUM_PATH:-}" && -f "$CHECKSUM_PATH" ]] && echo x || echo ' ')" "${CHECKSUM_PATH:-missing}"
+    printf -- '- [%s] archiveSha256: %s\n' "$([[ -n "$archive_sha256" ]] && echo x || echo ' ')" "${archive_sha256:-missing}"
+    printf -- '- [%s] releaseNotes: %s\n' "$([[ -n "$release_notes_path" && -f "$release_notes_path" ]] && echo x || echo ' ')" "${release_notes_path:-missing}"
+    printf -- '- [x] manifest.txt\n'
+    printf -- '- [x] manifest.json\n\n'
+    printf '## Command Captures\n\n'
+    while IFS='=' read -r label status; do
+      [[ -z "$label" ]] && continue
+      local check=' '
+      [[ "$status" == "ok" ]] && check='x'
+      printf -- '- [%s] %s: %s (`%s.txt`)\n' "$check" "$label" "$status" "$label"
+    done <<< "$STATUS_LINES"
+    printf '\n## Summary\n\n'
+    printf -- '- failures: %s\n' "$FAILURES"
+  } > "$output"
+}
+
 cd "$ROOT_DIR"
 
 run_capture "git_status" git -C "$ROOT_DIR" status --short --branch
@@ -95,6 +170,12 @@ RELEASE_NOTES="$DIST_DIR/release-notes-${VERSION}.md"
 [[ -f "$RELEASE_NOTES" ]] && cp "$RELEASE_NOTES" "$EVIDENCE_DIR/"
 [[ -n "$ARCHIVE_PATH" && -f "$ARCHIVE_PATH" ]] && /usr/bin/shasum -a 256 "$ARCHIVE_PATH" > "$EVIDENCE_DIR/archive.sha256"
 [[ -n "$CHECKSUM_PATH" && -f "$CHECKSUM_PATH" ]] && cp "$CHECKSUM_PATH" "$EVIDENCE_DIR/"
+ARCHIVE_SHA256=""
+if [[ -n "$CHECKSUM_PATH" && -f "$CHECKSUM_PATH" ]]; then
+  ARCHIVE_SHA256="$(awk '{print $1; exit}' "$CHECKSUM_PATH")"
+elif [[ -n "$ARCHIVE_PATH" && -f "$ARCHIVE_PATH" ]]; then
+  ARCHIVE_SHA256="$(/usr/bin/shasum -a 256 "$ARCHIVE_PATH" | awk '{print $1; exit}')"
+fi
 
 cat > "$EVIDENCE_DIR/manifest.txt" <<MANIFEST
 releaseEvidence=1
@@ -111,6 +192,9 @@ status:
 $STATUS_LINES
 failures=$FAILURES
 MANIFEST
+
+write_manifest_json "$EVIDENCE_DIR/manifest.json" "$RELEASE_NOTES" "$ARCHIVE_SHA256"
+write_evidence_checklist "$EVIDENCE_DIR/evidence-checklist.md" "$RELEASE_NOTES" "$ARCHIVE_SHA256"
 
 printf 'Release evidence captured: %s\n' "$EVIDENCE_DIR"
 printf 'Failures: %s\n' "$FAILURES"
