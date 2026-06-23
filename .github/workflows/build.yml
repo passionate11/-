@@ -18,6 +18,7 @@ jobs:
         run: |
           bash -n scripts/automation_policy_readiness.sh
           bash -n scripts/build_app.sh
+          bash -n scripts/capture_release_evidence.sh
           bash -n scripts/diagnose_app.sh
           bash -n scripts/auto_update_readiness.sh
           bash -n scripts/generate_release_notes.sh
@@ -27,11 +28,13 @@ jobs:
           bash -n scripts/package_app.sh
           bash -n scripts/preflight_release.sh
           bash -n scripts/release_readiness.sh
+          bash -n scripts/release_evidence_readiness.sh
           bash -n scripts/roadmap_status.sh
           bash -n scripts/settings_contract_readiness.sh
           bash -n scripts/settings_visual_readiness.sh
           bash -n scripts/smoke_test.sh
           bash -n scripts/swiftui_migration_readiness.sh
+          bash -n scripts/swiftui_parity_plan.sh
 
       - name: Release preflight
         run: scripts/preflight_release.sh

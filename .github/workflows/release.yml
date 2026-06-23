@@ -36,6 +36,9 @@ jobs:
       - name: Auto update readiness
         run: APP_TARGET=outputs/EyeRest.app scripts/auto_update_readiness.sh --strict
 
+      - name: Release evidence readiness
+        run: scripts/release_evidence_readiness.sh --strict
+
       - name: Generate release notes
         run: scripts/generate_release_notes.sh
 
