@@ -2,6 +2,7 @@
 
 ## main
 
+- 设置页 0.1.44 收尾精修：侧栏选中态改用 macOS 系统选中行，分组行转为透明底加细分隔线，主卡片圆角、阴影、主题底色和像素/玩具图案强度继续降低。
 - 新增 `docs/swiftui-parity-matrix.json`，把 SwiftUI 草稿距离正式版的 10 个功能缺口沉淀成机器可读迁移矩阵，并接入 SwiftUI 迁移检查。
 - 新增 `docs/settings-contract.json`，把正式版 28 个 per-key UserDefaults 设置项、默认值、类型和 SwiftUI 迁移要求沉淀成机器可读合约，并接入设置合约检查。
 - 新增 `scripts/capture_release_evidence.sh` 发布证据包脚本，发版前可一次性留存 preflight、release readiness、auto-update readiness、roadmap、settings/automation readiness 和安装诊断输出。

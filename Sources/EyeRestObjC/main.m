@@ -1037,10 +1037,10 @@ static void ERAddStyleMotifLayers(CALayer *hostLayer, NSRect bounds, ERRestStyle
 
 static ERTheme ERThemeForStyle(ERRestStyle style) {
     ERTheme theme;
-    theme.settingsBackground = ERColor(0.965, 0.972, 0.982, 1);
-    theme.settingsHeader = ERColor(0.955, 0.962, 0.972, 0.82);
+    theme.settingsBackground = ERColor(0.952, 0.958, 0.968, 1);
+    theme.settingsHeader = ERColor(0.940, 0.948, 0.960, 0.86);
     theme.card = NSColor.whiteColor;
-    theme.cardBorder = ERColor(0.78, 0.81, 0.86, 0.62);
+    theme.cardBorder = ERColor(0.74, 0.77, 0.82, 0.56);
     theme.backgroundA = ERColor(0.88, 0.93, 0.96, 1);
     theme.backgroundB = ERColor(0.70, 0.84, 0.90, 1);
     theme.foreground = NSColor.labelColor;
@@ -1056,10 +1056,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             theme.accent = ERColor(0.10, 0.55, 0.62, 1);
             break;
         case ERRestStyleForest:
-            theme.settingsBackground = ERColor(0.94, 0.965, 0.94, 1);
-            theme.settingsHeader = ERColor(0.90, 0.94, 0.90, 0.84);
-            theme.card = ERColor(0.985, 1.00, 0.975, 1);
-            theme.cardBorder = ERColor(0.70, 0.80, 0.68, 0.70);
+            theme.settingsBackground = ERColor(0.948, 0.960, 0.950, 1);
+            theme.settingsHeader = ERColor(0.928, 0.944, 0.930, 0.86);
+            theme.card = ERColor(0.992, 0.998, 0.990, 1);
+            theme.cardBorder = ERColor(0.68, 0.76, 0.66, 0.58);
             theme.backgroundA = ERColor(0.08, 0.27, 0.18, 1);
             theme.backgroundB = ERColor(0.34, 0.55, 0.30, 1);
             theme.foreground = NSColor.whiteColor;
@@ -1067,10 +1067,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             theme.accent = ERColor(0.78, 0.96, 0.68, 1);
             break;
         case ERRestStylePixel:
-            theme.settingsBackground = ERColor(0.935, 0.955, 0.99, 1);
-            theme.settingsHeader = ERColor(0.91, 0.935, 0.975, 0.86);
-            theme.card = ERColor(0.98, 0.99, 1.00, 1);
-            theme.cardBorder = ERColor(0.48, 0.58, 0.72, 0.72);
+            theme.settingsBackground = ERColor(0.948, 0.956, 0.972, 1);
+            theme.settingsHeader = ERColor(0.930, 0.942, 0.962, 0.88);
+            theme.card = ERColor(0.990, 0.994, 1.00, 1);
+            theme.cardBorder = ERColor(0.56, 0.63, 0.74, 0.60);
             theme.backgroundA = ERColor(0.31, 0.64, 0.88, 1);
             theme.backgroundB = ERColor(0.82, 0.93, 0.98, 1);
             theme.accent = ERColor(0.15, 0.29, 0.55, 1);
@@ -1078,10 +1078,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             theme.pixel = YES;
             break;
         case ERRestStyleToy:
-            theme.settingsBackground = ERColor(1.00, 0.962, 0.972, 1);
-            theme.settingsHeader = ERColor(1.00, 0.93, 0.95, 0.86);
-            theme.card = ERColor(1.00, 0.98, 0.99, 1);
-            theme.cardBorder = ERColor(0.96, 0.72, 0.78, 0.72);
+            theme.settingsBackground = ERColor(0.970, 0.956, 0.964, 1);
+            theme.settingsHeader = ERColor(0.955, 0.938, 0.950, 0.88);
+            theme.card = ERColor(1.00, 0.990, 0.996, 1);
+            theme.cardBorder = ERColor(0.86, 0.68, 0.74, 0.58);
             theme.backgroundA = ERColor(1.00, 0.70, 0.78, 1);
             theme.backgroundB = ERColor(0.70, 0.85, 1.00, 1);
             theme.accent = ERColor(0.86, 0.24, 0.43, 1);
@@ -1922,7 +1922,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     NSView *content = [[NSView alloc] initWithFrame:frame];
     content.wantsLayer = YES;
-    content.layer.backgroundColor = ERColor(0.965, 0.972, 0.982, 1).CGColor;
+    content.layer.backgroundColor = ERColor(0.952, 0.958, 0.968, 1).CGColor;
     window.contentView = content;
     self.contentView = content;
     self.fieldLabels = @[];
@@ -1950,7 +1950,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.sidebarDividerView.wantsLayer = YES;
     [content addSubview:self.sidebarDividerView positioned:NSWindowAbove relativeTo:header];
 
-    self.sidebarBrandBadge = ERRoundedView(NSMakeRect(24, 512, 46, 46), [NSColor colorWithWhite:1 alpha:0.58], 14);
+    self.sidebarBrandBadge = ERRoundedView(NSMakeRect(24, 512, 46, 46), [NSColor colorWithWhite:1 alpha:0.58], 12);
     self.sidebarBrandBadge.layer.borderWidth = 1;
     self.sidebarBrandBadge.layer.shadowOpacity = 0.035;
     self.sidebarBrandBadge.layer.shadowRadius = 10;
@@ -1965,36 +1965,36 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     NSTextField *title = [NSTextField labelWithString:ERBrandName];
     title.frame = NSMakeRect(82, 535, 126, 22);
-    title.font = [NSFont systemFontOfSize:19 weight:NSFontWeightSemibold];
+    title.font = [NSFont systemFontOfSize:18 weight:NSFontWeightSemibold];
     [header addSubview:title];
     self.titleLabel = title;
 
-    NSTextField *subtitle = [NSTextField labelWithString:@"轻量休息节奏"];
+    NSTextField *subtitle = [NSTextField labelWithString:@"护眼 · 站立 · 专注"];
     subtitle.frame = NSMakeRect(82, 513, 128, 18);
     subtitle.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     [header addSubview:subtitle];
     self.sidebarSubtitleLabel = subtitle;
 
-    self.sidebarSummaryCard = ERRoundedView(NSMakeRect(20, 418, 192, 82), [NSColor colorWithWhite:1 alpha:0.44], 14);
+    self.sidebarSummaryCard = ERRoundedView(NSMakeRect(22, 422, 188, 76), [NSColor colorWithWhite:1 alpha:0.40], 12);
     self.sidebarSummaryCard.layer.borderWidth = 1;
     self.sidebarSummaryCard.layer.masksToBounds = NO;
     [header addSubview:self.sidebarSummaryCard];
 
-    self.sidebarSummaryAccentView = ERRoundedView(NSMakeRect(14, 60, 38, 3), NSColor.controlAccentColor, 1.5);
+    self.sidebarSummaryAccentView = ERRoundedView(NSMakeRect(14, 54, 34, 3), NSColor.controlAccentColor, 1.5);
     [self.sidebarSummaryCard addSubview:self.sidebarSummaryAccentView];
 
     self.sidebarEyebrowLabel = [NSTextField labelWithString:@"今日节奏"];
-    self.sidebarEyebrowLabel.frame = NSMakeRect(14, 42, 150, 16);
+    self.sidebarEyebrowLabel.frame = NSMakeRect(14, 38, 150, 16);
     self.sidebarEyebrowLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
     [self.sidebarSummaryCard addSubview:self.sidebarEyebrowLabel];
 
     self.summaryLabel = [NSTextField labelWithString:@""];
-    self.summaryLabel.frame = NSMakeRect(14, 10, 164, 30);
+    self.summaryLabel.frame = NSMakeRect(14, 8, 164, 28);
     self.summaryLabel.font = [NSFont monospacedDigitSystemFontOfSize:11.5 weight:NSFontWeightMedium];
     self.summaryLabel.textColor = NSColor.secondaryLabelColor;
     [self.sidebarSummaryCard addSubview:self.summaryLabel];
 
-    NSTextField *navCaption = [NSTextField labelWithString:@"设置项目"];
+    NSTextField *navCaption = [NSTextField labelWithString:@"设置"];
     navCaption.frame = NSMakeRect(28, 382, 160, 16);
     navCaption.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
     [header addSubview:navCaption];
@@ -2035,16 +2035,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMutableArray *navTitleLabels = [NSMutableArray arrayWithCapacity:navTitles.count];
     NSMutableArray *navIconViews = [NSMutableArray arrayWithCapacity:navTitles.count];
     for (NSInteger index = 0; index < navTitles.count; index++) {
-        NSView *selection = ERRoundedView(NSMakeRect(18, 340 - index * 38, 196, 34), NSColor.clearColor, 9);
+        NSView *selection = ERRoundedView(NSMakeRect(18, 340 - index * 38, 196, 34), NSColor.clearColor, 8);
         selection.layer.masksToBounds = NO;
         [header addSubview:selection];
         [selectionViews addObject:selection];
 
-        NSView *indicator = ERRoundedView(NSMakeRect(7, 9, 3, 16), NSColor.clearColor, 1.5);
+        NSView *indicator = ERRoundedView(NSMakeRect(8, 9, 3, 16), NSColor.clearColor, 1.5);
         [selection addSubview:indicator];
         [indicatorViews addObject:indicator];
 
-        NSView *iconBadge = ERRoundedView(NSMakeRect(18, 6, 22, 22), [NSColor colorWithWhite:1 alpha:0.0], 6);
+        NSView *iconBadge = ERRoundedView(NSMakeRect(19, 6, 22, 22), [NSColor colorWithWhite:1 alpha:0.0], 6);
         [selection addSubview:iconBadge];
         [iconBadgeViews addObject:iconBadge];
 
@@ -2055,7 +2055,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [navIconViews addObject:navIcon];
 
         NSTextField *navTitle = [NSTextField labelWithString:navTitles[index]];
-        navTitle.frame = NSMakeRect(52, 7, 126, 18);
+        navTitle.frame = NSMakeRect(54, 7, 126, 18);
         navTitle.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
         [selection addSubview:navTitle];
         [navTitleLabels addObject:navTitle];
@@ -2166,22 +2166,22 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(256, 86, 648, 430)];
 
     NSTextField *title = [NSTextField labelWithString:titleText];
-    title.frame = NSMakeRect(54, 392, 486, 28);
-    title.font = [NSFont systemFontOfSize:23 weight:NSFontWeightSemibold];
+    title.frame = NSMakeRect(54, 394, 486, 26);
+    title.font = [NSFont systemFontOfSize:22 weight:NSFontWeightSemibold];
     [view addSubview:title];
 
     NSTextField *sub = [NSTextField wrappingLabelWithString:subtitle];
-    sub.frame = NSMakeRect(54, 348, 568, 36);
+    sub.frame = NSMakeRect(54, 350, 568, 34);
     sub.font = [NSFont systemFontOfSize:13];
     sub.textColor = NSColor.secondaryLabelColor;
     sub.maximumNumberOfLines = 2;
     [view addSubview:sub];
 
-    NSView *accent = ERRoundedView(NSMakeRect(54, 381, 72, 3), NSColor.controlAccentColor, 1.5);
+    NSView *accent = ERRoundedView(NSMakeRect(54, 383, 64, 3), NSColor.controlAccentColor, 1.5);
     [view addSubview:accent];
     self.pageAccentViews = [self.pageAccentViews arrayByAddingObject:accent] ?: @[accent];
 
-    NSView *iconBadge = ERRoundedView(NSMakeRect(0, 380, 42, 42), [NSColor colorWithWhite:1 alpha:0.48], 12);
+    NSView *iconBadge = ERRoundedView(NSMakeRect(0, 380, 42, 42), [NSColor colorWithWhite:1 alpha:0.48], 10);
     iconBadge.layer.borderWidth = 1;
     [view addSubview:iconBadge];
 
@@ -2192,14 +2192,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.pageIconBadgeViews = [self.pageIconBadgeViews arrayByAddingObject:iconBadge] ?: @[iconBadge];
     self.pageIconViews = [self.pageIconViews arrayByAddingObject:icon] ?: @[icon];
 
-    NSView *card = ERRoundedView(NSMakeRect(0, 0, 648, 306), NSColor.whiteColor, 18);
+    NSView *card = ERRoundedView(NSMakeRect(0, 0, 648, 306), NSColor.whiteColor, 12);
     card.layer.borderColor = ERColor(0.82, 0.84, 0.88, 0.42).CGColor;
     card.layer.borderWidth = 1;
     card.layer.masksToBounds = NO;
     card.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:0.12].CGColor;
-    card.layer.shadowOpacity = 0.055;
-    card.layer.shadowRadius = 22;
-    card.layer.shadowOffset = CGSizeMake(0, -8);
+    card.layer.shadowOpacity = 0.040;
+    card.layer.shadowRadius = 16;
+    card.layer.shadowOffset = CGSizeMake(0, -6);
     [view addSubview:card];
     return view;
 }
@@ -2209,7 +2209,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMutableArray<NSView *> *dividers = [self.settingDividerViews mutableCopy];
     for (NSInteger index = 0; index < frames.count; index++) {
         NSRect frame = frames[index].rectValue;
-        NSView *row = ERRoundedView(frame, [NSColor colorWithWhite:1 alpha:0.18], 0);
+        NSView *row = ERRoundedView(frame, NSColor.clearColor, 0);
         [card addSubview:row];
         [rows addObject:row];
 
@@ -3598,7 +3598,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         ? [NSColor colorWithWhite:1 alpha:0.085]
         : [theme.card colorWithAlphaComponent:0.70]).CGColor;
     self.sidebarBrandBadge.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:settingsDarkStyle ? 0.36 : 0.34].CGColor;
-    self.sidebarBrandBadge.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 14;
+    self.sidebarBrandBadge.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 12;
     self.sidebarBrandBadge.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:settingsDarkStyle ? 0.36 : 0.14].CGColor;
     self.sidebarBrandBadge.layer.shadowOpacity = settingsDarkStyle ? 0.08 : 0.035;
     self.sidebarBrandBadge.layer.shadowRadius = 10;
@@ -3610,10 +3610,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.sidebarSummaryCard.layer.borderColor = (settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.11]
         : [theme.cardBorder colorWithAlphaComponent:0.28]).CGColor;
-    self.sidebarSummaryCard.layer.cornerRadius = 14;
+    self.sidebarSummaryCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 12;
     self.sidebarSummaryCard.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:settingsDarkStyle ? 0.34 : 0.14].CGColor;
-    self.sidebarSummaryCard.layer.shadowOpacity = settingsDarkStyle ? 0.08 : 0.028;
-    self.sidebarSummaryCard.layer.shadowRadius = 12;
+    self.sidebarSummaryCard.layer.shadowOpacity = settingsDarkStyle ? 0.07 : 0.020;
+    self.sidebarSummaryCard.layer.shadowRadius = 9;
     self.sidebarSummaryCard.layer.shadowOffset = CGSizeMake(0, -3);
     self.sidebarSummaryAccentView.layer.backgroundColor = [theme.accent colorWithAlphaComponent:settingsDarkStyle ? 0.92 : 0.78].CGColor;
     self.footerView.wantsLayer = YES;
@@ -3633,22 +3633,22 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.alertCard.layer.borderColor = cardBorderColor.CGColor;
     self.automationCard.layer.borderColor = cardBorderColor.CGColor;
     self.statsCard.layer.borderColor = cardBorderColor.CGColor;
-    self.overviewCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 18;
-    self.eyeCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 18;
-    self.standCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 18;
-    self.alertCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 18;
-    self.automationCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 18;
-    self.statsCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 18;
+    self.overviewCard.layer.cornerRadius = theme.cornerRadius == 6 ? 7 : 12;
+    self.eyeCard.layer.cornerRadius = theme.cornerRadius == 6 ? 7 : 12;
+    self.standCard.layer.cornerRadius = theme.cornerRadius == 6 ? 7 : 12;
+    self.alertCard.layer.cornerRadius = theme.cornerRadius == 6 ? 7 : 12;
+    self.automationCard.layer.cornerRadius = theme.cornerRadius == 6 ? 7 : 12;
+    self.statsCard.layer.cornerRadius = theme.cornerRadius == 6 ? 7 : 12;
     NSArray<NSView *> *themeCards = @[self.overviewCard, self.eyeCard, self.standCard, self.alertCard, self.automationCard, self.statsCard];
     for (NSView *card in themeCards) {
         card.layer.masksToBounds = NO;
         card.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:settingsDarkStyle ? 0.32 : 0.12].CGColor;
-        card.layer.shadowOpacity = settingsDarkStyle ? 0.16 : 0.050;
-        card.layer.shadowRadius = settingsDarkStyle ? 20 : 18;
-        card.layer.shadowOffset = CGSizeMake(0, -7);
+        card.layer.shadowOpacity = settingsDarkStyle ? 0.13 : 0.034;
+        card.layer.shadowRadius = settingsDarkStyle ? 16 : 12;
+        card.layer.shadowOffset = CGSizeMake(0, -5);
         ERRemoveStyleMotifLayers(card.layer, @"settings-card-motif");
         if (self.settings.restStyle == ERRestStylePixel || self.settings.restStyle == ERRestStyleToy) {
-            ERAddStyleMotifLayers(card.layer, card.bounds, self.settings.restStyle, theme, @"settings-card-motif", 0.055, YES, 0);
+            ERAddStyleMotifLayers(card.layer, card.bounds, self.settings.restStyle, theme, @"settings-card-motif", 0.030, YES, 0);
         }
     }
     self.titleLabel.textColor = settingsPrimaryTextColor;
@@ -3739,23 +3739,23 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         label.textColor = settingsSecondaryTextColor;
     }
     NSColor *rowColor = settingsDarkStyle
-        ? [NSColor colorWithWhite:1 alpha:0.040]
-        : [NSColor colorWithWhite:1 alpha:0.30];
+        ? [NSColor colorWithWhite:1 alpha:0.018]
+        : [NSColor colorWithWhite:1 alpha:0.0];
     NSColor *tileColor = settingsDarkStyle
-        ? [NSColor colorWithWhite:1 alpha:0.098]
-        : [NSColor colorWithWhite:1 alpha:0.48];
+        ? [NSColor colorWithWhite:1 alpha:0.082]
+        : [NSColor colorWithWhite:1 alpha:0.62];
     NSColor *dividerColor = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.095]
         : [theme.cardBorder colorWithAlphaComponent:0.24];
     for (NSView *tile in self.overviewTiles) {
         tile.layer.backgroundColor = tileColor.CGColor;
         tile.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:settingsDarkStyle ? 0.42 : 0.30].CGColor;
-        tile.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 15;
+        tile.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 12;
     }
     for (NSView *band in self.summaryBandViews) {
         band.layer.backgroundColor = tileColor.CGColor;
         band.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:settingsDarkStyle ? 0.42 : 0.30].CGColor;
-        band.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 15;
+        band.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 12;
     }
     self.overviewActionBar.layer.backgroundColor = (settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.070]
@@ -3763,8 +3763,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.overviewActionBar.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:settingsDarkStyle ? 0.20 : 0.18].CGColor;
     self.overviewActionBar.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 13;
     NSColor *actionShellColor = settingsDarkStyle
-        ? [NSColor colorWithWhite:1 alpha:0.078]
-        : [NSColor colorWithWhite:1 alpha:0.50];
+        ? [NSColor colorWithWhite:1 alpha:0.070]
+        : [NSColor colorWithWhite:1 alpha:0.64];
     NSColor *actionShellBorder = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.10]
         : [theme.cardBorder colorWithAlphaComponent:0.18];
@@ -3776,7 +3776,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.automationStatusStripe.layer.cornerRadius = theme.cornerRadius == 6 ? 1 : 1.5;
     for (NSView *row in self.settingRowViews) {
         row.layer.backgroundColor = rowColor.CGColor;
-        row.layer.cornerRadius = theme.cornerRadius == 6 ? 0 : 7;
+        row.layer.cornerRadius = 0;
     }
     for (NSView *divider in self.settingDividerViews) {
         divider.layer.backgroundColor = dividerColor.CGColor;
@@ -3789,16 +3789,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     ERTheme theme = ERThemeForStyle(self.settings.restStyle);
     BOOL settingsDarkStyle = self.settings.restStyle == ERRestStyleNight;
     NSColor *selectedColor = settingsDarkStyle
-        ? [theme.accent colorWithAlphaComponent:0.20]
-        : [NSColor colorWithWhite:1 alpha:0.56];
+        ? [theme.accent colorWithAlphaComponent:0.17]
+        : [NSColor selectedContentBackgroundColor];
     NSColor *idleColor = NSColor.clearColor;
     NSColor *selectedBorderColor = settingsDarkStyle
-        ? [theme.accent colorWithAlphaComponent:0.30]
-        : [theme.cardBorder colorWithAlphaComponent:0.20];
-    NSColor *selectedIconBadgeColor = settingsDarkStyle
         ? [theme.accent colorWithAlphaComponent:0.24]
-        : [theme.accent colorWithAlphaComponent:0.13];
-    NSColor *selectedTextColor = settingsDarkStyle ? NSColor.whiteColor : NSColor.labelColor;
+        : [NSColor selectedContentBackgroundColor];
+    NSColor *selectedIconBadgeColor = settingsDarkStyle
+        ? [theme.accent colorWithAlphaComponent:0.20]
+        : [NSColor.whiteColor colorWithAlphaComponent:0.22];
+    NSColor *selectedTextColor = settingsDarkStyle ? NSColor.whiteColor : NSColor.alternateSelectedControlTextColor;
     NSColor *normalTextColor = settingsDarkStyle ? theme.secondary : NSColor.secondaryLabelColor;
 
     for (NSInteger index = 0; index < self.sidebarButtons.count; index++) {
@@ -3808,17 +3808,17 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             NSView *selection = self.sidebarSelectionViews[index];
             selection.hidden = NO;
             selection.layer.backgroundColor = (selected ? selectedColor : idleColor).CGColor;
-            selection.layer.borderWidth = selected ? 0.5 : 0;
+            selection.layer.borderWidth = selected && settingsDarkStyle ? 0.5 : 0;
             selection.layer.borderColor = selectedBorderColor.CGColor;
-            selection.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 9;
+            selection.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 8;
             selection.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:settingsDarkStyle ? 0.28 : 0.10].CGColor;
-            selection.layer.shadowOpacity = selected ? (settingsDarkStyle ? 0.08 : 0.025) : 0;
-            selection.layer.shadowRadius = selected ? 8 : 0;
-            selection.layer.shadowOffset = CGSizeMake(0, -3);
+            selection.layer.shadowOpacity = selected && settingsDarkStyle ? 0.06 : 0;
+            selection.layer.shadowRadius = selected && settingsDarkStyle ? 7 : 0;
+            selection.layer.shadowOffset = CGSizeMake(0, -2);
         }
         if (index < self.sidebarNavIndicatorViews.count) {
             NSView *indicator = self.sidebarNavIndicatorViews[index];
-            indicator.layer.backgroundColor = (selected ? theme.accent : NSColor.clearColor).CGColor;
+            indicator.layer.backgroundColor = (selected ? (settingsDarkStyle ? theme.accent : NSColor.whiteColor) : NSColor.clearColor).CGColor;
             indicator.layer.cornerRadius = 1.5;
         }
         if (index < self.sidebarNavIconBadgeViews.count) {
@@ -3827,7 +3827,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             iconBadge.layer.cornerRadius = theme.cornerRadius == 6 ? 4 : 6;
         }
         if (index < self.sidebarNavIconViews.count) {
-            self.sidebarNavIconViews[index].contentTintColor = selected ? theme.accent : normalTextColor;
+            self.sidebarNavIconViews[index].contentTintColor = selected ? selectedTextColor : normalTextColor;
         }
         if (index < self.sidebarNavTitleLabels.count) {
             NSTextField *label = self.sidebarNavTitleLabels[index];
@@ -6980,7 +6980,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"v0.1.46 设置页继续打磨\n"
             @"status=implemented-polish-pass\n"
             @"evidence=944x592-settings-window,sidebarDividerView,overviewActionButtonShells,pageIconBadgeViews,stylePreviewMotif\n"
-            @"currentWindow=设置页使用左侧导航、节奏摘要、右侧图标标题、浅阴影主卡片和轻按钮概览操作条。\n"
+            @"currentWindow=设置页使用系统选中行、透明分组行、更低主卡片阴影、克制主题底色和轻按钮概览操作条。\n"
             @"nextCheck=必要时只打开设置页截图，不跑全屏冒烟，重点看夜间/像素/玩具风格文字是否清楚。\n\n"
             @"v0.1.47 分发和长期维护\n"
             @"status=implemented-release-readiness\n"
