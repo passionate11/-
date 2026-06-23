@@ -271,6 +271,8 @@ check_contains "$SOURCE_CONTENT" "Hammerspoon 示例" "focus automation template
 check_contains "$SOURCE_CONTENT" "Raycast Script Command 示例" "raycast automation template content"
 check_contains "$README_CONTENT" "songyixia://automation/focus-template" "focus automation template docs"
 check_contains "$SOURCE_CONTENT" "copyAutomationDiagnostic:" "automation diagnostic action"
+check_contains "$SOURCE_CONTENT" "copyAutomationDiagnosticFromSettings:" "automation settings diagnostic action"
+check_contains "$SOURCE_CONTENT" "automationDiagnosticButton" "automation settings diagnostic button"
 check_contains "$SOURCE_CONTENT" "automationDiagnosticText" "automation diagnostic text helper"
 check_contains "$SOURCE_CONTENT" "automationPolicyExplanation" "automation policy explanation helper"
 check_contains "$SOURCE_CONTENT" "automationPolicyLabel" "automation policy settings label"

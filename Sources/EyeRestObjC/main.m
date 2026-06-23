@@ -1649,6 +1649,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *automationPolicyLabel;
 @property(nonatomic, strong) NSTextField *automationLastActionLabel;
 @property(nonatomic, strong) NSView *automationStatusStripe;
+@property(nonatomic, strong) NSButton *automationDiagnosticButton;
 @property(nonatomic, strong) NSButton *focusAppResetButton;
 @property(nonatomic, strong) NSPopUpButton *menuBarModePopup;
 @property(nonatomic, strong) NSPopUpButton *restStylePopup;
@@ -1756,6 +1757,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)refreshSidebarAppearance;
 - (void)appendAutomationKeywordTemplate:(NSButton *)sender;
 - (void)openQuickSetup:(id)sender;
+- (void)copyAutomationDiagnosticFromSettings:(id)sender;
 - (void)setSelectedPageIndex:(NSInteger)pageIndex;
 - (void)exportStatsCSV:(id)sender;
 - (void)exportStatsJSON:(id)sender;
@@ -2767,7 +2769,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.autoFocusSwitch];
 
     self.focusAppMatchLabel = [NSTextField wrappingLabelWithString:@""];
-    self.focusAppMatchLabel.frame = NSMakeRect(204, 230, 380, 18);
+    self.focusAppMatchLabel.frame = NSMakeRect(204, 230, 278, 18);
     self.focusAppMatchLabel.font = [NSFont systemFontOfSize:12.5 weight:NSFontWeightSemibold];
     self.focusAppMatchLabel.maximumNumberOfLines = 1;
     self.focusAppMatchLabel.lineBreakMode = NSLineBreakByTruncatingTail;
@@ -2775,7 +2777,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.focusAppMatchLabel];
 
     self.automationPolicyLabel = [NSTextField wrappingLabelWithString:@""];
-    self.automationPolicyLabel.frame = NSMakeRect(204, 213, 380, 16);
+    self.automationPolicyLabel.frame = NSMakeRect(204, 213, 278, 16);
     self.automationPolicyLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     self.automationPolicyLabel.maximumNumberOfLines = 1;
     self.automationPolicyLabel.lineBreakMode = NSLineBreakByTruncatingTail;
@@ -2789,6 +2791,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.automationLastActionLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     self.automationLastActionLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.automationLastActionLabel];
+
+    self.automationDiagnosticButton = [NSButton buttonWithTitle:@"复制诊断" target:self action:@selector(copyAutomationDiagnosticFromSettings:)];
+    self.automationDiagnosticButton.frame = NSMakeRect(496, 222, 100, 28);
+    self.automationDiagnosticButton.bezelStyle = NSBezelStyleRounded;
+    self.automationDiagnosticButton.image = [NSImage imageWithSystemSymbolName:@"doc.on.doc" accessibilityDescription:@"复制自动化诊断"];
+    self.automationDiagnosticButton.imagePosition = NSImageLeft;
+    self.automationDiagnosticButton.toolTip = @"复制当前自动化策略诊断";
+    [card addSubview:self.automationDiagnosticButton];
 
     [card addSubview:[self captionLabel:@"场景模式" frame:NSMakeRect(38, 156, 100, 16)]];
     self.calendarFocusSwitch = [NSButton checkboxWithTitle:@"日历会议" target:self action:@selector(toggleOnly:)];
@@ -3082,6 +3092,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)openQuickSetup:(id)sender {
     [self.appDelegate showQuickSetup:sender];
     [self refreshOverview];
+}
+
+- (void)copyAutomationDiagnosticFromSettings:(id)sender {
+    [self.appDelegate copyAutomationDiagnostic:sender];
+    [self refreshAutomationStatus];
 }
 
 - (void)setSelectedPageIndex:(NSInteger)pageIndex {
@@ -3796,6 +3811,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.standIntensityHintLabel.textColor = settingsSecondaryTextColor;
     self.standCustomStagesSummaryLabel.textColor = settingsSecondaryTextColor;
     self.standCustomStagesButton.contentTintColor = theme.accent;
+    self.automationDiagnosticButton.contentTintColor = theme.accent;
     for (NSButton *button in self.overviewActionButtons) {
         button.contentTintColor = theme.accent;
     }
