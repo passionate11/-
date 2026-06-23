@@ -1464,6 +1464,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSView *actionSuggestionPill;
 @property(nonatomic, strong) NSImageView *actionSuggestionIcon;
 @property(nonatomic, strong) NSTextField *actionSuggestionLabel;
+@property(nonatomic, strong) NSView *standStagePanel;
+@property(nonatomic, strong) NSTextField *standStageEyebrowLabel;
+@property(nonatomic, strong) NSTextField *standStageCurrentLabel;
+@property(nonatomic, strong) NSTextField *standStageNextLabel;
+@property(nonatomic, strong) NSView *standStageProgressTrack;
+@property(nonatomic, strong) NSView *standStageProgressFill;
 @property(nonatomic, strong) NSArray<NSString *> *actionStageTitles;
 @property(nonatomic, strong) NSArray<NSString *> *actionStageMessages;
 @property(nonatomic, strong) NSArray<NSString *> *actionSuggestions;
@@ -3825,6 +3831,30 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.actionSuggestionLabel.maximumNumberOfLines = 2;
     [self.actionSuggestionPill addSubview:self.actionSuggestionLabel];
 
+    self.standStagePanel = ERRoundedView(NSZeroRect, [NSColor colorWithWhite:1 alpha:0.14], 18);
+    self.standStagePanel.layer.borderWidth = 1;
+    [self.focusCard addSubview:self.standStagePanel];
+
+    self.standStageEyebrowLabel = [NSTextField labelWithString:@""];
+    self.standStageEyebrowLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightSemibold];
+    [self.standStagePanel addSubview:self.standStageEyebrowLabel];
+
+    self.standStageCurrentLabel = [NSTextField wrappingLabelWithString:@""];
+    self.standStageCurrentLabel.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
+    self.standStageCurrentLabel.maximumNumberOfLines = 1;
+    [self.standStagePanel addSubview:self.standStageCurrentLabel];
+
+    self.standStageNextLabel = [NSTextField wrappingLabelWithString:@""];
+    self.standStageNextLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    self.standStageNextLabel.maximumNumberOfLines = 1;
+    [self.standStagePanel addSubview:self.standStageNextLabel];
+
+    self.standStageProgressTrack = ERRoundedView(NSZeroRect, [NSColor colorWithWhite:1 alpha:0.18], 4);
+    [self.standStagePanel addSubview:self.standStageProgressTrack];
+
+    self.standStageProgressFill = ERRoundedView(NSZeroRect, NSColor.controlAccentColor, 4);
+    [self.standStageProgressTrack addSubview:self.standStageProgressFill];
+
     self.styleHintLabel = [NSTextField labelWithString:@""];
     self.styleHintLabel.alignment = NSTextAlignmentRight;
     self.styleHintLabel.font = [NSFont systemFontOfSize:14 weight:NSFontWeightMedium];
@@ -4090,6 +4120,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.actionSuggestionPill.frame = NSMakeRect(cardCenterX - pillWidth / 2.0, suggestionY, pillWidth, 36);
     self.actionSuggestionIcon.frame = NSMakeRect(16, 8, 20, 20);
     self.actionSuggestionLabel.frame = NSMakeRect(46, 5, pillWidth - 62, 26);
+    self.standStagePanel.frame = NSMakeRect(cardCenterX - pillWidth / 2.0, buttonY + 50, pillWidth, 76);
+    self.standStageEyebrowLabel.frame = NSMakeRect(16, 54, pillWidth - 32, 16);
+    self.standStageCurrentLabel.frame = NSMakeRect(16, 33, pillWidth - 32, 17);
+    self.standStageNextLabel.frame = NSMakeRect(16, 17, pillWidth - 32, 14);
+    self.standStageProgressTrack.frame = NSMakeRect(16, 8, pillWidth - 32, 5);
+    self.standStageProgressFill.frame = NSMakeRect(0, 0, 1, 5);
     self.finishButton.frame = NSMakeRect(cardCenterX - 268, buttonY, 96, 40);
     self.snoozeButton.frame = NSMakeRect(cardCenterX - 150, buttonY, 124, 40);
     self.skipButton.frame = NSMakeRect(cardCenterX - 4, buttonY, 108, 40);
@@ -4159,6 +4195,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.actionSuggestionPill.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 18;
     self.actionSuggestionIcon.contentTintColor = theme.accent;
     self.actionSuggestionLabel.textColor = theme.foreground;
+    self.standStagePanel.layer.backgroundColor = [theme.card colorWithAlphaComponent:(style == ERRestStyleNight ? 0.16 : 0.26)].CGColor;
+    self.standStagePanel.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.72].CGColor;
+    self.standStagePanel.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 18;
+    self.standStageEyebrowLabel.textColor = theme.secondary;
+    self.standStageCurrentLabel.textColor = theme.foreground;
+    self.standStageNextLabel.textColor = theme.secondary;
+    self.standStageProgressTrack.layer.backgroundColor = [theme.cardBorder colorWithAlphaComponent:0.42].CGColor;
+    self.standStageProgressFill.layer.backgroundColor = theme.accent.CGColor;
     self.finishButton.contentTintColor = theme.accent;
     self.snoozeButton.contentTintColor = theme.accent;
     self.skipButton.contentTintColor = theme.accent;
@@ -4182,22 +4226,46 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSTimeInterval elapsed = MAX(0, self.totalDuration - MAX(0, remaining));
     CGFloat ratio = MIN(0.999, MAX(0, elapsed / MAX(1, self.totalDuration)));
     NSInteger index = MIN(count - 1, (NSInteger)floor(ratio * count));
-    if (index == self.activeSuggestionIndex) return;
-
-    self.activeSuggestionIndex = index;
+    BOOL stageChanged = index != self.activeSuggestionIndex;
     NSString *suggestion = self.actionSuggestions[index];
     NSString *stageTitle = index < self.actionStageTitles.count ? self.actionStageTitles[index] : @"建议";
-    self.actionSuggestionLabel.stringValue = [NSString stringWithFormat:@"阶段 %ld/%ld · %@ · %@",
-                                              (long)index + 1,
-                                              (long)count,
-                                              stageTitle,
-                                              suggestion];
-    if (index < self.actionStageMessages.count) {
-        self.messageLabel.stringValue = self.actionStageMessages[index];
+    NSString *nextTitle = index + 1 < self.actionStageTitles.count ? self.actionStageTitles[index + 1] : @"完成";
+    NSString *nextSuggestion = index + 1 < self.actionSuggestions.count ? self.actionSuggestions[index + 1] : @"回到桌前前，确认身体轻一点。";
+    CGFloat stageStart = (CGFloat)index / MAX(1, count);
+    CGFloat stageEnd = (CGFloat)(index + 1) / MAX(1, count);
+    CGFloat stageProgress = (ratio - stageStart) / MAX(0.001, stageEnd - stageStart);
+    stageProgress = MIN(1, MAX(0.04, stageProgress));
+
+    if (self.kind == ERReminderKindStand) {
+        self.actionSuggestionPill.hidden = YES;
+        self.progressIndicator.hidden = YES;
+        self.standStagePanel.hidden = NO;
+        self.standStageEyebrowLabel.stringValue = [NSString stringWithFormat:@"阶段 %ld/%ld · %@", (long)index + 1, (long)count, stageTitle];
+        self.standStageCurrentLabel.stringValue = [NSString stringWithFormat:@"现在：%@", suggestion];
+        self.standStageNextLabel.stringValue = [NSString stringWithFormat:@"下一步：%@ · %@", nextTitle, nextSuggestion];
+        NSRect fillFrame = self.standStageProgressTrack.bounds;
+        fillFrame.size.width = MAX(6, fillFrame.size.width * stageProgress);
+        self.standStageProgressFill.frame = fillFrame;
+    } else {
+        self.actionSuggestionPill.hidden = NO;
+        self.progressIndicator.hidden = NO;
+        self.standStagePanel.hidden = YES;
+        self.actionSuggestionLabel.stringValue = [NSString stringWithFormat:@"阶段 %ld/%ld · %@ · %@",
+                                                  (long)index + 1,
+                                                  (long)count,
+                                                  stageTitle,
+                                                  suggestion];
     }
 
-    NSString *symbolName = index < self.actionSuggestionSymbols.count ? self.actionSuggestionSymbols[index] : @"sparkles";
-    self.actionSuggestionIcon.image = [NSImage imageWithSystemSymbolName:symbolName accessibilityDescription:@"动作建议"];
+    if (stageChanged) {
+        self.activeSuggestionIndex = index;
+        if (index < self.actionStageMessages.count) {
+            self.messageLabel.stringValue = self.actionStageMessages[index];
+        }
+
+        NSString *symbolName = index < self.actionSuggestionSymbols.count ? self.actionSuggestionSymbols[index] : @"sparkles";
+        self.actionSuggestionIcon.image = [NSImage imageWithSystemSymbolName:symbolName accessibilityDescription:@"动作建议"];
+    }
 }
 
 - (void)finish:(id)sender {
