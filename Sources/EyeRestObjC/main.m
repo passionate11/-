@@ -413,6 +413,22 @@ static NSArray<NSString *> *ERDefaultFocusAppTokens(void) {
         @"com.microsoft.teams", @"com.microsoft.teams2", @"teams",
         @"com.bytedance.feishu", @"com.larksuite.lark", @"feishu", @"lark", @"飞书",
         @"com.alibaba.dingtalkmac", @"dingtalk", @"钉钉",
+        @"com.cisco.webexmeetingsapp", @"webex",
+        @"com.skype.skype", @"skype",
+        @"com.apple.iwork.keynote", @"keynote",
+        @"com.microsoft.powerpoint", @"powerpoint",
+        @"com.obsproject.obs-studio", @"obs",
+        @"com.apple.facetime", @"facetime"
+    ];
+}
+
+static NSArray<NSString *> *ERLegacyDefaultFocusAppTokens(void) {
+    return @[
+        @"us.zoom.xos", @"zoom",
+        @"com.tencent.meeting", @"com.tencent.wemeet", @"腾讯会议", @"voov",
+        @"com.microsoft.teams", @"com.microsoft.teams2", @"teams",
+        @"com.bytedance.feishu", @"com.larksuite.lark", @"feishu", @"lark", @"飞书",
+        @"com.alibaba.dingtalkmac", @"dingtalk", @"钉钉",
         @"com.apple.iwork.keynote", @"keynote",
         @"com.microsoft.powerpoint", @"powerpoint",
         @"com.obsproject.obs-studio", @"obs",
@@ -421,6 +437,17 @@ static NSArray<NSString *> *ERDefaultFocusAppTokens(void) {
 }
 
 static NSArray<NSString *> *ERDefaultAutoPauseAppTokens(void) {
+    return @[
+        @"com.apple.quicktimeplayerx", @"quicktime",
+        @"com.colliderli.iina", @"iina",
+        @"org.videolan.vlc", @"vlc",
+        @"com.movist.mac", @"movist",
+        @"com.plexapp.plex", @"plex",
+        @"steam", @"epic games", @"battle.net", @"riot client", @"league of legends"
+    ];
+}
+
+static NSArray<NSString *> *ERLegacyDefaultAutoPauseAppTokens(void) {
     return @[
         @"com.apple.quicktimeplayerx", @"quicktime",
         @"com.colliderli.iina", @"iina",
@@ -436,11 +463,28 @@ static NSArray<NSString *> *ERDefaultIgnoreAppTokens(void) {
 static NSArray<NSString *> *ERDefaultCalendarFocusTokens(void) {
     return @[
         @"会议", @"meeting", @"同步", @"sync", @"站会", @"standup",
+        @"评审", @"review", @"1:1", @"one on one", @"周会", @"例会",
+        @"复盘", @"retrospective", @"planning"
+    ];
+}
+
+static NSArray<NSString *> *ERLegacyDefaultCalendarFocusTokens(void) {
+    return @[
+        @"会议", @"meeting", @"同步", @"sync", @"站会", @"standup",
         @"评审", @"review", @"1:1", @"one on one"
     ];
 }
 
 static NSArray<NSString *> *ERDefaultCalendarAutoPauseTokens(void) {
+    return @[
+        @"录制", @"直播", @"演讲", @"演示", @"presentation", @"面试",
+        @"interview", @"讲座", @"webinar", @"路演", @"workshop",
+        @"录屏", @"recording", @"live", @"streaming", @"宣讲",
+        @"答辩", @"defense", @"考试", @"exam"
+    ];
+}
+
+static NSArray<NSString *> *ERLegacyDefaultCalendarAutoPauseTokens(void) {
     return @[
         @"录制", @"直播", @"演讲", @"演示", @"presentation", @"面试",
         @"interview", @"讲座", @"webinar", @"路演", @"workshop"
@@ -535,6 +579,15 @@ static NSArray<NSString *> *ERSanitizedFocusAppTokensFromObject(id object) {
         [tokens addObject:token];
     }
     return tokens;
+}
+
+static NSArray<NSString *> *ERUpgradedAutomationTokensIfUncustomized(NSArray<NSString *> *tokens, NSArray<NSString *> *legacyTokens, NSArray<NSString *> *currentTokens) {
+    NSArray<NSString *> *sanitizedTokens = ERSanitizedFocusAppTokensFromObject(tokens);
+    NSArray<NSString *> *sanitizedLegacyTokens = ERSanitizedFocusAppTokensFromObject(legacyTokens);
+    if ([sanitizedTokens isEqualToArray:sanitizedLegacyTokens]) {
+        return ERSanitizedFocusAppTokensFromObject(currentTokens);
+    }
+    return sanitizedTokens;
 }
 
 static NSString *ERJoinedFocusTokensByAppendingToken(NSString *existingText, NSString *token) {
@@ -1037,10 +1090,10 @@ static void ERAddStyleMotifLayers(CALayer *hostLayer, NSRect bounds, ERRestStyle
 
 static ERTheme ERThemeForStyle(ERRestStyle style) {
     ERTheme theme;
-    theme.settingsBackground = ERColor(0.952, 0.958, 0.968, 1);
-    theme.settingsHeader = ERColor(0.940, 0.948, 0.960, 0.86);
+    theme.settingsBackground = ERColor(0.964, 0.967, 0.974, 1);
+    theme.settingsHeader = ERColor(0.946, 0.950, 0.958, 0.72);
     theme.card = NSColor.whiteColor;
-    theme.cardBorder = ERColor(0.74, 0.77, 0.82, 0.56);
+    theme.cardBorder = ERColor(0.74, 0.77, 0.82, 0.46);
     theme.backgroundA = ERColor(0.88, 0.93, 0.96, 1);
     theme.backgroundB = ERColor(0.70, 0.84, 0.90, 1);
     theme.foreground = NSColor.labelColor;
@@ -1056,10 +1109,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             theme.accent = ERColor(0.10, 0.55, 0.62, 1);
             break;
         case ERRestStyleForest:
-            theme.settingsBackground = ERColor(0.948, 0.960, 0.950, 1);
-            theme.settingsHeader = ERColor(0.928, 0.944, 0.930, 0.86);
+            theme.settingsBackground = ERColor(0.962, 0.970, 0.963, 1);
+            theme.settingsHeader = ERColor(0.940, 0.952, 0.942, 0.70);
             theme.card = ERColor(0.992, 0.998, 0.990, 1);
-            theme.cardBorder = ERColor(0.68, 0.76, 0.66, 0.58);
+            theme.cardBorder = ERColor(0.68, 0.76, 0.66, 0.46);
             theme.backgroundA = ERColor(0.08, 0.27, 0.18, 1);
             theme.backgroundB = ERColor(0.34, 0.55, 0.30, 1);
             theme.foreground = NSColor.whiteColor;
@@ -1067,10 +1120,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             theme.accent = ERColor(0.78, 0.96, 0.68, 1);
             break;
         case ERRestStylePixel:
-            theme.settingsBackground = ERColor(0.948, 0.956, 0.972, 1);
-            theme.settingsHeader = ERColor(0.930, 0.942, 0.962, 0.88);
+            theme.settingsBackground = ERColor(0.960, 0.965, 0.976, 1);
+            theme.settingsHeader = ERColor(0.938, 0.948, 0.966, 0.72);
             theme.card = ERColor(0.990, 0.994, 1.00, 1);
-            theme.cardBorder = ERColor(0.56, 0.63, 0.74, 0.60);
+            theme.cardBorder = ERColor(0.56, 0.63, 0.74, 0.48);
             theme.backgroundA = ERColor(0.31, 0.64, 0.88, 1);
             theme.backgroundB = ERColor(0.82, 0.93, 0.98, 1);
             theme.accent = ERColor(0.15, 0.29, 0.55, 1);
@@ -1078,10 +1131,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             theme.pixel = YES;
             break;
         case ERRestStyleToy:
-            theme.settingsBackground = ERColor(0.970, 0.956, 0.964, 1);
-            theme.settingsHeader = ERColor(0.955, 0.938, 0.950, 0.88);
+            theme.settingsBackground = ERColor(0.976, 0.966, 0.972, 1);
+            theme.settingsHeader = ERColor(0.958, 0.944, 0.954, 0.72);
             theme.card = ERColor(1.00, 0.990, 0.996, 1);
-            theme.cardBorder = ERColor(0.86, 0.68, 0.74, 0.58);
+            theme.cardBorder = ERColor(0.86, 0.68, 0.74, 0.46);
             theme.backgroundA = ERColor(1.00, 0.70, 0.78, 1);
             theme.backgroundB = ERColor(0.70, 0.85, 1.00, 1);
             theme.accent = ERColor(0.86, 0.24, 0.43, 1);
@@ -1200,12 +1253,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     settings.focusAppTokens = ERSanitizedFocusAppTokensFromObject(focusTokensObject);
     if (!hasFocusTokens) {
         settings.focusAppTokens = ERDefaultFocusAppTokens();
+    } else {
+        settings.focusAppTokens = ERUpgradedAutomationTokensIfUncustomized(settings.focusAppTokens, ERLegacyDefaultFocusAppTokens(), ERDefaultFocusAppTokens());
     }
     BOOL hasAutoPauseTokens = ERDefaultsHasPersistentValue(defaults, ERSettingsAutoPauseAppTokensKey);
     id autoPauseTokensObject = [defaults objectForKey:ERSettingsAutoPauseAppTokensKey];
     settings.autoPauseAppTokens = ERSanitizedFocusAppTokensFromObject(autoPauseTokensObject);
     if (!hasAutoPauseTokens) {
         settings.autoPauseAppTokens = ERDefaultAutoPauseAppTokens();
+    } else {
+        settings.autoPauseAppTokens = ERUpgradedAutomationTokensIfUncustomized(settings.autoPauseAppTokens, ERLegacyDefaultAutoPauseAppTokens(), ERDefaultAutoPauseAppTokens());
     }
     BOOL hasIgnoreTokens = ERDefaultsHasPersistentValue(defaults, ERSettingsIgnoreAppTokensKey);
     id ignoreTokensObject = [defaults objectForKey:ERSettingsIgnoreAppTokensKey];
@@ -1218,12 +1275,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     settings.calendarFocusTokens = ERSanitizedFocusAppTokensFromObject(calendarFocusTokensObject);
     if (!hasCalendarFocusTokens) {
         settings.calendarFocusTokens = ERDefaultCalendarFocusTokens();
+    } else {
+        settings.calendarFocusTokens = ERUpgradedAutomationTokensIfUncustomized(settings.calendarFocusTokens, ERLegacyDefaultCalendarFocusTokens(), ERDefaultCalendarFocusTokens());
     }
     BOOL hasCalendarAutoPauseTokens = ERDefaultsHasPersistentValue(defaults, ERSettingsCalendarAutoPauseTokensKey);
     id calendarAutoPauseTokensObject = [defaults objectForKey:ERSettingsCalendarAutoPauseTokensKey];
     settings.calendarAutoPauseTokens = ERSanitizedFocusAppTokensFromObject(calendarAutoPauseTokensObject);
     if (!hasCalendarAutoPauseTokens) {
         settings.calendarAutoPauseTokens = ERDefaultCalendarAutoPauseTokens();
+    } else {
+        settings.calendarAutoPauseTokens = ERUpgradedAutomationTokensIfUncustomized(settings.calendarAutoPauseTokens, ERLegacyDefaultCalendarAutoPauseTokens(), ERDefaultCalendarAutoPauseTokens());
     }
 
     if (settings.eyeFocusSeconds <= 0) {
@@ -1941,7 +2002,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     NSView *content = [[NSView alloc] initWithFrame:frame];
     content.wantsLayer = YES;
-    content.layer.backgroundColor = ERColor(0.952, 0.958, 0.968, 1).CGColor;
+    content.layer.backgroundColor = ERColor(0.964, 0.967, 0.974, 1).CGColor;
     window.contentView = content;
     self.contentView = content;
     self.fieldLabels = @[];
@@ -1969,7 +2030,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.sidebarDividerView.wantsLayer = YES;
     [content addSubview:self.sidebarDividerView positioned:NSWindowAbove relativeTo:header];
 
-    self.sidebarBrandBadge = ERRoundedView(NSMakeRect(24, 512, 46, 46), [NSColor colorWithWhite:1 alpha:0.58], 12);
+    self.sidebarBrandBadge = ERRoundedView(NSMakeRect(24, 512, 44, 44), [NSColor colorWithWhite:1 alpha:0.50], 11);
     self.sidebarBrandBadge.layer.borderWidth = 1;
     self.sidebarBrandBadge.layer.shadowOpacity = 0.035;
     self.sidebarBrandBadge.layer.shadowRadius = 10;
@@ -1977,39 +2038,39 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.sidebarBrandBadge.layer.masksToBounds = NO;
     [header addSubview:self.sidebarBrandBadge];
 
-    self.sidebarBrandIcon = [[NSImageView alloc] initWithFrame:NSMakeRect(11, 11, 24, 24)];
+    self.sidebarBrandIcon = [[NSImageView alloc] initWithFrame:NSMakeRect(10, 10, 24, 24)];
     self.sidebarBrandIcon.image = [NSImage imageWithSystemSymbolName:@"leaf" accessibilityDescription:ERBrandName];
     self.sidebarBrandIcon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:21 weight:NSFontWeightSemibold];
     [self.sidebarBrandBadge addSubview:self.sidebarBrandIcon];
 
     NSTextField *title = [NSTextField labelWithString:ERBrandName];
-    title.frame = NSMakeRect(82, 535, 126, 22);
-    title.font = [NSFont systemFontOfSize:18 weight:NSFontWeightSemibold];
+    title.frame = NSMakeRect(82, 536, 126, 22);
+    title.font = [NSFont systemFontOfSize:17 weight:NSFontWeightSemibold];
     [header addSubview:title];
     self.titleLabel = title;
 
     NSTextField *subtitle = [NSTextField labelWithString:@"护眼 · 站立 · 专注"];
-    subtitle.frame = NSMakeRect(82, 513, 128, 18);
-    subtitle.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
+    subtitle.frame = NSMakeRect(82, 515, 128, 18);
+    subtitle.font = [NSFont systemFontOfSize:11.5 weight:NSFontWeightMedium];
     [header addSubview:subtitle];
     self.sidebarSubtitleLabel = subtitle;
 
-    self.sidebarSummaryCard = ERRoundedView(NSMakeRect(22, 422, 188, 76), [NSColor colorWithWhite:1 alpha:0.40], 12);
+    self.sidebarSummaryCard = ERRoundedView(NSMakeRect(22, 422, 188, 74), [NSColor colorWithWhite:1 alpha:0.30], 10);
     self.sidebarSummaryCard.layer.borderWidth = 1;
     self.sidebarSummaryCard.layer.masksToBounds = NO;
     [header addSubview:self.sidebarSummaryCard];
 
-    self.sidebarSummaryAccentView = ERRoundedView(NSMakeRect(14, 54, 34, 3), NSColor.controlAccentColor, 1.5);
+    self.sidebarSummaryAccentView = ERRoundedView(NSMakeRect(14, 53, 30, 2), NSColor.controlAccentColor, 1);
     [self.sidebarSummaryCard addSubview:self.sidebarSummaryAccentView];
 
     self.sidebarEyebrowLabel = [NSTextField labelWithString:@"今日节奏"];
-    self.sidebarEyebrowLabel.frame = NSMakeRect(14, 38, 150, 16);
-    self.sidebarEyebrowLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
+    self.sidebarEyebrowLabel.frame = NSMakeRect(14, 37, 150, 16);
+    self.sidebarEyebrowLabel.font = [NSFont systemFontOfSize:10.5 weight:NSFontWeightSemibold];
     [self.sidebarSummaryCard addSubview:self.sidebarEyebrowLabel];
 
     self.summaryLabel = [NSTextField labelWithString:@""];
-    self.summaryLabel.frame = NSMakeRect(14, 8, 164, 28);
-    self.summaryLabel.font = [NSFont monospacedDigitSystemFontOfSize:11.5 weight:NSFontWeightMedium];
+    self.summaryLabel.frame = NSMakeRect(14, 8, 164, 27);
+    self.summaryLabel.font = [NSFont monospacedDigitSystemFontOfSize:11 weight:NSFontWeightMedium];
     self.summaryLabel.textColor = NSColor.secondaryLabelColor;
     [self.sidebarSummaryCard addSubview:self.summaryLabel];
 
@@ -2054,28 +2115,28 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMutableArray *navTitleLabels = [NSMutableArray arrayWithCapacity:navTitles.count];
     NSMutableArray *navIconViews = [NSMutableArray arrayWithCapacity:navTitles.count];
     for (NSInteger index = 0; index < navTitles.count; index++) {
-        NSView *selection = ERRoundedView(NSMakeRect(14, 341 - index * 36, 204, 32), NSColor.clearColor, 8);
+        NSView *selection = ERRoundedView(NSMakeRect(14, 341 - index * 36, 204, 31), NSColor.clearColor, 7);
         selection.layer.masksToBounds = NO;
         [header addSubview:selection];
         [selectionViews addObject:selection];
 
-        NSView *indicator = ERRoundedView(NSMakeRect(9, 8, 3, 16), NSColor.clearColor, 1.5);
+        NSView *indicator = ERRoundedView(NSMakeRect(10, 8, 3, 15), NSColor.clearColor, 1.5);
         [selection addSubview:indicator];
         [indicatorViews addObject:indicator];
 
-        NSView *iconBadge = ERRoundedView(NSMakeRect(22, 5, 22, 22), [NSColor colorWithWhite:1 alpha:0.0], 6);
+        NSView *iconBadge = ERRoundedView(NSMakeRect(24, 5, 21, 21), [NSColor colorWithWhite:1 alpha:0.0], 5);
         [selection addSubview:iconBadge];
         [iconBadgeViews addObject:iconBadge];
 
-        NSImageView *navIcon = [[NSImageView alloc] initWithFrame:NSMakeRect(3, 3, 16, 16)];
+        NSImageView *navIcon = [[NSImageView alloc] initWithFrame:NSMakeRect(3, 3, 15, 15)];
         navIcon.image = [NSImage imageWithSystemSymbolName:navIcons[index] accessibilityDescription:navTitles[index]];
-        navIcon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:14 weight:NSFontWeightMedium];
+        navIcon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:13 weight:NSFontWeightMedium];
         [iconBadge addSubview:navIcon];
         [navIconViews addObject:navIcon];
 
         NSTextField *navTitle = [NSTextField labelWithString:navTitles[index]];
-        navTitle.frame = NSMakeRect(54, 7, 126, 18);
-        navTitle.font = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
+        navTitle.frame = NSMakeRect(56, 7, 126, 18);
+        navTitle.font = [NSFont systemFontOfSize:12.5 weight:NSFontWeightMedium];
         [selection addSubview:navTitle];
         [navTitleLabels addObject:navTitle];
 
@@ -2198,29 +2259,29 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     sub.maximumNumberOfLines = 2;
     [view addSubview:sub];
 
-    NSView *accent = ERRoundedView(NSMakeRect(54, 383, 64, 3), NSColor.controlAccentColor, 1.5);
+    NSView *accent = ERRoundedView(NSMakeRect(54, 384, 28, 2), NSColor.controlAccentColor, 1);
     [view addSubview:accent];
     self.pageAccentViews = [self.pageAccentViews arrayByAddingObject:accent] ?: @[accent];
 
-    NSView *iconBadge = ERRoundedView(NSMakeRect(0, 380, 42, 42), [NSColor colorWithWhite:1 alpha:0.48], 10);
+    NSView *iconBadge = ERRoundedView(NSMakeRect(2, 382, 38, 38), [NSColor colorWithWhite:1 alpha:0.42], 9);
     iconBadge.layer.borderWidth = 1;
     [view addSubview:iconBadge];
 
-    NSImageView *icon = [[NSImageView alloc] initWithFrame:NSMakeRect(9, 9, 24, 24)];
+    NSImageView *icon = [[NSImageView alloc] initWithFrame:NSMakeRect(8, 8, 22, 22)];
     icon.image = [NSImage imageWithSystemSymbolName:symbolName accessibilityDescription:titleText];
-    icon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:22 weight:NSFontWeightSemibold];
+    icon.symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:20 weight:NSFontWeightSemibold];
     [iconBadge addSubview:icon];
     self.pageIconBadgeViews = [self.pageIconBadgeViews arrayByAddingObject:iconBadge] ?: @[iconBadge];
     self.pageIconViews = [self.pageIconViews arrayByAddingObject:icon] ?: @[icon];
 
     NSView *card = ERRoundedView(NSMakeRect(0, 0, 648, 306), NSColor.whiteColor, 12);
-    card.layer.borderColor = ERColor(0.82, 0.84, 0.88, 0.42).CGColor;
+    card.layer.borderColor = ERColor(0.82, 0.84, 0.88, 0.34).CGColor;
     card.layer.borderWidth = 1;
     card.layer.masksToBounds = NO;
     card.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:0.12].CGColor;
-    card.layer.shadowOpacity = 0.026;
-    card.layer.shadowRadius = 12;
-    card.layer.shadowOffset = CGSizeMake(0, -4);
+    card.layer.shadowOpacity = 0.014;
+    card.layer.shadowRadius = 8;
+    card.layer.shadowOffset = CGSizeMake(0, -2);
     [view addSubview:card];
     return view;
 }
@@ -4132,10 +4193,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"title": @"会议协作",
             @"tip": @"追加 Zoom/腾讯会议/Teams/飞书/钉钉和会议日程词",
             @"fieldTokens": @[
-                @[@"us.zoom.xos", @"zoom", @"com.tencent.meeting", @"腾讯会议", @"com.microsoft.teams", @"teams", @"com.bytedance.feishu", @"飞书", @"com.alibaba.dingtalkmac", @"钉钉"],
+                @[@"us.zoom.xos", @"zoom", @"com.tencent.meeting", @"腾讯会议", @"com.microsoft.teams", @"teams", @"com.bytedance.feishu", @"飞书", @"com.alibaba.dingtalkmac", @"钉钉", @"com.cisco.webexmeetingsapp", @"webex", @"com.skype.skype", @"skype"],
                 @[],
                 @[],
-                @[@"会议", @"meeting", @"同步", @"sync", @"站会", @"standup", @"评审", @"review"],
+                @[@"会议", @"meeting", @"同步", @"sync", @"站会", @"standup", @"评审", @"review", @"周会", @"例会", @"复盘", @"retrospective", @"planning"],
                 @[]
             ]
         },
@@ -4144,21 +4205,21 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"tip": @"追加播放器、游戏平台和直播/观影日程词",
             @"fieldTokens": @[
                 @[],
-                @[@"com.apple.quicktimeplayerx", @"quicktime", @"com.colliderli.iina", @"iina", @"org.videolan.vlc", @"vlc", @"steam", @"epic games"],
+                @[@"com.apple.quicktimeplayerx", @"quicktime", @"com.colliderli.iina", @"iina", @"org.videolan.vlc", @"vlc", @"com.movist.mac", @"movist", @"com.plexapp.plex", @"plex", @"steam", @"epic games", @"battle.net", @"riot client", @"league of legends"],
                 @[],
                 @[],
-                @[@"直播", @"观影", @"电影", @"webinar"]
+                @[@"直播", @"观影", @"电影", @"webinar", @"live", @"streaming"]
             ]
         },
         @{
             @"title": @"录制面试",
             @"tip": @"追加 OBS/Keynote/PowerPoint 和录制、面试、演讲日程词",
             @"fieldTokens": @[
-                @[@"com.obsproject.obs-studio", @"obs", @"com.apple.iwork.keynote", @"keynote", @"com.microsoft.powerpoint", @"powerpoint"],
+                @[@"com.obsproject.obs-studio", @"obs", @"com.telestream.screenflow", @"screenflow", @"com.techsmith.camtasia", @"camtasia", @"com.apple.iwork.keynote", @"keynote", @"com.microsoft.powerpoint", @"powerpoint"],
                 @[],
                 @[],
                 @[],
-                @[@"录制", @"演讲", @"演示", @"presentation", @"面试", @"interview", @"讲座", @"workshop"]
+                @[@"录制", @"录屏", @"recording", @"演讲", @"演示", @"presentation", @"面试", @"interview", @"讲座", @"workshop", @"宣讲", @"答辩", @"defense", @"考试", @"exam"]
             ]
         }
     ];
@@ -6998,13 +7059,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"issueBundle=%@\n\n"
             @"v0.1.45 自动化真实体验补强\n"
             @"status=implemented-with-diagnostics\n"
-            @"evidence=automationPolicyExplanation,automationLastActionLabel,automationDiagnosticText,section=automation-policy,automation_policy_readiness.sh\n"
+            @"evidence=automationPolicyExplanation,automationLastActionLabel,automationDiagnosticText,section=automation-policy,automation_keyword_catalog,automation_policy_readiness.sh\n"
             @"currentPolicy=%@\n"
-            @"nextCheck=运行 automation_policy_readiness.sh --strict，或复制自动化诊断/问题反馈包，确认最终动作、命中原因、最近动作和建议下一步都能读懂。\n\n"
+            @"currentKeywordCatalog=会议协作(Webex/Skype/周会/例会/复盘)、视频游戏(Movist/Plex/Battle.net/Riot)、录制面试(ScreenFlow/Camtasia/录屏/答辩/考试)\n"
+            @"nextCheck=运行 automation_policy_readiness.sh --strict，或复制自动化诊断/问题反馈包，确认最终动作、命中原因、最近动作、推荐模板和建议下一步都能读懂。\n\n"
             @"v0.1.46 设置页继续打磨\n"
             @"status=implemented-polish-pass\n"
-            @"evidence=944x592-settings-window,sidebarDividerView,overviewActionButtonShells,pageIconBadgeViews,stylePreviewMotif\n"
-            @"currentWindow=设置页使用系统选中行、透明分组行、更低主卡片阴影、克制主题底色和轻按钮概览操作条。\n"
+            @"evidence=944x592-settings-window,sidebarDividerView,softContentBackground,compactSidebarControls,quietPageHeader,overviewActionButtonShells,pageIconBadgeViews,stylePreviewMotif\n"
+            @"currentWindow=设置页使用系统选中行、透明分组行、更低主卡片阴影、柔和主题底色、紧凑侧栏和更克制的页面标题区。\n"
             @"nextCheck=必要时只打开设置页截图，不跑全屏冒烟，重点看夜间/像素/玩具风格文字是否清楚。\n\n"
             @"v0.1.47 分发和长期维护\n"
             @"status=implemented-release-readiness\n"
