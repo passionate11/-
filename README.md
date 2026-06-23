@@ -89,6 +89,7 @@ scripts/package_app.sh
 
 ```text
 dist/songyixia-<version>-<build>.zip
+dist/songyixia-<version>-<build>.zip.sha256
 ```
 
 解压后得到 `松一下.app`。
@@ -97,7 +98,7 @@ GitHub Actions 也会上传同名构建 artifact，方便直接下载测试。
 
 应用版本号来自仓库根目录的 `VERSION` 文件，构建号可通过 `BUILD_NUMBER` 环境变量覆盖。
 
-打包前会重新构建并签名，CI 会验证 zip 解压后的 `松一下.app` 仍然通过 `codesign --verify --deep --strict`。
+打包前会重新构建并签名，CI 会验证 zip 解压后的 `松一下.app` 仍然通过 `codesign --verify --deep --strict`，并校验同名 `.sha256` 文件与 zip 内容一致。
 
 版本更新内容见 [CHANGELOG.md](CHANGELOG.md)。
 
@@ -116,7 +117,7 @@ git tag v$(cat VERSION)
 git push origin v$(cat VERSION)
 ```
 
-GitHub Actions 会在 `v*` 标签上再次运行发布前检查，并把 `dist/songyixia-<version>-<build>.zip` 上传到 GitHub Releases。标签版本必须和 `VERSION` 完全一致。
+GitHub Actions 会在 `v*` 标签上再次运行发布前检查，并把 `dist/songyixia-<version>-<build>.zip` 和同名 `.sha256` 上传到 GitHub Releases。标签版本必须和 `VERSION` 完全一致。
 
 ## 运行
 
@@ -191,7 +192,7 @@ scripts/preflight_release.sh
 scripts/release_readiness.sh
 ```
 
-脚本只读地汇总版本、git 状态、发布 zip、已构建/已安装 App、签名、Gatekeeper、GitHub Release workflow 和自动更新当前方案；`scripts/release_readiness.sh --strict` 会在关键失败时返回非零，适合发版前留存一份不打扰工作的检查快照。
+脚本只读地汇总版本、git 状态、发布 zip、SHA256 校验、已构建/已安装 App、签名、Gatekeeper、GitHub Release workflow 和自动更新当前方案；`scripts/release_readiness.sh --strict` 会在关键失败时返回非零，适合发版前留存一份不打扰工作的检查快照。
 
 ## 公证准备检查
 
@@ -375,6 +376,7 @@ songyixia://diagnostics/calendar-live
 - 分发维护方案：菜单栏可复制当前 Release 发布方式、安装状态、正式签名/公证计划和自动更新评估，让 v0.1.47 的长期维护路径更明确。
 - 发布就绪检查：新增只读脚本汇总版本、git/tag、zip、App bundle、签名、Gatekeeper、Release workflow 和自动更新方案，CI 发布前也会跑 strict 检查。
 - 公证准备检查：新增 dry-run 公证脚本，先验证 zip、notarytool、签名和 Gatekeeper；有 Developer ID 与 Apple 凭据后可显式提交 notarytool。
+- 发布包校验：打包时生成 `songyixia-*.zip.sha256`，发布前检查和发布就绪检查都会验证 checksum，GitHub artifact 和 Release 一起上传。
 
 ### 下一批优先级
 

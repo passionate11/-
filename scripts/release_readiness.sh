@@ -6,6 +6,12 @@ APP_TARGET="${APP_TARGET:-/Applications/松一下.app}"
 ARCHIVE_PATH="${ARCHIVE_PATH:-}"
 STRICT=0
 
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  [[ "${LC_ALL:-}" == "C.UTF-8" ]] && export LC_ALL="en_US.UTF-8"
+  [[ "${LC_CTYPE:-}" == "C.UTF-8" ]] && export LC_CTYPE="en_US.UTF-8"
+  [[ "${LANG:-}" == "C.UTF-8" || -z "${LANG:-}" ]] && export LANG="en_US.UTF-8"
+fi
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'HELP'
 Usage:
@@ -26,6 +32,7 @@ EXPECTED_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION" 2>/dev/null || true)
 if [[ -z "$ARCHIVE_PATH" && -n "$EXPECTED_VERSION" ]]; then
   ARCHIVE_PATH="$(ls -t "$ROOT_DIR"/dist/songyixia-"$EXPECTED_VERSION"-*.zip 2>/dev/null | head -n 1 || true)"
 fi
+CHECKSUM_PATH="${CHECKSUM_PATH:-$ARCHIVE_PATH.sha256}"
 
 FAILURES=0
 WARNINGS=0
@@ -74,6 +81,7 @@ print_kv "Checked at" "$(date '+%Y-%m-%d %H:%M:%S %z')"
 print_kv "Version file" "${EXPECTED_VERSION:-missing}"
 print_kv "App target" "$APP_TARGET"
 print_kv "Archive" "${ARCHIVE_PATH:-missing}"
+print_kv "Checksum" "${CHECKSUM_PATH:-missing}"
 print_kv "Release page" "https://github.com/passionate11/-/releases/latest"
 
 print_section "Git"
@@ -111,6 +119,15 @@ if [[ -n "$ARCHIVE_PATH" && -s "$ARCHIVE_PATH" ]]; then
     ok "Archive icon"
   else
     fail_check "Archive icon" "missing AppIcon.icns"
+  fi
+  if [[ -n "$CHECKSUM_PATH" && -s "$CHECKSUM_PATH" ]]; then
+    if (cd "$(dirname "$ARCHIVE_PATH")" && shasum -a 256 -c "$(basename "$CHECKSUM_PATH")" >/dev/null 2>&1); then
+      ok "Archive checksum"
+    else
+      fail_check "Archive checksum" "sha256 file does not match archive"
+    fi
+  else
+    fail_check "Archive checksum" "missing ${CHECKSUM_PATH:-checksum file}"
   fi
 else
   fail_check "Archive exists" "run scripts/preflight_release.sh or scripts/package_app.sh first"

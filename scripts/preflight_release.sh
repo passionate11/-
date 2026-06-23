@@ -9,6 +9,12 @@ EXPECTED_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
 SOURCE_FILE="$ROOT_DIR/Sources/EyeRestObjC/main.m"
 SMOKE_FILE="$ROOT_DIR/scripts/smoke_test.sh"
 
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  [[ "${LC_ALL:-}" == "C.UTF-8" ]] && export LC_ALL="en_US.UTF-8"
+  [[ "${LC_CTYPE:-}" == "C.UTF-8" ]] && export LC_CTYPE="en_US.UTF-8"
+  [[ "${LANG:-}" == "C.UTF-8" || -z "${LANG:-}" ]] && export LANG="en_US.UTF-8"
+fi
+
 cd "$ROOT_DIR"
 
 fail() {
@@ -147,10 +153,13 @@ check_contains "$README_CONTENT" "正式签名/公证计划" "distribution signi
 check_contains "$README_CONTENT" "发布就绪检查" "release readiness docs"
 check_contains "$README_CONTENT" "更新资源直达" "direct update asset docs"
 check_contains "$(cat scripts/release_readiness.sh)" "ready for current GitHub zip flow" "release readiness summary"
+check_contains "$(cat scripts/release_readiness.sh)" "Archive checksum" "release readiness checksum guard"
+check_contains "$(cat scripts/package_app.sh)" "shasum -a 256" "package checksum generation"
 check_contains "$(cat scripts/notarize_release.sh)" "NOTARIZE_SUBMIT=1" "notarization submit guard"
 check_contains "$(cat scripts/notarize_release.sh)" "xcrun notarytool submit" "notarization submit command"
 check_contains "$(cat scripts/notarize_release.sh)" "ready for dry-run plan" "notarization dry-run summary"
 check_contains "$README_CONTENT" "公证准备检查" "notarization readiness docs"
+check_contains "$README_CONTENT" "zip.sha256" "release checksum docs"
 check_contains "$README_CONTENT" "v0.1.45 自动化真实体验补强" "next roadmap docs"
 check_contains "$SOURCE_CONTENT" "ERSettingsQuickSetupSeenKey" "quick setup seen preference"
 check_contains "$SOURCE_CONTENT" "快速配置..." "quick setup menu"
@@ -399,7 +408,13 @@ grep -q "## $EXPECTED_VERSION" CHANGELOG.md || fail "CHANGELOG.md missing $EXPEC
 
 echo "==> Packaging app"
 ARCHIVE="$(scripts/package_app.sh)"
+CHECKSUM="$ARCHIVE.sha256"
 [[ -s "$ARCHIVE" ]] || fail "archive was not created"
+[[ -s "$CHECKSUM" ]] || fail "archive checksum was not created"
+(
+  cd "$(dirname "$ARCHIVE")"
+  shasum -a 256 -c "$(basename "$CHECKSUM")" >/dev/null
+) || fail "archive checksum mismatch"
 ZIP_LIST="$(unzip -l "$ARCHIVE")"
 [[ "$ZIP_LIST" == *"Contents/MacOS/EyeRest"* ]] || fail "archive missing executable"
 [[ "$ZIP_LIST" == *"Contents/Resources/AppIcon.icns"* ]] || fail "archive missing icon"
@@ -421,5 +436,6 @@ PACKAGED_DIAGNOSE_OUTPUT="$(APP_TARGET="$TMPDIR_RELEASE/松一下.app" scripts/d
 echo "==> Verifying release readiness"
 READINESS_OUTPUT="$(APP_TARGET="$APP_BUNDLE" ARCHIVE_PATH="$ARCHIVE" scripts/release_readiness.sh --strict)"
 [[ "$READINESS_OUTPUT" == *"Readiness:"*"ready for current GitHub zip flow"* ]] || fail "release readiness did not pass current zip flow"
+[[ "$READINESS_OUTPUT" == *"Archive checksum:"*"ok"* ]] || fail "release readiness did not verify checksum"
 
 echo "==> Preflight passed: $ARCHIVE"

@@ -33,4 +33,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: songyixia-macos
-          path: dist/songyixia-*.zip
+          path: |
+            dist/songyixia-*.zip
+            dist/songyixia-*.zip.sha256

@@ -36,4 +36,6 @@ jobs:
         with:
           name: 松一下 ${{ github.ref_name }}
           body_path: CHANGELOG.md
-          files: dist/songyixia-*.zip
+          files: |
+            dist/songyixia-*.zip
+            dist/songyixia-*.zip.sha256
