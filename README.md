@@ -26,6 +26,7 @@
 - 设置窗口默认打开 `今日概览`，用顶部状态带和双计时卡片展示眼睛/站立下一次提醒、今日完成数据、当前模式和下一步建议，并可直接开始眼睛休息、站立、暂停 30 分钟、复制问题反馈包或打开快速配置。
 - 眼睛休息和站立提醒设置页也带有顶部摘要，能先看当前节奏、动作组合和强度，再细调分钟/秒。
 - 设置页侧栏带有应用徽章、紧凑节奏摘要、底部版本信息和更轻的 macOS 列表导航；右侧页面标题带原生图标徽章与主题强调线，主卡片使用浅阴影与轻量分区，优先保证清爽可读。
+- 设置窗口分栏继续精修：侧栏宽度、右侧内容区、底部操作区和概览快捷操作条重新对齐，透明点击层保留可点性，自绘轻按钮底减少旧式按钮感。
 - 到点可弹出休息页，并发送系统通知；默认不强制置顶，点击卡片外背景或切到其他 App 时会让开，需要严格打断时可开启置顶强提醒。
 - 支持多种整体风格：极简呼吸、松弛森林、像素窗边、软糖玩具、夜间护眼。
 - 风格会同时影响设置窗口和全屏休息页。
@@ -204,6 +205,14 @@ scripts/notarize_release.sh
 
 脚本默认只做 dry-run，检查发布 zip、notarytool、解包后的 App、签名和 Gatekeeper 状态，不会联系 Apple。准备好 Developer ID 和 Apple 凭据后，可以用 `NOTARIZE_SUBMIT=1 APPLE_ID=... APPLE_TEAM_ID=... APPLE_APP_PASSWORD=... scripts/notarize_release.sh` 提交公证；当前 GitHub zip 流程仍可在没有这些凭据时正常发布。
 
+## SwiftUI 迁移准备检查
+
+```bash
+scripts/swiftui_migration_readiness.sh
+```
+
+脚本只读地比较当前 Objective-C/AppKit 版本和 `Sources/EyeRest/main.swift` SwiftUI 草稿，列出双计时、设置页、恢复、自动化、统计、更新/反馈等迁移缺口。当前结论会明确标记为 `prototype only`，避免误把 SwiftUI 草稿当成可替换的正式版本。
+
 ## 本机诊断
 
 ```bash
@@ -373,6 +382,7 @@ songyixia://diagnostics/calendar-live
 - 设置页主题降噪：主卡片减少大面积图案层，像素/玩具只保留轻量点缀，避免主题装饰压过设置内容。
 - 设置页标题图标：右侧每个设置页都有跟随主题色的原生图标徽章，让二级页面更像同一套 macOS 小工具。
 - 设置页品牌化标题：左侧增加应用徽章，导航改成透明点击层加自绘图标文字，右侧标题增加主题强调线，减少按钮框和工程面板感。
+- 设置页分栏精修：设置窗口扩大到 920px，侧栏分隔线、节奏摘要阴影、列表选中态和概览快捷操作条统一成更轻的 macOS 设置面板风格。
 - 产品化反馈闭环：关于窗口、检查更新、下载页、问题反馈和问题反馈包串成一条普通用户能走完的链路。
 - 更新资源直达：检查更新会解析 GitHub Release assets，优先打开 `songyixia-*.zip` 的直接下载链接，减少用户在发布页里找文件。
 - 分发维护方案：菜单栏可复制当前 Release 发布方式、安装状态、正式签名/公证计划和自动更新评估，让 v0.1.47 的长期维护路径更明确。
@@ -380,6 +390,7 @@ songyixia://diagnostics/calendar-live
 - 公证准备检查：新增 dry-run 公证脚本，先验证 zip、notarytool、签名和 Gatekeeper；有 Developer ID 与 Apple 凭据后可显式提交 notarytool。
 - 发布包校验：打包时生成 `songyixia-*.zip.sha256`，发布前检查和发布就绪检查都会验证 checksum，GitHub artifact 和 Release 一起上传。
 - 发布说明生成：新增 Release Notes 脚本，把下载文件、SHA256、安装步骤、本次更新和反馈入口整理成用户可读的 GitHub Release 正文。
+- SwiftUI 迁移准备：新增只读迁移检查脚本，明确 SwiftUI 草稿仍是 prototype，并列出正式切换前必须补齐的功能缺口。
 
 ### 下一批优先级
 

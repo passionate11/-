@@ -2,6 +2,8 @@
 
 ## main
 
+- 设置窗口继续精修：窗口加宽到 920px，侧栏、右侧内容和底部操作区重新对齐，概览快捷操作改为自绘轻按钮底，整体更接近 macOS 设置面板。
+- 新增 `scripts/swiftui_migration_readiness.sh`，只读评估 SwiftUI 草稿和当前 Objective-C/AppKit 版本的功能差距，明确 SwiftUI 版本仍是 prototype，避免误切换。
 - 新增 `scripts/generate_release_notes.sh`，发布前生成面向用户的 GitHub Release 正文，包含下载文件、SHA256、安装步骤、本次更新和反馈入口。
 - 打包流程新增 `songyixia-*.zip.sha256`，发布前检查和发布就绪检查会验证 checksum，GitHub artifact 和 Release 会一起上传校验文件。
 - `检查更新...` 会解析 GitHub Release assets，发现新版时优先提供 `songyixia-*.zip` 直接下载入口，找不到 zip 时再回退到发布页。
