@@ -1762,6 +1762,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSString *)productSupportSummaryText;
 - (NSString *)installGuideText;
 - (NSString *)distributionPlanText;
+- (NSString *)roadmapStatusText;
 - (void)copyRecoveryDiagnostic:(id)sender;
 - (void)copyApplicationDiagnostic:(id)sender;
 - (void)copyDisplayDiagnostic:(id)sender;
@@ -1771,6 +1772,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)copyIssueBundleDiagnostic:(id)sender;
 - (void)copyInstallGuide:(id)sender;
 - (void)copyDistributionPlan:(id)sender;
+- (void)copyRoadmapStatus:(id)sender;
 - (void)restEyeNow:(id)sender;
 - (void)restStandNow:(id)sender;
 - (void)pauseForSeconds:(NSTimeInterval)seconds;
@@ -5594,6 +5596,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"复制恢复问题报告", ERAutomationURLString(@"diagnostics/recovery-report")],
         @[@"复制问题反馈包", ERAutomationURLString(@"diagnostics/issue-bundle")],
         @[@"复制完整排查包", ERAutomationURLString(@"diagnostics/support-bundle")],
+        @[@"复制路线图状态", ERAutomationURLString(@"diagnostics/roadmap-status")],
         @[@"运行显示变化追踪自检", ERAutomationURLString(@"diagnostics/display-change-trace")],
         @[@"运行真实显示环境自检", ERAutomationURLString(@"diagnostics/display-live")],
         @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")],
@@ -5717,6 +5720,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMenuItem *distributionPlan = [[NSMenuItem alloc] initWithTitle:@"复制分发维护方案" action:@selector(copyDistributionPlan:) keyEquivalent:@""];
     distributionPlan.target = self;
     [self.menu addItem:distributionPlan];
+
+    NSMenuItem *roadmapStatus = [[NSMenuItem alloc] initWithTitle:@"复制路线图状态" action:@selector(copyRoadmapStatus:) keyEquivalent:@""];
+    roadmapStatus.target = self;
+    [self.menu addItem:roadmapStatus];
 
     NSMenuItem *feedback = [[NSMenuItem alloc] initWithTitle:@"反馈问题..." action:@selector(openIssueFeedback:) keyEquivalent:@""];
     feedback.target = self;
@@ -6474,6 +6481,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [sections addObject:[NSString stringWithFormat:@"- 设置窗口恢复压测：%@", ERAutomationURLString(@"diagnostics/settings-window")]];
     [sections addObject:[NSString stringWithFormat:@"- 自动化诊断：%@", ERAutomationURLString(@"automation/diagnostic")]];
     [sections addObject:[NSString stringWithFormat:@"- 真实日历诊断：%@", ERAutomationURLString(@"diagnostics/calendar-real")]];
+    [sections addObject:[NSString stringWithFormat:@"- 路线图状态：%@", ERAutomationURLString(@"diagnostics/roadmap-status")]];
     [sections addObject:@""];
     [sections addObject:@"--- 应用诊断 ---"];
     [sections addObject:@"section=application"];
@@ -6502,6 +6510,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [sections addObject:@"--- 日历诊断 ---"];
     [sections addObject:@"section=calendar"];
     [sections addObject:[self calendarDiagnosticText]];
+    [sections addObject:@""];
+    [sections addObject:@"--- 路线图状态 ---"];
+    [sections addObject:@"section=roadmap-status"];
+    [sections addObject:[self roadmapStatusText]];
     return [sections componentsJoinedByString:@"\n"];
 }
 
@@ -6539,6 +6551,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [sections addObject:@"## 自动化策略结论"];
     [sections addObject:@"section=automation-policy"];
     [sections addObject:[self automationPolicyExplanation][@"diagnostic"] ?: @"暂无自动化策略结论。"];
+    [sections addObject:@""];
+    [sections addObject:@"## 路线图状态"];
+    [sections addObject:@"section=roadmap-status"];
+    [sections addObject:[self roadmapStatusText]];
     [sections addObject:@""];
     [sections addObject:@"## 完整排查信息"];
     [sections addObject:@"section=support-bundle"];
@@ -6630,6 +6646,69 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             ERLatestReleaseURLString,
             ERGitHubURLString,
             ERBrandName];
+}
+
+- (NSString *)roadmapStatusText {
+    NSBundle *bundle = NSBundle.mainBundle;
+    NSDictionary *info = bundle.infoDictionary;
+    NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"未知";
+    NSString *build = [info[@"CFBundleVersion"] isKindOfClass:NSString.class] ? info[@"CFBundleVersion"] : @"未知";
+    NSString *bundlePath = bundle.bundlePath ?: @"未知";
+    NSDictionary<NSString *, NSString *> *automationPolicy = [self automationPolicyExplanation];
+    NSString *automationDiagnostic = automationPolicy[@"diagnostic"] ?: @"暂无自动化策略结论。";
+    NSString *installState = [bundlePath isEqualToString:@"/Applications/松一下.app"]
+        ? @"standard-applications"
+        : @"nonstandard-location";
+    NSString *restOverlayState = self.restWindowController.window
+        ? (self.restWindowController.window.visible ? @"visible" : @"hidden")
+        : @"none";
+    return [NSString stringWithFormat:
+            @"%@ 后续路线图状态\n"
+            @"roadmapStatus=1\n"
+            @"version=%@(%@)\n"
+            @"installState=%@\n"
+            @"generatedAt=%@\n"
+            @"installPath=%@\n"
+            @"releasePage=%@\n"
+            @"issueBundle=%@\n\n"
+            @"v0.1.45 自动化真实体验补强\n"
+            @"status=implemented-with-diagnostics\n"
+            @"evidence=automationPolicyExplanation,automationLastActionLabel,automationDiagnosticText,section=automation-policy\n"
+            @"currentPolicy=%@\n"
+            @"nextCheck=复制自动化诊断或问题反馈包，确认最终动作/命中原因/最近动作都能读懂。\n\n"
+            @"v0.1.46 设置页继续打磨\n"
+            @"status=implemented-polish-pass\n"
+            @"evidence=920x592-settings-window,sidebarDividerView,overviewActionButtonShells,pageIconBadgeViews,stylePreviewMotif\n"
+            @"currentWindow=设置页使用左侧导航、节奏摘要、右侧图标标题、浅阴影主卡片和轻按钮概览操作条。\n"
+            @"nextCheck=必要时只打开设置页截图，不跑全屏冒烟，重点看夜间/像素/玩具风格文字是否清楚。\n\n"
+            @"v0.1.47 分发和长期维护\n"
+            @"status=implemented-release-readiness\n"
+            @"evidence=release_readiness.sh,notarize_release.sh,swiftui_migration_readiness.sh,zip.sha256,generate_release_notes.sh\n"
+            @"currentDistribution=GitHub Release zip + SHA256 + 手动检查更新；Developer ID/公证/Sparkle 仍按方案推进。\n"
+            @"nextCheck=发布前保留 preflight、release_readiness、diagnose_app 输出。\n\n"
+            @"当前运行状态\n"
+            @"eye=%@ stand=%@ pause=%@ restOverlay=%@ topmost=%@ lightDistraction=%@\n"
+            @"automation=%@\n\n"
+            @"推荐下一步\n"
+            @"- 若继续做产品体验：优先做设置页截图和具体页面微调。\n"
+            @"- 若准备发版：跑 scripts/preflight_release.sh，再用 scripts/release_readiness.sh --strict 留存快照。\n"
+            @"- 若准备公开分发：先补 Developer ID 签名和 notarytool 公证，再评估 Sparkle。",
+            ERBrandName,
+            version,
+            build,
+            installState,
+            ERFormatClockTime(NSDate.date),
+            bundlePath,
+            ERLatestReleaseURLString,
+            ERAutomationURLString(@"diagnostics/issue-bundle"),
+            automationDiagnostic,
+            self.settings.eyeEnabled ? @"on" : @"off",
+            self.settings.standEnabled ? @"on" : @"off",
+            self.paused ? @"on" : @"off",
+            restOverlayState,
+            self.settings.restWindowTopmost ? @"on" : @"off",
+            [self isLightDistractionModeActive] ? @"on" : @"off",
+            [self focusModeStatusText]];
 }
 
 - (void)evaluateReminderKind:(ERReminderKind)kind {
@@ -7335,6 +7414,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [pasteboard clearContents];
     [pasteboard setString:[self distributionPlanText] forType:NSPasteboardTypeString];
     [self noteRecoveryEventTitle:@"分发维护" detail:@"已复制分发维护方案"];
+    [self publishState];
+}
+
+- (void)copyRoadmapStatus:(id)sender {
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:[self roadmapStatusText] forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"路线图" detail:@"已复制路线图状态"];
     [self publishState];
 }
 
@@ -9494,6 +9581,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"support-bundle"] || [argument isEqualToString:@"support"] || [argument isEqualToString:@"bundle"] || [argument isEqualToString:@"full"]) {
             [self copySupportBundleDiagnostic:nil];
             detail = @"复制完整排查包";
+        } else if ([argument isEqualToString:@"roadmap-status"] || [argument isEqualToString:@"roadmap"] || [argument isEqualToString:@"todo"]) {
+            [self copyRoadmapStatus:nil];
+            detail = @"复制路线图状态";
         } else if ([argument isEqualToString:@"display-change-trace"] || [argument isEqualToString:@"display-trace"] || [argument isEqualToString:@"screen-change-trace"]) {
             [self runDisplayChangeTraceSelfCheck:nil];
             detail = @"运行显示变化追踪自检";
@@ -9582,6 +9672,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"- 恢复问题报告：%@", ERAutomationURLString(@"diagnostics/recovery-report")]];
     [lines addObject:[NSString stringWithFormat:@"- 恢复矩阵套件：%@", ERAutomationURLString(@"diagnostics/recovery-matrix-suite")]];
     [lines addObject:[NSString stringWithFormat:@"- 完整排查包：%@", ERAutomationURLString(@"diagnostics/support-bundle")]];
+    [lines addObject:[NSString stringWithFormat:@"- 路线图状态：%@", ERAutomationURLString(@"diagnostics/roadmap-status")]];
     [lines addObject:[NSString stringWithFormat:@"- 显示变化追踪自检：%@", ERAutomationURLString(@"diagnostics/display-change-trace")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实显示环境自检：%@", ERAutomationURLString(@"diagnostics/display-live")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实演示联动自检：%@", ERAutomationURLString(@"diagnostics/presentation-live")]];

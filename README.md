@@ -18,6 +18,7 @@
 - 菜单栏支持显示恢复压测，可模拟外接屏断开或多显示器切换后休息页跑到屏幕外的场景。
 - 菜单栏支持设置窗口恢复压测，可模拟设置页落在旧屏幕外并验证自动回到当前可见屏幕。
 - 菜单栏可复制显示环境诊断，记录当前屏幕组合、上次屏幕变化前后摘要、休息页窗口、设置窗口和窗口层级。
+- 菜单栏可复制路线图状态，把 v0.1.45-0.1.47 的完成证据、当前运行状态和下一步检查整理成不打扰工作的文字快照。
 - 菜单栏可运行显示变化追踪自检，不用真实拔插显示器也能验证屏幕变化记录链路。
 - 菜单栏可运行真实显示环境自检，记录当前屏幕组合并验证休息页在真实显示器上贴合与重排。
 - 支持暂停、立即眼睛休息、立即站立、重新开始全部计时。
@@ -196,6 +197,14 @@ scripts/release_readiness.sh
 ```
 
 脚本只读地汇总版本、git 状态、发布 zip、SHA256 校验、已构建/已安装 App、签名、Gatekeeper、GitHub Release workflow 和自动更新当前方案；`scripts/release_readiness.sh --strict` 会在关键失败时返回非零，适合发版前留存一份不打扰工作的检查快照。
+
+## 路线图状态检查
+
+```bash
+scripts/roadmap_status.sh
+```
+
+脚本只读地检查当前 todo 证据，覆盖 v0.1.45 自动化体验、v0.1.46 设置页打磨和 v0.1.47 分发维护。App 菜单里的 `复制路线图状态` 和 `songyixia://diagnostics/roadmap-status` 会复制同类状态快照，并会进入问题反馈包和完整排查包。
 
 ## 公证准备检查
 
@@ -386,6 +395,7 @@ songyixia://diagnostics/calendar-live
 - 产品化反馈闭环：关于窗口、检查更新、下载页、问题反馈和问题反馈包串成一条普通用户能走完的链路。
 - 更新资源直达：检查更新会解析 GitHub Release assets，优先打开 `songyixia-*.zip` 的直接下载链接，减少用户在发布页里找文件。
 - 分发维护方案：菜单栏可复制当前 Release 发布方式、安装状态、正式签名/公证计划和自动更新评估，让 v0.1.47 的长期维护路径更明确。
+- 路线图状态：菜单栏可复制 v0.1.45-0.1.47 的完成证据、当前运行状态和推荐下一步；脚本版 `scripts/roadmap_status.sh` 可在不启动 App 的情况下做同类检查。
 - 发布就绪检查：新增只读脚本汇总版本、git/tag、zip、App bundle、签名、Gatekeeper、Release workflow 和自动更新方案，CI 发布前也会跑 strict 检查。
 - 公证准备检查：新增 dry-run 公证脚本，先验证 zip、notarytool、签名和 Gatekeeper；有 Developer ID 与 Apple 凭据后可显式提交 notarytool。
 - 发布包校验：打包时生成 `songyixia-*.zip.sha256`，发布前检查和发布就绪检查都会验证 checksum，GitHub artifact 和 Release 一起上传。

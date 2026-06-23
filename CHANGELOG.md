@@ -2,6 +2,7 @@
 
 ## main
 
+- 菜单栏新增 `复制路线图状态`，同时新增 `scripts/roadmap_status.sh`，可只读汇总 v0.1.45-0.1.47 的完成证据、下一步检查和当前运行状态，并接入问题反馈包/完整排查包。
 - 设置窗口继续精修：窗口加宽到 920px，侧栏、右侧内容和底部操作区重新对齐，概览快捷操作改为自绘轻按钮底，整体更接近 macOS 设置面板。
 - 新增 `scripts/swiftui_migration_readiness.sh`，只读评估 SwiftUI 草稿和当前 Objective-C/AppKit 版本的功能差距，明确 SwiftUI 版本仍是 prototype，避免误切换。
 - 新增 `scripts/generate_release_notes.sh`，发布前生成面向用户的 GitHub Release 正文，包含下载文件、SHA256、安装步骤、本次更新和反馈入口。
