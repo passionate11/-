@@ -18,6 +18,7 @@ jobs:
         run: |
           bash -n scripts/build_app.sh
           bash -n scripts/diagnose_app.sh
+          bash -n scripts/generate_release_notes.sh
           bash -n scripts/generate_icon.sh
           bash -n scripts/install_app.sh
           bash -n scripts/notarize_release.sh
@@ -36,3 +37,4 @@ jobs:
           path: |
             dist/songyixia-*.zip
             dist/songyixia-*.zip.sha256
+            dist/release-notes-*.md

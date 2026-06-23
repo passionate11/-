@@ -17,10 +17,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Verify tag version
+        id: version
         run: |
           version="$(cat VERSION)"
           tag="${GITHUB_REF_NAME#v}"
           test "$tag" = "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Release preflight
         run: scripts/preflight_release.sh
@@ -31,11 +33,14 @@ jobs:
       - name: Notarization readiness
         run: scripts/notarize_release.sh
 
+      - name: Generate release notes
+        run: scripts/generate_release_notes.sh
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           name: 松一下 ${{ github.ref_name }}
-          body_path: CHANGELOG.md
+          body_path: dist/release-notes-${{ steps.version.outputs.version }}.md
           files: |
             dist/songyixia-*.zip
             dist/songyixia-*.zip.sha256

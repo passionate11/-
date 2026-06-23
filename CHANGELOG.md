@@ -2,6 +2,7 @@
 
 ## main
 
+- 新增 `scripts/generate_release_notes.sh`，发布前生成面向用户的 GitHub Release 正文，包含下载文件、SHA256、安装步骤、本次更新和反馈入口。
 - 打包流程新增 `songyixia-*.zip.sha256`，发布前检查和发布就绪检查会验证 checksum，GitHub artifact 和 Release 会一起上传校验文件。
 - `检查更新...` 会解析 GitHub Release assets，发现新版时优先提供 `songyixia-*.zip` 直接下载入口，找不到 zip 时再回退到发布页。
 - 新增 `scripts/notarize_release.sh` 公证准备脚本，默认 dry-run 检查发布 zip、notarytool、签名和 Gatekeeper；设置 `NOTARIZE_SUBMIT=1` 并提供 Apple 凭据后可提交公证。

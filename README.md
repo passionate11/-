@@ -117,7 +117,7 @@ git tag v$(cat VERSION)
 git push origin v$(cat VERSION)
 ```
 
-GitHub Actions 会在 `v*` 标签上再次运行发布前检查，并把 `dist/songyixia-<version>-<build>.zip` 和同名 `.sha256` 上传到 GitHub Releases。标签版本必须和 `VERSION` 完全一致。
+GitHub Actions 会在 `v*` 标签上再次运行发布前检查，生成面向用户的 Release Notes，并把 `dist/songyixia-<version>-<build>.zip` 和同名 `.sha256` 上传到 GitHub Releases。标签版本必须和 `VERSION` 完全一致。
 
 ## 运行
 
@@ -185,6 +185,8 @@ scripts/preflight_release.sh
 ```
 
 脚本会构建、签名、诊断、检查版本和 changelog、打包 zip、解包后再次校验签名与包内容。GitHub Actions 也使用同一套检查，避免本地发布和 CI 校验不一致。
+
+发布前检查还会生成 `dist/release-notes-<version>.md`，包含下载文件、SHA256、安装步骤、本次更新和反馈入口，避免 GitHub Release 正文直接塞完整 changelog。
 
 ## 发布就绪检查
 
@@ -377,6 +379,7 @@ songyixia://diagnostics/calendar-live
 - 发布就绪检查：新增只读脚本汇总版本、git/tag、zip、App bundle、签名、Gatekeeper、Release workflow 和自动更新方案，CI 发布前也会跑 strict 检查。
 - 公证准备检查：新增 dry-run 公证脚本，先验证 zip、notarytool、签名和 Gatekeeper；有 Developer ID 与 Apple 凭据后可显式提交 notarytool。
 - 发布包校验：打包时生成 `songyixia-*.zip.sha256`，发布前检查和发布就绪检查都会验证 checksum，GitHub artifact 和 Release 一起上传。
+- 发布说明生成：新增 Release Notes 脚本，把下载文件、SHA256、安装步骤、本次更新和反馈入口整理成用户可读的 GitHub Release 正文。
 
 ### 下一批优先级
 

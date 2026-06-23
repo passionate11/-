@@ -39,6 +39,7 @@ plist_value() {
 echo "==> Checking shell scripts"
 bash -n scripts/build_app.sh
 bash -n scripts/diagnose_app.sh
+bash -n scripts/generate_release_notes.sh
 bash -n scripts/generate_icon.sh
 bash -n scripts/install_app.sh
 bash -n scripts/notarize_release.sh
@@ -155,6 +156,8 @@ check_contains "$README_CONTENT" "更新资源直达" "direct update asset docs"
 check_contains "$(cat scripts/release_readiness.sh)" "ready for current GitHub zip flow" "release readiness summary"
 check_contains "$(cat scripts/release_readiness.sh)" "Archive checksum" "release readiness checksum guard"
 check_contains "$(cat scripts/package_app.sh)" "shasum -a 256" "package checksum generation"
+check_contains "$(cat scripts/generate_release_notes.sh)" "SHA256" "release notes checksum section"
+check_contains "$(cat scripts/generate_release_notes.sh)" "## 安装" "release notes install section"
 check_contains "$(cat scripts/notarize_release.sh)" "NOTARIZE_SUBMIT=1" "notarization submit guard"
 check_contains "$(cat scripts/notarize_release.sh)" "xcrun notarytool submit" "notarization submit command"
 check_contains "$(cat scripts/notarize_release.sh)" "ready for dry-run plan" "notarization dry-run summary"
@@ -437,5 +440,13 @@ echo "==> Verifying release readiness"
 READINESS_OUTPUT="$(APP_TARGET="$APP_BUNDLE" ARCHIVE_PATH="$ARCHIVE" scripts/release_readiness.sh --strict)"
 [[ "$READINESS_OUTPUT" == *"Readiness:"*"ready for current GitHub zip flow"* ]] || fail "release readiness did not pass current zip flow"
 [[ "$READINESS_OUTPUT" == *"Archive checksum:"*"ok"* ]] || fail "release readiness did not verify checksum"
+
+echo "==> Generating release notes"
+NOTES_PATH="$(scripts/generate_release_notes.sh)"
+[[ -s "$NOTES_PATH" ]] || fail "release notes were not created"
+NOTES_CONTENT="$(< "$NOTES_PATH")"
+check_contains "$NOTES_CONTENT" "SHA256" "release notes checksum"
+check_contains "$NOTES_CONTENT" "$EXPECTED_VERSION" "release notes version"
+check_contains "$NOTES_CONTENT" "$(basename "$ARCHIVE")" "release notes archive name"
 
 echo "==> Preflight passed: $ARCHIVE"
