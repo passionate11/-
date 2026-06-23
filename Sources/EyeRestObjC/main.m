@@ -9228,6 +9228,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             NSString *latestVersion = nil;
             NSString *releaseName = nil;
             NSString *releaseURLString = ERLatestReleaseURLString;
+            NSString *downloadURLString = nil;
+            NSString *downloadAssetName = nil;
 
             if (!error && data.length > 0) {
                 id object = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
@@ -9237,6 +9239,24 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                     latestVersion = [[tag ?: @"" stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"vV"]];
                     releaseName = [release[@"name"] isKindOfClass:NSString.class] ? release[@"name"] : nil;
                     releaseURLString = [release[@"html_url"] isKindOfClass:NSString.class] ? release[@"html_url"] : ERLatestReleaseURLString;
+                    NSArray *assets = [release[@"assets"] isKindOfClass:NSArray.class] ? release[@"assets"] : @[];
+                    for (id item in assets) {
+                        if (![item isKindOfClass:NSDictionary.class]) continue;
+                        NSDictionary *asset = (NSDictionary *)item;
+                        NSString *name = [asset[@"name"] isKindOfClass:NSString.class] ? asset[@"name"] : @"";
+                        NSString *url = [asset[@"browser_download_url"] isKindOfClass:NSString.class] ? asset[@"browser_download_url"] : nil;
+                        if (url.length == 0) continue;
+                        NSString *lowerName = name.lowercaseString;
+                        if ([lowerName hasPrefix:@"songyixia-"] && [lowerName hasSuffix:@".zip"]) {
+                            downloadURLString = url;
+                            downloadAssetName = name;
+                            break;
+                        }
+                        if (!downloadURLString && [lowerName hasSuffix:@".zip"]) {
+                            downloadURLString = url;
+                            downloadAssetName = name.length > 0 ? name : @"zip";
+                        }
+                    }
                 }
             }
 
@@ -9263,14 +9283,20 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             NSInteger compare = ERCompareVersionStrings(currentVersion, latestVersion);
             if (compare < 0) {
                 alert.messageText = @"发现新版本";
-                alert.informativeText = [NSString stringWithFormat:@"当前版本 %@，最新版本 %@%@。", currentVersion, latestVersion, releaseName.length > 0 ? [NSString stringWithFormat:@"（%@）", releaseName] : @""];
-                [alert addButtonWithTitle:@"打开下载页"];
+                NSString *assetText = downloadAssetName.length > 0 ? [NSString stringWithFormat:@"\n可直接下载：%@", downloadAssetName] : @"";
+                alert.informativeText = [NSString stringWithFormat:@"当前版本 %@，最新版本 %@%@。%@", currentVersion, latestVersion, releaseName.length > 0 ? [NSString stringWithFormat:@"（%@）", releaseName] : @"", assetText];
+                [alert addButtonWithTitle:downloadURLString.length > 0 ? @"下载 zip" : @"打开下载页"];
+                [alert addButtonWithTitle:@"打开发布页"];
                 [alert addButtonWithTitle:@"稍后"];
-                if ([alert runModal] == NSAlertFirstButtonReturn) {
+                NSModalResponse response = [alert runModal];
+                if (response == NSAlertFirstButtonReturn) {
+                    NSURL *url = [NSURL URLWithString:downloadURLString.length > 0 ? downloadURLString : releaseURLString];
+                    if (url) [NSWorkspace.sharedWorkspace openURL:url];
+                } else if (response == NSAlertSecondButtonReturn) {
                     NSURL *url = [NSURL URLWithString:releaseURLString];
                     if (url) [NSWorkspace.sharedWorkspace openURL:url];
                 }
-                [self noteRecoveryEventTitle:@"更新" detail:[NSString stringWithFormat:@"发现 %@", latestVersion]];
+                [self noteRecoveryEventTitle:@"更新" detail:[NSString stringWithFormat:@"发现 %@%@", latestVersion, downloadAssetName.length > 0 ? [NSString stringWithFormat:@" · %@", downloadAssetName] : @""]];
             } else {
                 alert.messageText = @"已经是最新版本";
                 alert.informativeText = [NSString stringWithFormat:@"当前版本 %@，GitHub 最新版本 %@。", currentVersion, latestVersion];

@@ -128,7 +128,7 @@ open outputs/EyeRest.app
 
 菜单栏里的 `关于 松一下...` 会显示当前版本、构建号、安装位置、GitHub 仓库入口和最新下载页，也可以直接复制版本信息。
 
-菜单栏里的 `检查更新...` 会检查 GitHub 最新 Release，并在发现新版时提示打开下载页。
+菜单栏里的 `检查更新...` 会检查 GitHub 最新 Release；发现新版时会优先识别 `songyixia-*.zip` 下载资源并提供直接下载，找不到资源时再打开发布页。
 
 菜单栏里的 `复制分发维护方案` 会把当前版本、安装位置、Release 发布方式、正式签名/公证方案和自动更新评估复制出来，方便做发布决策或留存维护记录。
 
@@ -150,7 +150,7 @@ open outputs/EyeRest.app
 
 1. 打开 [GitHub Releases](https://github.com/passionate11/-/releases/latest) 下载最新 `songyixia-<version>-<build>.zip`。
 2. 解压得到 `松一下.app`，拖入 `/Applications` 覆盖旧版本。
-3. 打开菜单栏 `关于 松一下...` 确认版本，或用 `检查更新...` 查看 GitHub 最新版本。
+3. 打开菜单栏 `关于 松一下...` 确认版本，或用 `检查更新...` 查看 GitHub 最新版本；有新版时可直接打开 zip 下载。
 4. 反馈问题时先复制问题反馈包，再点 `反馈问题...` 打开预填好的 Issue。
 
 菜单栏里的 `置顶强提醒` 默认关闭。关闭时，休息窗口保持普通层级，不会长期压在其他 App 前面；点击休息页卡片空白、背景，或切到其他 App 时会让它隐藏。打开后，休息页会用更强的置顶层级提醒你离屏。
@@ -371,6 +371,7 @@ songyixia://diagnostics/calendar-live
 - 设置页标题图标：右侧每个设置页都有跟随主题色的原生图标徽章，让二级页面更像同一套 macOS 小工具。
 - 设置页品牌化标题：左侧增加应用徽章，导航改成透明点击层加自绘图标文字，右侧标题增加主题强调线，减少按钮框和工程面板感。
 - 产品化反馈闭环：关于窗口、检查更新、下载页、问题反馈和问题反馈包串成一条普通用户能走完的链路。
+- 更新资源直达：检查更新会解析 GitHub Release assets，优先打开 `songyixia-*.zip` 的直接下载链接，减少用户在发布页里找文件。
 - 分发维护方案：菜单栏可复制当前 Release 发布方式、安装状态、正式签名/公证计划和自动更新评估，让 v0.1.47 的长期维护路径更明确。
 - 发布就绪检查：新增只读脚本汇总版本、git/tag、zip、App bundle、签名、Gatekeeper、Release workflow 和自动更新方案，CI 发布前也会跑 strict 检查。
 - 公证准备检查：新增 dry-run 公证脚本，先验证 zip、notarytool、签名和 Gatekeeper；有 Developer ID 与 Apple 凭据后可显式提交 notarytool。

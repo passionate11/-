@@ -2,6 +2,7 @@
 
 ## main
 
+- `检查更新...` 会解析 GitHub Release assets，发现新版时优先提供 `songyixia-*.zip` 直接下载入口，找不到 zip 时再回退到发布页。
 - 新增 `scripts/notarize_release.sh` 公证准备脚本，默认 dry-run 检查发布 zip、notarytool、签名和 Gatekeeper；设置 `NOTARIZE_SUBMIT=1` 并提供 Apple 凭据后可提交公证。
 - 新增 `scripts/release_readiness.sh` 发布就绪检查，只读汇总版本、git/tag、zip、App bundle、签名、Gatekeeper、Release workflow 和自动更新当前方案，并接入发布前检查与 Release workflow。
 - 菜单栏新增 `复制分发维护方案`，可整理当前 Release 发布方式、安装状态、正式签名/公证计划和自动更新评估，让 v0.1.47 的长期维护路线更清楚。
