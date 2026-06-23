@@ -6938,7 +6938,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"1. 保持 Release zip、安装说明、反馈包和检查更新链路稳定。\n"
             @"2. 准备 Developer ID 证书和 notarytool 密钥，先在 CI secret 里 dry-run。\n"
             @"3. 增加公证后的 Gatekeeper 验证，再决定是否接 Sparkle 自动更新。\n"
-            @"4. 每次发布前保留 preflight 输出和 diagnose 输出，方便回溯。",
+            @"4. 每次发布前运行 scripts/capture_release_evidence.sh，统一保留 preflight、readiness、roadmap 和 diagnose 输出，方便回溯。",
             ERBrandName,
             version,
             build,
@@ -6984,9 +6984,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"nextCheck=必要时只打开设置页截图，不跑全屏冒烟，重点看夜间/像素/玩具风格文字是否清楚。\n\n"
             @"v0.1.47 分发和长期维护\n"
             @"status=implemented-release-readiness\n"
-            @"evidence=release_readiness.sh,notarize_release.sh,auto_update_readiness.sh,swiftui_migration_readiness.sh,zip.sha256,generate_release_notes.sh\n"
+            @"evidence=release_readiness.sh,notarize_release.sh,auto_update_readiness.sh,swiftui_migration_readiness.sh,capture_release_evidence.sh,zip.sha256,generate_release_notes.sh\n"
             @"currentDistribution=GitHub Release zip + SHA256 + 手动检查更新；Developer ID/公证/Sparkle 仍按方案推进。\n"
-            @"nextCheck=发布前保留 preflight、release_readiness、diagnose_app 输出。\n\n"
+            @"nextCheck=发布前运行 capture_release_evidence.sh，保留 preflight、release_readiness、auto_update_readiness、roadmap_status、diagnose_app 输出。\n\n"
             @"当前运行状态\n"
             @"eye=%@ stand=%@ pause=%@ restOverlay=%@ topmost=%@ lightDistraction=%@\n"
             @"automation=%@\n\n"
@@ -6997,8 +6997,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"verify=P1:scripts/settings_visual_readiness.sh --strict；必要时只做设置窗口截图，不跑全屏冒烟。\n"
             @"P2 自动化配置验证：用推荐模板、当前应用、当前日程各走一遍关键词弹窗，确认只追加去重、不覆盖已有配置。\n"
             @"verify=P2:scripts/automation_policy_readiness.sh --strict + 复制自动化诊断。\n"
-            @"P3 发布留存：发版前保留 preflight、release_readiness、auto_update_readiness 和 diagnose_app 输出。\n"
-            @"verify=P3:scripts/preflight_release.sh + scripts/release_readiness.sh --strict + scripts/auto_update_readiness.sh --strict。\n"
+            @"P3 发布留存：发版前运行 scripts/capture_release_evidence.sh，生成 dist/release-evidence-* 证据包。\n"
+            @"verify=P3:scripts/capture_release_evidence.sh + scripts/preflight_release.sh + scripts/release_readiness.sh --strict + scripts/auto_update_readiness.sh --strict。\n"
             @"defer=Developer ID 签名、公证、Sparkle 自动更新；这些只在公开分发前推进。",
             ERBrandName,
             version,

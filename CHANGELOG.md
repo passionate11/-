@@ -2,6 +2,7 @@
 
 ## main
 
+- 新增 `scripts/capture_release_evidence.sh` 发布证据包脚本，发版前可一次性留存 preflight、release readiness、auto-update readiness、roadmap、settings/automation readiness 和安装诊断输出。
 - 设置页侧栏继续去灰框：透明点击层降到近乎不可见，导航改成自绘选中竖条、图标底和更轻的原生列表高亮，节奏摘要增加主题强调线。
 - 路线图状态新增 `nextActionPlan=1` 下一步行动清单，把继续迭代拆成 P1 设置页截图微调、P2 自动化配置验证和 P3 发布留存，并强调低打扰验证。
 - 安装更新说明继续产品化：复制出的说明和 Release Notes 都会列出建议 zip、同名 sha256、退出旧版本、覆盖安装、版本确认和问题反馈包入口。

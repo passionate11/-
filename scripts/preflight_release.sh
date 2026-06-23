@@ -39,6 +39,7 @@ plist_value() {
 echo "==> Checking shell scripts"
 bash -n scripts/automation_policy_readiness.sh
 bash -n scripts/build_app.sh
+bash -n scripts/capture_release_evidence.sh
 bash -n scripts/diagnose_app.sh
 bash -n scripts/auto_update_readiness.sh
 bash -n scripts/generate_release_notes.sh
@@ -178,7 +179,12 @@ check_contains "$README_CONTENT" "复制安装更新说明" "install guide docs"
 check_contains "$README_CONTENT" "分发维护方案" "distribution plan docs"
 check_contains "$README_CONTENT" "正式签名/公证计划" "distribution signing docs"
 check_contains "$README_CONTENT" "发布就绪检查" "release readiness docs"
+check_contains "$README_CONTENT" "发布证据包" "release evidence docs"
 check_contains "$README_CONTENT" "更新资源直达" "direct update asset docs"
+check_contains "$(cat scripts/capture_release_evidence.sh)" "releaseEvidence=1" "release evidence manifest marker"
+check_contains "$(cat scripts/capture_release_evidence.sh)" "doesNotRun=full-screen smoke test" "release evidence low disruption guard"
+check_contains "$(cat scripts/capture_release_evidence.sh)" "preflight_release" "release evidence preflight capture"
+check_contains "$(cat scripts/capture_release_evidence.sh)" "diagnose_installed_app" "release evidence diagnose capture"
 check_contains "$(cat scripts/release_readiness.sh)" "ready for current GitHub zip flow" "release readiness summary"
 check_contains "$(cat scripts/auto_update_readiness.sh)" "auto update assessed" "auto update readiness summary"
 check_contains "$(cat scripts/auto_update_readiness.sh)" "manual GitHub Release" "auto update manual flow summary"
