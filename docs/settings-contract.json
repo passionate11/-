@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "defaultsDomain": "local.codex.eyerest",
+  "storageModel": "per-key UserDefaults",
+  "shippingImplementation": "Sources/EyeRestObjC/main.m",
+  "swiftUIDraftStatus": "prototype only",
+  "migrationRule": "Before SwiftUI can replace the shipping app, it must read and write these per-key UserDefaults entries or provide an explicit one-time migration layer from them.",
+  "keys": [
+    { "key": "eyeEnabled", "type": "bool", "default": true, "owner": "eye", "swiftUIRequired": true },
+    { "key": "eyeMode", "type": "enum-int", "default": 0, "owner": "eye", "enum": "EREyeMode: 0=20-20-20, 1=pomodoro, 2=custom", "swiftUIRequired": true },
+    { "key": "eyeFocusSeconds", "type": "seconds", "default": 1200, "owner": "eye", "minimumDebugValue": 10, "swiftUIRequired": true },
+    { "key": "eyeRestSeconds", "type": "seconds", "default": 20, "owner": "eye", "minimumDebugValue": 10, "swiftUIRequired": true },
+    { "key": "standEnabled", "type": "bool", "default": true, "owner": "stand", "swiftUIRequired": true },
+    { "key": "standIntervalSeconds", "type": "seconds", "default": 7200, "owner": "stand", "minimumDebugValue": 10, "swiftUIRequired": true },
+    { "key": "standDurationSeconds", "type": "seconds", "default": 1200, "owner": "stand", "minimumDebugValue": 10, "swiftUIRequired": true },
+    { "key": "standRoutine", "type": "enum-int", "default": 0, "owner": "stand", "enum": "ERStandRoutine: 0=balanced, 1=neck-shoulder, 2=walk, 3=reset", "swiftUIRequired": true },
+    { "key": "standIntensity", "type": "enum-int", "default": 1, "owner": "stand", "enum": "ERStandIntensity: 0=gentle, 1=standard, 2=active", "swiftUIRequired": true },
+    { "key": "standCustomStages", "type": "string", "default": "", "owner": "stand", "swiftUIRequired": true },
+    { "key": "showRestWindow", "type": "bool", "default": true, "owner": "display", "swiftUIRequired": true },
+    { "key": "restWindowTopmost", "type": "bool", "default": false, "owner": "display", "swiftUIRequired": true },
+    { "key": "notificationsEnabled", "type": "bool", "default": true, "owner": "display", "swiftUIRequired": true },
+    { "key": "restStyle", "type": "enum-int", "default": 0, "owner": "display", "enum": "ERRestStyle: 0=breath, 1=forest, 2=pixel, 3=toy, 4=night", "swiftUIRequired": true },
+    { "key": "menuBarMode", "type": "enum-int", "default": 0, "owner": "display", "enum": "ERMenuBarMode: 0=both, 1=eye, 2=stand, 3=compact, 4=smart", "swiftUIRequired": true },
+    { "key": "launchAtLogin", "type": "bool", "default": false, "owner": "display", "swiftUIRequired": true },
+    { "key": "autoFocusModeEnabled", "type": "bool", "default": true, "owner": "automation", "swiftUIRequired": true },
+    { "key": "calendarFocusModeEnabled", "type": "bool", "default": false, "owner": "automation", "swiftUIRequired": true },
+    { "key": "presentationFocusModeEnabled", "type": "bool", "default": true, "owner": "automation", "swiftUIRequired": true },
+    { "key": "focusAppTokens", "type": "string-array", "defaultSource": "ERDefaultFocusAppTokens", "owner": "automation", "swiftUIRequired": true },
+    { "key": "autoPauseAppTokens", "type": "string-array", "defaultSource": "ERDefaultAutoPauseAppTokens", "owner": "automation", "swiftUIRequired": true },
+    { "key": "ignoreAppTokens", "type": "string-array", "defaultSource": "ERDefaultIgnoreAppTokens", "owner": "automation", "swiftUIRequired": true },
+    { "key": "calendarFocusTokens", "type": "string-array", "defaultSource": "ERDefaultCalendarFocusTokens", "owner": "automation", "swiftUIRequired": true },
+    { "key": "calendarAutoPauseTokens", "type": "string-array", "defaultSource": "ERDefaultCalendarAutoPauseTokens", "owner": "automation", "swiftUIRequired": true },
+    { "key": "quietHoursEnabled", "type": "bool", "default": false, "owner": "automation", "swiftUIRequired": true },
+    { "key": "quietHoursStartMinute", "type": "minute-of-day", "default": 1320, "owner": "automation", "swiftUIRequired": true },
+    { "key": "quietHoursEndMinute", "type": "minute-of-day", "default": 420, "owner": "automation", "swiftUIRequired": true },
+    { "key": "quickSetupSeen", "type": "bool", "default": false, "owner": "onboarding", "swiftUIRequired": true }
+  ],
+  "legacyKeys": [
+    { "key": "workMinutes", "replacement": "eyeFocusSeconds", "conversion": "minutes-to-seconds" },
+    { "key": "restSeconds", "replacement": "eyeRestSeconds", "conversion": "seconds" }
+  ],
+  "nonSettingsStores": [
+    "statsHistory",
+    "recoveryHistory",
+    "lastAutomationActionText",
+    "lastAutomationActionAt"
+  ]
+}

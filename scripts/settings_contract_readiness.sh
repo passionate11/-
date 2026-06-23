@@ -4,6 +4,7 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OBJC_FILE="$ROOT_DIR/Sources/EyeRestObjC/main.m"
 SWIFT_FILE="$ROOT_DIR/Sources/EyeRest/main.swift"
+CONTRACT_FILE="$ROOT_DIR/docs/settings-contract.json"
 STRICT=0
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -69,9 +70,18 @@ setting_key_values() {
   sed -n 's/^static NSString \*const ERSettings[A-Za-z0-9]*Key = @"\([^"]*\)";$/\1/p' "$OBJC_FILE"
 }
 
+contract_key_values() {
+  awk '
+    /"keys"[[:space:]]*:/ { in_keys = 1; next }
+    /"legacyKeys"[[:space:]]*:/ { in_keys = 0 }
+    in_keys { print }
+  ' "$CONTRACT_FILE" | sed -n 's/.*"key": "\([^"]*\)".*/\1/p'
+}
+
 print_section "Sources"
 if [[ -f "$OBJC_FILE" ]]; then ok "Objective-C app"; else fail_check "Objective-C app" "missing"; fi
 if [[ -f "$SWIFT_FILE" ]]; then ok "SwiftUI draft"; else fail_check "SwiftUI draft" "missing"; fi
+if [[ -f "$CONTRACT_FILE" ]]; then ok "Settings contract doc"; else fail_check "Settings contract doc" "missing docs/settings-contract.json"; fi
 
 print_section "Objective-C UserDefaults Contract"
 KEY_NAMES="$(setting_keys | sort)"
@@ -94,6 +104,49 @@ done
 if contains "$OBJC_FILE" "registerDefaults:registered"; then ok "Default registration"; else fail_check "Default registration" "missing"; fi
 if contains "$OBJC_FILE" "applyBackupSettingsDictionary"; then ok "Backup restore path"; else warn "Backup restore path" "missing"; fi
 if contains "$OBJC_FILE" "workMinutes" && contains "$OBJC_FILE" "restSeconds"; then ok "Legacy migration"; else warn "Legacy migration" "old work/rest keys not visible"; fi
+
+print_section "Machine-Readable Contract"
+if contains "$CONTRACT_FILE" "\"schemaVersion\": 1" && contains "$CONTRACT_FILE" "\"storageModel\": \"per-key UserDefaults\""; then
+  ok "Contract metadata"
+else
+  fail_check "Contract metadata" "missing schemaVersion or per-key storage model"
+fi
+if contains "$CONTRACT_FILE" "\"migrationRule\"" && contains "$CONTRACT_FILE" "\"swiftUIDraftStatus\": \"prototype only\""; then
+  ok "Migration guard"
+else
+  fail_check "Migration guard" "missing migration rule or prototype-only status"
+fi
+
+CONTRACT_KEYS="$(contract_key_values | sort)"
+CONTRACT_COUNT="$(printf '%s\n' "$CONTRACT_KEYS" | sed '/^$/d' | wc -l | tr -d ' ')"
+print_kv "Contract key count" "$CONTRACT_COUNT"
+if [[ "$CONTRACT_COUNT" == "$KEY_COUNT" ]]; then
+  ok "Contract key count"
+else
+  fail_check "Contract key count" "contract=$CONTRACT_COUNT Objective-C=$KEY_COUNT"
+fi
+
+CONTRACT_MISSING=0
+while IFS= read -r key; do
+  [[ -z "$key" ]] && continue
+  if printf '%s\n' "$CONTRACT_KEYS" | grep -Fxq "$key"; then
+    ok "contract key $key"
+  else
+    CONTRACT_MISSING=$((CONTRACT_MISSING + 1))
+    fail_check "contract key $key" "missing from docs/settings-contract.json"
+  fi
+done <<< "$KEY_VALUES"
+
+if contains "$CONTRACT_FILE" "\"legacyKeys\"" && contains "$CONTRACT_FILE" "\"workMinutes\"" && contains "$CONTRACT_FILE" "\"restSeconds\""; then
+  ok "Legacy key mapping"
+else
+  fail_check "Legacy key mapping" "missing workMinutes/restSeconds migration notes"
+fi
+if contains "$CONTRACT_FILE" "\"minimumDebugValue\": 10" && contains "$CONTRACT_FILE" "\"quickSetupSeen\""; then
+  ok "Debug and onboarding notes"
+else
+  warn "Debug and onboarding notes" "minimum 10s or quick setup note missing"
+fi
 
 print_section "SwiftUI Draft Storage"
 if contains "$SWIFT_FILE" "private let key = \"EyeRestSettings\""; then

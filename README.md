@@ -256,7 +256,7 @@ scripts/swiftui_migration_readiness.sh
 scripts/settings_contract_readiness.sh
 ```
 
-脚本只读地检查当前 Objective-C/AppKit 正式版的 UserDefaults 设置键、默认值注册、备份恢复和旧键迁移，并对比 `Sources/EyeRest/main.swift` SwiftUI 草稿的存储方式。当前 SwiftUI 草稿仍使用单个 `EyeRestSettings` JSON blob，尚未共享正式版 per-key schema，因此只能作为 prototype，不能直接替换正式版本。
+脚本只读地检查当前 Objective-C/AppKit 正式版的 UserDefaults 设置键、默认值注册、备份恢复和旧键迁移，并对比 `Sources/EyeRest/main.swift` SwiftUI 草稿的存储方式。正式设置合约沉淀在 `docs/settings-contract.json`，记录每个 per-key UserDefaults 项的类型、默认值、归属和 SwiftUI 迁移要求；脚本会确认这份清单覆盖当前全部 28 个设置键。当前 SwiftUI 草稿仍使用单个 `EyeRestSettings` JSON blob，尚未共享正式版 per-key schema，因此只能作为 prototype，不能直接替换正式版本。
 
 ## 设置页视觉就绪检查
 
@@ -455,7 +455,7 @@ songyixia://diagnostics/calendar-live
 - 发布包校验：打包时生成 `songyixia-*.zip.sha256`，发布前检查和发布就绪检查都会验证 checksum，GitHub artifact 和 Release 一起上传。
 - 发布说明生成：新增 Release Notes 脚本，把下载文件、SHA256、安装步骤、本次更新和反馈入口整理成用户可读的 GitHub Release 正文。
 - SwiftUI 迁移准备：新增只读迁移检查脚本，明确 SwiftUI 草稿仍是 prototype，并列出正式切换前必须补齐的功能缺口。
-- 设置合约准备：新增只读脚本检查正式版 UserDefaults per-key schema 和 SwiftUI 草稿 JSON 存储的差距，避免未来迁移导致设置丢失。
+- 设置合约准备：新增 `docs/settings-contract.json` 和只读脚本检查正式版 UserDefaults per-key schema、默认值、旧键迁移和 SwiftUI 草稿 JSON 存储的差距，避免未来迁移导致设置丢失。
 
 ### 下一批优先级
 
