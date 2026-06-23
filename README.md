@@ -248,7 +248,7 @@ scripts/notarize_release.sh
 scripts/swiftui_migration_readiness.sh
 ```
 
-脚本只读地比较当前 Objective-C/AppKit 版本和 `Sources/EyeRest/main.swift` SwiftUI 草稿，列出双计时、设置页、恢复、自动化、统计、更新/反馈等迁移缺口。当前结论会明确标记为 `prototype only`，避免误把 SwiftUI 草稿当成可替换的正式版本。
+脚本只读地比较当前 Objective-C/AppKit 版本和 `Sources/EyeRest/main.swift` SwiftUI 草稿，列出双计时、设置页、恢复、自动化、统计、更新/反馈等迁移缺口。迁移功能矩阵沉淀在 `docs/swiftui-parity-matrix.json`，记录每个必须补齐的功能、正式版锚点、SwiftUI 草稿锚点、风险和下一步移植建议。当前结论会明确标记为 `prototype only`，避免误把 SwiftUI 草稿当成可替换的正式版本。
 
 ## 设置合约准备检查
 
@@ -454,7 +454,7 @@ songyixia://diagnostics/calendar-live
 - 公证准备检查：新增 dry-run 公证脚本，先验证 zip、notarytool、签名和 Gatekeeper；有 Developer ID 与 Apple 凭据后可显式提交 notarytool。
 - 发布包校验：打包时生成 `songyixia-*.zip.sha256`，发布前检查和发布就绪检查都会验证 checksum，GitHub artifact 和 Release 一起上传。
 - 发布说明生成：新增 Release Notes 脚本，把下载文件、SHA256、安装步骤、本次更新和反馈入口整理成用户可读的 GitHub Release 正文。
-- SwiftUI 迁移准备：新增只读迁移检查脚本，明确 SwiftUI 草稿仍是 prototype，并列出正式切换前必须补齐的功能缺口。
+- SwiftUI 迁移准备：新增 `docs/swiftui-parity-matrix.json` 和只读迁移检查脚本，明确 SwiftUI 草稿仍是 prototype，并列出正式切换前必须补齐的功能缺口。
 - 设置合约准备：新增 `docs/settings-contract.json` 和只读脚本检查正式版 UserDefaults per-key schema、默认值、旧键迁移和 SwiftUI 草稿 JSON 存储的差距，避免未来迁移导致设置丢失。
 
 ### 下一批优先级

@@ -2,6 +2,7 @@
 
 ## main
 
+- 新增 `docs/swiftui-parity-matrix.json`，把 SwiftUI 草稿距离正式版的 10 个功能缺口沉淀成机器可读迁移矩阵，并接入 SwiftUI 迁移检查。
 - 新增 `docs/settings-contract.json`，把正式版 28 个 per-key UserDefaults 设置项、默认值、类型和 SwiftUI 迁移要求沉淀成机器可读合约，并接入设置合约检查。
 - 新增 `scripts/capture_release_evidence.sh` 发布证据包脚本，发版前可一次性留存 preflight、release readiness、auto-update readiness、roadmap、settings/automation readiness 和安装诊断输出。
 - 设置页侧栏继续去灰框：透明点击层降到近乎不可见，导航改成自绘选中竖条、图标底和更轻的原生列表高亮，节奏摘要增加主题强调线。

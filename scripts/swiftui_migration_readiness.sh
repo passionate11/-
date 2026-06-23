@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SWIFT_FILE="$ROOT_DIR/Sources/EyeRest/main.swift"
 OBJC_FILE="$ROOT_DIR/Sources/EyeRestObjC/main.m"
 PACKAGE_FILE="$ROOT_DIR/Package.swift"
+PARITY_FILE="$ROOT_DIR/docs/swiftui-parity-matrix.json"
 STRICT=0
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -60,10 +61,38 @@ line_count() {
   [[ -f "$1" ]] && wc -l < "$1" | tr -d ' ' || echo 0
 }
 
+parity_features() {
+  awk '
+    /"features"[[:space:]]*:/ { in_features = 1; next }
+    in_features && /"label"[[:space:]]*:/ {
+      label = $0
+      sub(/^.*"label"[[:space:]]*:[[:space:]]*"/, "", label)
+      sub(/".*$/, "", label)
+    }
+    in_features && /"objcToken"[[:space:]]*:/ {
+      objc = $0
+      sub(/^.*"objcToken"[[:space:]]*:[[:space:]]*"/, "", objc)
+      sub(/".*$/, "", objc)
+    }
+    in_features && /"swiftToken"[[:space:]]*:/ {
+      swift = $0
+      sub(/^.*"swiftToken"[[:space:]]*:[[:space:]]*"/, "", swift)
+      sub(/".*$/, "", swift)
+      if (label != "" && objc != "" && swift != "") {
+        print label "|" objc "|" swift
+        label = ""
+        objc = ""
+        swift = ""
+      }
+    }
+  ' "$PARITY_FILE"
+}
+
 print_section "Sources"
 if [[ -f "$PACKAGE_FILE" ]]; then ok "Package.swift"; else fail_check "Package.swift" "missing"; fi
 if [[ -f "$SWIFT_FILE" ]]; then ok "SwiftUI draft"; else fail_check "SwiftUI draft" "missing"; fi
 if [[ -f "$OBJC_FILE" ]]; then ok "Objective-C app"; else fail_check "Objective-C app" "missing"; fi
+if [[ -f "$PARITY_FILE" ]]; then ok "SwiftUI parity matrix"; else fail_check "SwiftUI parity matrix" "missing docs/swiftui-parity-matrix.json"; fi
 print_kv "Swift lines" "$(line_count "$SWIFT_FILE")"
 print_kv "Objective-C lines" "$(line_count "$OBJC_FILE")"
 
@@ -80,21 +109,23 @@ else
 fi
 
 print_section "Feature Parity"
-FEATURES=(
-  "eye/stand independent timers|standDueAt|Stand"
-  "seconds-level debug rhythm|eyeRestSeconds|secondsField"
-  "settings window|ERSettingsWindowController|SettingsView"
-  "overview dashboard|overviewStatusBand|overview"
-  "rest overlay yield/topmost policy|restOverlayYielded|restOverlayYielded"
-  "display recovery|displayDiagnosticText|NSScreen"
-  "automation policy|automationPolicyExplanation|focus"
-  "calendar/presentation light distraction|calendarFocusActive|EventKit"
-  "stats backup/export|exportStatsJSON|Export"
-  "release/update/support flow|checkForUpdates|GitHub"
-)
-
 MISSING=0
-for item in "${FEATURES[@]}"; do
+PARITY_ITEMS="$(parity_features)"
+PARITY_COUNT="$(printf '%s\n' "$PARITY_ITEMS" | sed '/^$/d' | wc -l | tr -d ' ')"
+print_kv "Parity matrix features" "$PARITY_COUNT"
+if [[ "$PARITY_COUNT" == "10" ]]; then
+  ok "Parity matrix count"
+else
+  fail_check "Parity matrix count" "expected 10 features"
+fi
+if contains "$PARITY_FILE" "\"migrationStatus\": \"prototype only\"" && contains "$PARITY_FILE" "\"requiredBeforeSwitch\": true"; then
+  ok "Parity switch guard"
+else
+  fail_check "Parity switch guard" "missing prototype-only or requiredBeforeSwitch markers"
+fi
+
+while IFS= read -r item; do
+  [[ -z "$item" ]] && continue
   IFS='|' read -r label objc_token swift_token <<< "$item"
   if contains "$OBJC_FILE" "$objc_token" && contains "$SWIFT_FILE" "$swift_token"; then
     ok "$label"
@@ -104,7 +135,7 @@ for item in "${FEATURES[@]}"; do
   else
     warn "$label" "Objective-C anchor not found; review readiness script"
   fi
-done
+done <<< "$PARITY_ITEMS"
 
 print_section "Tooling"
 if command -v swift >/dev/null 2>&1; then

@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "shippingImplementation": "Sources/EyeRestObjC/main.m",
+  "swiftUIDraft": "Sources/EyeRest/main.swift",
+  "migrationStatus": "prototype only",
+  "switchGuard": "Do not replace the Objective-C/AppKit app until every required feature below is represented in the SwiftUI draft and validated against the shipping settings contract.",
+  "features": [
+    {
+      "id": "dual-timers",
+      "label": "eye/stand independent timers",
+      "objcToken": "standDueAt",
+      "swiftToken": "Stand",
+      "parity": "missing",
+      "requiredBeforeSwitch": true,
+      "risk": "SwiftUI draft cannot preserve independent eye and stand reminder schedules.",
+      "nextPort": "Port eyeDueAt, standDueAt, rest state, and independent rescheduling."
+    },
+    {
+      "id": "debug-seconds-rhythm",
+      "label": "seconds-level debug rhythm",
+      "objcToken": "eyeRestSeconds",
+      "swiftToken": "secondsField",
+      "parity": "missing",
+      "requiredBeforeSwitch": true,
+      "risk": "Debug rhythms such as 10 seconds would regress to minute-level settings.",
+      "nextPort": "Port minute/second time fields and 10-second lower-bound sanitizers."
+    },
+    {
+      "id": "settings-window",
+      "label": "settings window",
+      "objcToken": "ERSettingsWindowController",
+      "swiftToken": "SettingsView",
+      "parity": "missing",
+      "requiredBeforeSwitch": true,
+      "risk": "Users would lose the current multi-page settings experience.",
+      "nextPort": "Rebuild overview, eye, stand, display, automation, and stats pages."
+    },
+    {
+      "id": "overview-dashboard",
+      "label": "overview dashboard",
+      "objcToken": "overviewStatusBand",
+      "swiftToken": "overview",
+      "parity": "missing",
+      "requiredBeforeSwitch": true,
+      "risk": "The default settings page would lose current state and quick actions.",
+      "nextPort": "Port dual timers, status band, today stats, and quick action buttons."
+    },
+    {
+      "id": "rest-window-level-policy",
+      "label": "rest overlay yield/topmost policy",
+      "objcToken": "restOverlayYielded",
+      "swiftToken": "restOverlayYielded",
+      "parity": "missing",
+      "requiredBeforeSwitch": true,
+      "risk": "Rest windows may again feel stuck on top or fail to yield to other apps.",
+      "nextPort": "Port yielded state, topmost toggle, demotion, and recovery checks."
+    },
+    {
+      "id": "display-recovery",
+      "label": "display recovery",
+      "objcToken": "displayDiagnosticText",
+      "swiftToken": "NSScreen",
+      "parity": "missing",
+      "requiredBeforeSwitch": true,
+      "risk": "External display, sleep, and off-screen window recovery would regress.",
+      "nextPort": "Port screen diagnostics, bounds repair, and recovery history."
+    },
+    {
+      "id": "automation-policy",
+      "label": "automation policy",
+      "objcToken": "automationPolicyExplanation",
+      "swiftToken": "focus",
+      "parity": "missing",
+      "requiredBeforeSwitch": true,
+      "risk": "Meeting, video, game, and ignored-app policies would become opaque or absent.",
+      "nextPort": "Port policy priority, keyword editor, templates, and diagnostics."
+    },
+    {
+      "id": "calendar-presentation-light-distraction",
+      "label": "calendar/presentation light distraction",
+      "objcToken": "calendarFocusActive",
+      "swiftToken": "EventKit",
+      "parity": "missing",
+      "requiredBeforeSwitch": true,
+      "risk": "Calendar meetings and presentation/full-screen states would stop reducing disruption.",
+      "nextPort": "Port EventKit checks, presentation detection, quiet hours, and action summaries."
+    },
+    {
+      "id": "stats-backup-export",
+      "label": "stats backup/export",
+      "objcToken": "exportStatsJSON",
+      "swiftToken": "Export",
+      "parity": "missing",
+      "requiredBeforeSwitch": true,
+      "risk": "Stats history, backup, restore, and CSV/JSON export would be lost.",
+      "nextPort": "Port stats history schema, backup JSON, import, and CSV export."
+    },
+    {
+      "id": "release-update-support",
+      "label": "release/update/support flow",
+      "objcToken": "checkForUpdates",
+      "swiftToken": "GitHub",
+      "parity": "missing",
+      "requiredBeforeSwitch": true,
+      "risk": "About, update checks, release guidance, and support bundles would regress.",
+      "nextPort": "Port GitHub release lookup, install guide, issue bundle, and release evidence hooks."
+    }
+  ]
+}
