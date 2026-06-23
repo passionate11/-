@@ -1737,6 +1737,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSString *)recoveryReportDiagnosticText;
 - (NSString *)supportBundleDiagnosticText;
 - (NSString *)issueBundleDiagnosticText;
+- (NSString *)productSupportSummaryText;
 - (void)copyRecoveryDiagnostic:(id)sender;
 - (void)copyApplicationDiagnostic:(id)sender;
 - (void)copyDisplayDiagnostic:(id)sender;
@@ -6209,6 +6210,24 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     return [sections componentsJoinedByString:@"\n"];
 }
 
+- (NSString *)productSupportSummaryText {
+    NSBundle *bundle = NSBundle.mainBundle;
+    NSDictionary *info = bundle.infoDictionary;
+    NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"未知";
+    NSString *build = [info[@"CFBundleVersion"] isKindOfClass:NSString.class] ? info[@"CFBundleVersion"] : @"未知";
+    NSString *bundlePath = bundle.bundlePath ?: @"未知";
+    return [NSString stringWithFormat:
+            @"%@ %@ (%@)\n系统：%@\n安装位置：%@\n下载页：%@\n源码：%@\n反馈包：%@",
+            ERBrandName,
+            version,
+            build,
+            NSProcessInfo.processInfo.operatingSystemVersionString ?: @"未知",
+            bundlePath,
+            ERLatestReleaseURLString,
+            ERGitHubURLString,
+            ERAutomationURLString(@"diagnostics/issue-bundle")];
+}
+
 - (void)evaluateReminderKind:(ERReminderKind)kind {
     BOOL enabled = kind == ERReminderKindEye ? self.settings.eyeEnabled : self.settings.standEnabled;
     if (!enabled) return;
@@ -8754,7 +8773,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"0.1.0";
     NSString *build = [info[@"CFBundleVersion"] isKindOfClass:NSString.class] ? info[@"CFBundleVersion"] : @"1";
     NSString *bundlePath = bundle.bundlePath ?: @"";
-    NSString *message = [NSString stringWithFormat:@"版本 %@ (%@)\n\n眼睛休息、站立提醒和番茄休息都在一个轻量菜单栏里。\n\n安装位置：%@\n源码：%@", version, build, bundlePath, ERGitHubURLString];
+    NSString *message = [NSString stringWithFormat:@"版本 %@ (%@)\n\n眼睛休息、站立提醒和番茄休息都在一个轻量菜单栏里。\n\n安装位置：%@\n下载页：%@\n源码：%@", version, build, bundlePath, ERLatestReleaseURLString, ERGitHubURLString];
 
     NSAlert *alert = [[NSAlert alloc] init];
     alert.messageText = ERBrandName;
@@ -8762,6 +8781,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     alert.icon = [NSImage imageNamed:NSImageNameInfo];
     [alert addButtonWithTitle:@"好"];
     [alert addButtonWithTitle:@"打开 GitHub"];
+    [alert addButtonWithTitle:@"打开下载页"];
+    [alert addButtonWithTitle:@"复制版本信息"];
 
     [NSApp activateIgnoringOtherApps:YES];
     NSModalResponse response = [alert runModal];
@@ -8770,6 +8791,17 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         if (url) {
             [NSWorkspace.sharedWorkspace openURL:url];
         }
+    } else if (response == NSAlertThirdButtonReturn) {
+        NSURL *url = [NSURL URLWithString:ERLatestReleaseURLString];
+        if (url) {
+            [NSWorkspace.sharedWorkspace openURL:url];
+        }
+    } else if (response == NSAlertThirdButtonReturn + 1) {
+        NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+        [pasteboard clearContents];
+        [pasteboard setString:[self productSupportSummaryText] forType:NSPasteboardTypeString];
+        [self noteRecoveryEventTitle:@"关于" detail:@"已复制版本信息"];
+        [self publishState];
     }
 }
 
@@ -8782,11 +8814,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSString *systemVersion = NSProcessInfo.processInfo.operatingSystemVersionString ?: @"未知";
     NSString *title = [NSString stringWithFormat:@"%@ 反馈：", ERBrandName];
     NSString *body = [NSString stringWithFormat:
-        @"## 发生了什么？\n\n\n\n## 期望行为\n\n\n\n## 诊断信息\n\n- 版本：%@ (%@)\n- 系统：%@\n- 安装位置：%@\n\n请先在菜单栏选择「排查中心」->「复制问题反馈包」，再把剪贴板内容粘贴到这里。\n",
+        @"## 发生了什么？\n\n\n\n## 期望行为\n\n\n\n## 诊断信息\n\n- 版本：%@ (%@)\n- 系统：%@\n- 安装位置：%@\n- 下载页：%@\n- 反馈包链接：%@\n\n请先在菜单栏选择「排查中心」->「复制问题反馈包」，再把剪贴板内容粘贴到这里。\n",
         version,
         build,
         systemVersion,
-        bundlePath];
+        bundlePath,
+        ERLatestReleaseURLString,
+        ERAutomationURLString(@"diagnostics/issue-bundle")];
 
     NSURLComponents *components = [NSURLComponents componentsWithString:ERNewIssueURLString];
     components.queryItems = @[
