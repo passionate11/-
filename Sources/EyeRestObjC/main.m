@@ -104,6 +104,8 @@ static const NSUInteger ERRecoveryHistoryLimit = 80;
 static int ERSingleInstanceLockFD = -1;
 static const void *ERAutomationAppendFieldAssociationKey = &ERAutomationAppendFieldAssociationKey;
 static const void *ERAutomationAppendTokenAssociationKey = &ERAutomationAppendTokenAssociationKey;
+static const void *ERAutomationTemplateFieldsAssociationKey = &ERAutomationTemplateFieldsAssociationKey;
+static const void *ERAutomationTemplateTokensAssociationKey = &ERAutomationTemplateTokensAssociationKey;
 
 static NSInteger ERClampInteger(NSInteger value, NSInteger minimum, NSInteger maximum);
 static NSInteger ERCompareVersionStrings(NSString *left, NSString *right);
@@ -546,6 +548,14 @@ static NSString *ERJoinedFocusTokensByAppendingToken(NSString *existingText, NSS
         [tokens addObject:token];
     }
     return [tokens componentsJoinedByString:@", "];
+}
+
+static NSString *ERJoinedFocusTokensByAppendingTokens(NSString *existingText, NSArray<NSString *> *appendTokens) {
+    NSString *joined = existingText ?: @"";
+    for (NSString *token in appendTokens) {
+        joined = ERJoinedFocusTokensByAppendingToken(joined, token);
+    }
+    return joined;
 }
 
 static BOOL ERApplicationMatchesFocusTokens(NSString *bundleIdentifier, NSString *appName, NSArray<NSString *> *tokens) {
@@ -1660,6 +1670,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)refreshStats;
 - (void)refreshAutomationStatus;
 - (void)refreshSidebarAppearance;
+- (void)appendAutomationKeywordTemplate:(NSButton *)sender;
 - (void)openQuickSetup:(id)sender;
 - (void)setSelectedPageIndex:(NSInteger)pageIndex;
 - (void)exportStatsCSV:(id)sender;
@@ -3936,12 +3947,24 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [alert addButtonWithTitle:@"恢复默认"];
     [alert addButtonWithTitle:@"取消"];
 
-    NSView *panel = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 560, 370)];
+    NSView *panel = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 560, 418)];
     NSTextField *priorityHint = [NSTextField wrappingLabelWithString:@"命中多个策略时，会按“不处理 > 自动暂停 > 只发通知”处理。"];
-    priorityHint.frame = NSMakeRect(0, 344, 548, 20);
+    priorityHint.frame = NSMakeRect(0, 392, 548, 20);
     priorityHint.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     priorityHint.textColor = NSColor.secondaryLabelColor;
     [panel addSubview:priorityHint];
+
+    NSTextField *templateLabel = [NSTextField labelWithString:@"推荐模板"];
+    templateLabel.frame = NSMakeRect(0, 358, 78, 20);
+    templateLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightSemibold];
+    templateLabel.textColor = NSColor.secondaryLabelColor;
+    [panel addSubview:templateLabel];
+
+    NSTextField *templateHint = [NSTextField labelWithString:@"追加常见场景关键词，不会覆盖已有内容。"];
+    templateHint.frame = NSMakeRect(0, 338, 320, 18);
+    templateHint.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    templateHint.textColor = NSColor.tertiaryLabelColor;
+    [panel addSubview:templateHint];
 
     NSTextField *appSectionTitle = [NSTextField labelWithString:@"应用策略"];
     appSectionTitle.frame = NSMakeRect(0, 310, 180, 20);
@@ -4036,6 +4059,52 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [fields addObject:field];
     }
 
+    NSArray<NSDictionary<NSString *, id> *> *templates = @[
+        @{
+            @"title": @"会议协作",
+            @"tip": @"追加 Zoom/腾讯会议/Teams/飞书/钉钉和会议日程词",
+            @"fieldTokens": @[
+                @[@"us.zoom.xos", @"zoom", @"com.tencent.meeting", @"腾讯会议", @"com.microsoft.teams", @"teams", @"com.bytedance.feishu", @"飞书", @"com.alibaba.dingtalkmac", @"钉钉"],
+                @[],
+                @[],
+                @[@"会议", @"meeting", @"同步", @"sync", @"站会", @"standup", @"评审", @"review"],
+                @[]
+            ]
+        },
+        @{
+            @"title": @"视频游戏",
+            @"tip": @"追加播放器、游戏平台和直播/观影日程词",
+            @"fieldTokens": @[
+                @[],
+                @[@"com.apple.quicktimeplayerx", @"quicktime", @"com.colliderli.iina", @"iina", @"org.videolan.vlc", @"vlc", @"steam", @"epic games"],
+                @[],
+                @[],
+                @[@"直播", @"观影", @"电影", @"webinar"]
+            ]
+        },
+        @{
+            @"title": @"录制面试",
+            @"tip": @"追加 OBS/Keynote/PowerPoint 和录制、面试、演讲日程词",
+            @"fieldTokens": @[
+                @[@"com.obsproject.obs-studio", @"obs", @"com.apple.iwork.keynote", @"keynote", @"com.microsoft.powerpoint", @"powerpoint"],
+                @[],
+                @[],
+                @[],
+                @[@"录制", @"演讲", @"演示", @"presentation", @"面试", @"interview", @"讲座", @"workshop"]
+            ]
+        }
+    ];
+    for (NSInteger index = 0; index < templates.count; index++) {
+        NSDictionary<NSString *, id> *templateInfo = templates[index];
+        NSButton *button = [NSButton buttonWithTitle:templateInfo[@"title"] target:self action:@selector(appendAutomationKeywordTemplate:)];
+        button.frame = NSMakeRect(236 + index * 104, 350, 96, 28);
+        button.bezelStyle = NSBezelStyleRounded;
+        button.toolTip = templateInfo[@"tip"];
+        objc_setAssociatedObject(button, ERAutomationTemplateFieldsAssociationKey, fields, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(button, ERAutomationTemplateTokensAssociationKey, templateInfo[@"fieldTokens"], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [panel addSubview:button];
+    }
+
     NSArray<NSString *> *appendTitles = @[@"加到只通知", @"加到自动暂停", @"加到不处理"];
     for (NSInteger index = 0; index < appendTitles.count; index++) {
         NSButton *button = [NSButton buttonWithTitle:appendTitles[index] target:nil action:nil];
@@ -4099,6 +4168,21 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSString *token = objc_getAssociatedObject(sender, ERAutomationAppendTokenAssociationKey);
     if (![field isKindOfClass:NSTextField.class] || token.length == 0) return;
     field.stringValue = ERJoinedFocusTokensByAppendingToken(field.stringValue, token);
+    sender.state = NSControlStateValueOn;
+}
+
+- (void)appendAutomationKeywordTemplate:(NSButton *)sender {
+    NSArray<NSTextField *> *fields = objc_getAssociatedObject(sender, ERAutomationTemplateFieldsAssociationKey);
+    NSArray<NSArray<NSString *> *> *fieldTokens = objc_getAssociatedObject(sender, ERAutomationTemplateTokensAssociationKey);
+    if (![fields isKindOfClass:NSArray.class] || ![fieldTokens isKindOfClass:NSArray.class]) return;
+
+    NSInteger count = MIN(fields.count, fieldTokens.count);
+    for (NSInteger index = 0; index < count; index++) {
+        NSTextField *field = fields[index];
+        NSArray<NSString *> *tokens = fieldTokens[index];
+        if (![field isKindOfClass:NSTextField.class] || ![tokens isKindOfClass:NSArray.class] || tokens.count == 0) continue;
+        field.stringValue = ERJoinedFocusTokensByAppendingTokens(field.stringValue, tokens);
+    }
     sender.state = NSControlStateValueOn;
 }
 
