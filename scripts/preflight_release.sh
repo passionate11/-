@@ -54,7 +54,7 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: showQuickSetup: applyQuickSetupProfile: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText copyRecoveryReportDiagnostic: recoveryReportDiagnosticText runRecoveryMatrixSuite: runRecoveryMatrixSuiteStep: finishRecoveryMatrixSuiteWithTotal: copySupportBundleDiagnostic: supportBundleDiagnosticText copyIssueBundleDiagnostic: issueBundleDiagnosticText toggleRestWindowTopmost:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: showQuickSetup: applyQuickSetupProfile: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText copyRecoveryReportDiagnostic: recoveryReportDiagnosticText runRecoveryMatrixSuite: runRecoveryMatrixSuiteStep: finishRecoveryMatrixSuiteWithTotal: copySupportBundleDiagnostic: supportBundleDiagnosticText copyIssueBundleDiagnostic: issueBundleDiagnosticText copyInstallGuide: installGuideText toggleRestWindowTopmost:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
@@ -121,6 +121,10 @@ check_contains "$README_CONTENT" "站立阶段面板" "stand stage panel docs"
 check_contains "$README_CONTENT" "普通用户更新链路" "user update flow docs"
 check_contains "$README_CONTENT" "产品化反馈闭环" "product feedback loop docs"
 check_contains "$SOURCE_CONTENT" "productSupportSummaryText" "product support summary helper"
+check_contains "$SOURCE_CONTENT" "复制安装更新说明" "install guide menu item"
+check_contains "$SOURCE_CONTENT" "已复制安装更新说明" "install guide copy status"
+check_contains "$README_CONTENT" "复制安装更新说明" "install guide docs"
+check_contains "$README_CONTENT" "v0.1.45 自动化真实体验补强" "next roadmap docs"
 check_contains "$SOURCE_CONTENT" "ERSettingsQuickSetupSeenKey" "quick setup seen preference"
 check_contains "$SOURCE_CONTENT" "快速配置..." "quick setup menu"
 check_contains "$SOURCE_CONTENT" "applyQuickSetupProfile:" "quick setup apply action"

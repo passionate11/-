@@ -1738,6 +1738,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSString *)supportBundleDiagnosticText;
 - (NSString *)issueBundleDiagnosticText;
 - (NSString *)productSupportSummaryText;
+- (NSString *)installGuideText;
 - (void)copyRecoveryDiagnostic:(id)sender;
 - (void)copyApplicationDiagnostic:(id)sender;
 - (void)copyDisplayDiagnostic:(id)sender;
@@ -1745,6 +1746,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)copyRecoveryReportDiagnostic:(id)sender;
 - (void)copySupportBundleDiagnostic:(id)sender;
 - (void)copyIssueBundleDiagnostic:(id)sender;
+- (void)copyInstallGuide:(id)sender;
 - (void)restEyeNow:(id)sender;
 - (void)restStandNow:(id)sender;
 - (void)pauseForSeconds:(NSTimeInterval)seconds;
@@ -5103,6 +5105,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     copyIssueBundleDiagnostic.target = self;
     [diagnosticMenu addItem:copyIssueBundleDiagnostic];
 
+    NSMenuItem *copyInstallGuide = [[NSMenuItem alloc] initWithTitle:@"复制安装更新说明" action:@selector(copyInstallGuide:) keyEquivalent:@""];
+    copyInstallGuide.target = self;
+    [diagnosticMenu addItem:copyInstallGuide];
+
     NSMenuItem *copySupportBundleDiagnostic = [[NSMenuItem alloc] initWithTitle:@"复制完整排查包" action:@selector(copySupportBundleDiagnostic:) keyEquivalent:@""];
     copySupportBundleDiagnostic.target = self;
     [diagnosticMenu addItem:copySupportBundleDiagnostic];
@@ -6228,6 +6234,32 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             ERAutomationURLString(@"diagnostics/issue-bundle")];
 }
 
+- (NSString *)installGuideText {
+    NSBundle *bundle = NSBundle.mainBundle;
+    NSDictionary *info = bundle.infoDictionary;
+    NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"未知";
+    NSString *build = [info[@"CFBundleVersion"] isKindOfClass:NSString.class] ? info[@"CFBundleVersion"] : @"未知";
+    NSString *bundlePath = bundle.bundlePath ?: @"/Applications/松一下.app";
+    return [NSString stringWithFormat:
+            @"%@ 安装/更新说明\n\n"
+            @"当前版本：%@ (%@)\n"
+            @"当前安装位置：%@\n"
+            @"下载页：%@\n\n"
+            @"1. 打开下载页，下载最新 songyixia-<version>-<build>.zip。\n"
+            @"2. 解压得到 %@.app，拖入 /Applications 覆盖旧版本。\n"
+            @"3. 打开菜单栏「关于 %@...」确认版本。\n"
+            @"4. 遇到问题时，先点「排查中心」->「复制问题反馈包」，再点「反馈问题...」。\n\n"
+            @"源码：%@",
+            ERBrandName,
+            version,
+            build,
+            bundlePath,
+            ERLatestReleaseURLString,
+            ERBrandName,
+            ERBrandName,
+            ERGitHubURLString];
+}
+
 - (void)evaluateReminderKind:(ERReminderKind)kind {
     BOOL enabled = kind == ERReminderKindEye ? self.settings.eyeEnabled : self.settings.standEnabled;
     if (!enabled) return;
@@ -6910,6 +6942,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [pasteboard clearContents];
     [pasteboard setString:[self issueBundleDiagnosticText] forType:NSPasteboardTypeString];
     [self noteRecoveryEventTitle:@"诊断" detail:@"已复制问题反馈包"];
+    [self publishState];
+}
+
+- (void)copyInstallGuide:(id)sender {
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:[self installGuideText] forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"安装更新" detail:@"已复制安装更新说明"];
     [self publishState];
 }
 
