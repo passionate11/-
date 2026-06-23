@@ -205,7 +205,15 @@ scripts/preflight_release.sh
 scripts/capture_release_evidence.sh
 ```
 
-脚本会先运行发布前检查并重新生成 zip、sha256 和 Release Notes，然后把 `preflight_release`、`release_readiness`、`auto_update_readiness`、`roadmap_status`、设置页视觉检查、自动化策略检查、设置合约检查、SwiftUI 迁移检查、SwiftUI 阶段计划检查和已安装 App 诊断统一保存到 `dist/release-evidence-<version>-<build>-<time>/`。它不会运行全屏冒烟测试，适合发版前留存一份低打扰证据包。
+脚本会先运行发布前检查并重新生成 zip、sha256 和 Release Notes，然后把 `preflight_release`、`release_readiness`、`auto_update_readiness`、`roadmap_status`、设置页视觉检查、自动化策略检查、发布证据包就绪检查、设置合约检查、SwiftUI 迁移检查、SwiftUI 阶段计划检查和已安装 App 诊断统一保存到 `dist/release-evidence-<version>-<build>-<time>/`。它不会运行全屏冒烟测试，适合发版前留存一份低打扰证据包。
+
+## 发布证据包就绪检查
+
+```bash
+scripts/release_evidence_readiness.sh
+```
+
+脚本只读地检查发布证据包是否覆盖 git 状态、最近提交、preflight、release readiness、auto-update readiness、roadmap、设置页视觉、自动化策略、设置合约、SwiftUI 迁移、SwiftUI 阶段计划、已安装 App 诊断、Release Notes 和 checksum。它不会构建、启动 App，也不会运行全屏冒烟测试，适合在发版前先确认“证据包本身没有漏关键线索”。
 
 ## 发布就绪检查
 
@@ -496,7 +504,7 @@ songyixia://diagnostics/calendar-live
 
 - 计划：把 Release 下载、覆盖安装、检查更新、反馈包、自动更新评估、签名/公证和 SwiftUI 迁移合并成一条维护清单。
 - 验收：普通用户能从 GitHub Release 下载 zip、拖入 `/Applications`、确认版本、检查更新并复制反馈包；自动更新和公证仍保持明确的前置条件。
-- 验证：`capture_release_evidence.sh`、`release_readiness.sh`、`auto_update_readiness.sh`、`settings_contract_readiness.sh`、`swiftui_parity_plan.sh` 和打包校验。
+- 验证：`capture_release_evidence.sh`、`release_evidence_readiness.sh`、`release_readiness.sh`、`auto_update_readiness.sh`、`settings_contract_readiness.sh`、`swiftui_parity_plan.sh` 和打包校验。
 
 ### 后续可以探索
 

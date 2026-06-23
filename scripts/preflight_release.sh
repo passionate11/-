@@ -49,6 +49,7 @@ bash -n scripts/notarize_release.sh
 bash -n scripts/package_app.sh
 bash -n scripts/preflight_release.sh
 bash -n scripts/release_readiness.sh
+bash -n scripts/release_evidence_readiness.sh
 bash -n scripts/roadmap_status.sh
 bash -n scripts/settings_contract_readiness.sh
 bash -n scripts/settings_visual_readiness.sh
@@ -201,6 +202,8 @@ check_contains "$(cat scripts/capture_release_evidence.sh)" "releaseEvidence=1" 
 check_contains "$(cat scripts/capture_release_evidence.sh)" "doesNotRun=full-screen smoke test" "release evidence low disruption guard"
 check_contains "$(cat scripts/capture_release_evidence.sh)" "preflight_release" "release evidence preflight capture"
 check_contains "$(cat scripts/capture_release_evidence.sh)" "diagnose_installed_app" "release evidence diagnose capture"
+check_contains "$(cat scripts/capture_release_evidence.sh)" "release_evidence_readiness" "release evidence readiness capture"
+check_contains "$(cat scripts/release_evidence_readiness.sh)" "release evidence assessed" "release evidence readiness summary"
 check_contains "$(cat scripts/release_readiness.sh)" "ready for current GitHub zip flow" "release readiness summary"
 check_contains "$(cat scripts/auto_update_readiness.sh)" "auto update assessed" "auto update readiness summary"
 check_contains "$(cat scripts/auto_update_readiness.sh)" "manual GitHub Release" "auto update manual flow summary"
@@ -584,6 +587,11 @@ echo "==> Verifying automation policy readiness"
 AUTOMATION_POLICY_OUTPUT="$(scripts/automation_policy_readiness.sh --strict)"
 [[ "$AUTOMATION_POLICY_OUTPUT" == *"Readiness:"*"automation policy assessed"* ]] || fail "automation policy readiness did not complete"
 [[ "$AUTOMATION_POLICY_OUTPUT" == *"Keyword Editor"* ]] || fail "automation policy readiness missing keyword editor section"
+
+echo "==> Verifying release evidence readiness"
+RELEASE_EVIDENCE_OUTPUT="$(scripts/release_evidence_readiness.sh --strict)"
+[[ "$RELEASE_EVIDENCE_OUTPUT" == *"Readiness:"*"release evidence assessed"* ]] || fail "release evidence readiness did not complete"
+[[ "$RELEASE_EVIDENCE_OUTPUT" == *"Captured Commands"* ]] || fail "release evidence readiness missing command coverage"
 
 echo "==> Verifying auto update readiness"
 AUTO_UPDATE_OUTPUT="$(APP_TARGET="$APP_BUNDLE" ARCHIVE_PATH="$ARCHIVE" scripts/auto_update_readiness.sh --strict)"

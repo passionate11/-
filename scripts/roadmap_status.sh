@@ -123,8 +123,10 @@ check_evidence "settings contract machine file" "\"storageModel\": \"per-key Use
 check_evidence "checksum artifact" "zip.sha256" "$README_FILE"
 check_evidence "release notes" "发布说明生成" "$README_FILE"
 check_evidence "release evidence bundle" "发布证据包" "$README_FILE"
+check_evidence "release evidence readiness docs" "发布证据包就绪检查" "$README_FILE"
 check_evidence "auto update script" "auto_update_readiness.sh" "$SOURCE_FILE"
 check_evidence "release evidence script" "capture_release_evidence.sh" "$ROOT_DIR/scripts/capture_release_evidence.sh"
+check_evidence "release evidence readiness script" "release evidence assessed" "$ROOT_DIR/scripts/release_evidence_readiness.sh"
 check_evidence "release evidence parity plan" "swiftui_parity_plan" "$ROOT_DIR/scripts/capture_release_evidence.sh"
 print_kv "Status" "implemented-release-readiness"
 
@@ -142,6 +144,7 @@ check_evidence "settings contract script" "settings_contract_readiness.sh" "$ROO
 check_evidence "settings visual script" "settings_visual_readiness.sh" "$ROOT_DIR/scripts/settings_visual_readiness.sh"
 check_evidence "SwiftUI parity plan script" "swiftui_parity_plan.sh" "$ROOT_DIR/scripts/swiftui_parity_plan.sh"
 check_evidence "automation policy script" "automation_policy_readiness.sh" "$ROOT_DIR/scripts/automation_policy_readiness.sh"
+check_evidence "release evidence script" "release_evidence_readiness.sh" "$ROOT_DIR/scripts/release_evidence_readiness.sh"
 
 print_section "Summary"
 print_kv "Failures" "$FAILURES"
