@@ -102,6 +102,8 @@ static NSString *const EROpenSettingsNotificationName = @"local.codex.eyerest.op
 static NSString *const ERRunRecoveryStressTestNotificationName = @"local.codex.eyerest.run-recovery-stress-test";
 static const NSUInteger ERRecoveryHistoryLimit = 80;
 static int ERSingleInstanceLockFD = -1;
+static const void *ERAutomationAppendFieldAssociationKey = &ERAutomationAppendFieldAssociationKey;
+static const void *ERAutomationAppendTokenAssociationKey = &ERAutomationAppendTokenAssociationKey;
 
 static NSInteger ERClampInteger(NSInteger value, NSInteger minimum, NSInteger maximum);
 static NSInteger ERCompareVersionStrings(NSString *left, NSString *right);
@@ -531,6 +533,19 @@ static NSArray<NSString *> *ERSanitizedFocusAppTokensFromObject(id object) {
         [tokens addObject:token];
     }
     return tokens;
+}
+
+static NSString *ERJoinedFocusTokensByAppendingToken(NSString *existingText, NSString *token) {
+    token = ERTrimmedString(token);
+    if (token.length == 0) return existingText ?: @"";
+
+    NSMutableArray<NSString *> *tokens = [NSMutableArray arrayWithArray:ERSanitizedFocusAppTokensFromObject(existingText ?: @"")];
+    NSMutableSet<NSString *> *seen = [NSMutableSet setWithArray:[tokens valueForKey:@"lowercaseString"]];
+    NSString *normalized = token.lowercaseString;
+    if (![seen containsObject:normalized]) {
+        [tokens addObject:token];
+    }
+    return [tokens componentsJoinedByString:@", "];
 }
 
 static BOOL ERApplicationMatchesFocusTokens(NSString *bundleIdentifier, NSString *appName, NSArray<NSString *> *tokens) {
@@ -1678,6 +1693,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, copy) NSString *currentCalendarEventTitle;
 @property(nonatomic, copy) NSString *frontmostAppName;
 @property(nonatomic, copy) NSString *frontmostAppBundleIdentifier;
+@property(nonatomic, copy) NSString *lastExternalAppName;
+@property(nonatomic, copy) NSString *lastExternalAppBundleIdentifier;
 @property(nonatomic) NSInteger todayEyeDone;
 @property(nonatomic) NSInteger todayStandDone;
 @property(nonatomic) NSInteger todayStandSeconds;
@@ -3913,23 +3930,39 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [alert addButtonWithTitle:@"恢复默认"];
     [alert addButtonWithTitle:@"取消"];
 
-    NSView *panel = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 560, 340)];
+    NSView *panel = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 560, 370)];
     NSTextField *priorityHint = [NSTextField wrappingLabelWithString:@"命中多个策略时，会按“不处理 > 自动暂停 > 只发通知”处理。"];
-    priorityHint.frame = NSMakeRect(0, 314, 548, 20);
+    priorityHint.frame = NSMakeRect(0, 344, 548, 20);
     priorityHint.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     priorityHint.textColor = NSColor.secondaryLabelColor;
     [panel addSubview:priorityHint];
 
     NSTextField *appSectionTitle = [NSTextField labelWithString:@"应用策略"];
-    appSectionTitle.frame = NSMakeRect(0, 280, 180, 20);
+    appSectionTitle.frame = NSMakeRect(0, 310, 180, 20);
     appSectionTitle.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
     [panel addSubview:appSectionTitle];
 
     NSTextField *appSectionDetail = [NSTextField labelWithString:@"按前台应用名称或 bundle id 命中。"];
-    appSectionDetail.frame = NSMakeRect(0, 262, 420, 18);
+    appSectionDetail.frame = NSMakeRect(0, 292, 420, 18);
     appSectionDetail.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     appSectionDetail.textColor = NSColor.secondaryLabelColor;
     [panel addSubview:appSectionDetail];
+
+    NSString *externalBundle = self.appDelegate.lastExternalAppBundleIdentifier.length > 0
+        ? self.appDelegate.lastExternalAppBundleIdentifier
+        : self.appDelegate.frontmostAppBundleIdentifier;
+    NSString *externalName = self.appDelegate.lastExternalAppName.length > 0
+        ? self.appDelegate.lastExternalAppName
+        : self.appDelegate.frontmostAppName;
+    NSString *currentAppToken = externalBundle.length > 0 ? externalBundle : externalName;
+    NSString *currentAppTitle = externalName.length > 0
+        ? [NSString stringWithFormat:@"当前应用：%@", externalName]
+        : @"当前应用：未识别";
+    NSTextField *currentAppLabel = [NSTextField labelWithString:currentAppTitle];
+    currentAppLabel.frame = NSMakeRect(0, 260, 224, 18);
+    currentAppLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    currentAppLabel.textColor = NSColor.secondaryLabelColor;
+    [panel addSubview:currentAppLabel];
 
     NSView *separator = [[NSView alloc] initWithFrame:NSMakeRect(0, 132, 548, 1)];
     separator.wantsLayer = YES;
@@ -3963,9 +3996,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @"日程自动暂停：录制、直播、面试，暂停计时并顺延"
     ];
     NSArray<NSNumber *> *rowYs = @[
-        @226,
-        @190,
-        @154,
+        @218,
+        @182,
+        @146,
         @52,
         @16
     ];
@@ -3985,6 +4018,23 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         field.stringValue = values[index];
         [panel addSubview:field];
         [fields addObject:field];
+    }
+
+    NSArray<NSString *> *appendTitles = @[@"加到只通知", @"加到自动暂停", @"加到不处理"];
+    for (NSInteger index = 0; index < appendTitles.count; index++) {
+        NSButton *button = [NSButton buttonWithTitle:appendTitles[index] target:nil action:nil];
+        button.frame = NSMakeRect(236 + index * 104, 254, 96, 28);
+        button.bezelStyle = NSBezelStyleRounded;
+        button.enabled = currentAppToken.length > 0;
+        button.toolTip = currentAppToken.length > 0
+            ? [NSString stringWithFormat:@"追加 %@", currentAppToken]
+            : @"没有可追加的前台应用";
+        NSTextField *targetField = fields[index];
+        objc_setAssociatedObject(button, ERAutomationAppendFieldAssociationKey, targetField, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(button, ERAutomationAppendTokenAssociationKey, currentAppToken ?: @"", OBJC_ASSOCIATION_COPY_NONATOMIC);
+        button.target = self;
+        button.action = @selector(appendCurrentAppToAutomationKeywordField:);
+        [panel addSubview:button];
     }
     alert.accessoryView = panel;
 
@@ -4008,6 +4058,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self refreshControls];
         [self.appDelegate settingsDidChangeShouldReset:NO];
     }];
+}
+
+- (void)appendCurrentAppToAutomationKeywordField:(NSButton *)sender {
+    NSTextField *field = objc_getAssociatedObject(sender, ERAutomationAppendFieldAssociationKey);
+    NSString *token = objc_getAssociatedObject(sender, ERAutomationAppendTokenAssociationKey);
+    if (![field isKindOfClass:NSTextField.class] || token.length == 0) return;
+    field.stringValue = ERJoinedFocusTokensByAppendingToken(field.stringValue, token);
+    sender.state = NSControlStateValueOn;
 }
 
 - (void)eyeModeChanged:(id)sender {
@@ -5009,6 +5067,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSRunningApplication *frontmost = NSWorkspace.sharedWorkspace.frontmostApplication;
     self.frontmostAppBundleIdentifier = frontmost.bundleIdentifier;
     self.frontmostAppName = frontmost.localizedName;
+    if (frontmost && frontmost.processIdentifier != NSProcessInfo.processInfo.processIdentifier) {
+        self.lastExternalAppBundleIdentifier = frontmost.bundleIdentifier;
+        self.lastExternalAppName = frontmost.localizedName;
+    }
     [self refreshCalendarFocusStateIfNeeded:NO];
     self.presentationFocusActive = self.settings.autoFocusModeEnabled && self.settings.presentationFocusModeEnabled && ERPresentationModeDetected();
 
