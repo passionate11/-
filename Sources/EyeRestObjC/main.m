@@ -1536,6 +1536,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *focusAppMatchLabel;
 @property(nonatomic, strong) NSTextField *calendarStatusLabel;
 @property(nonatomic, strong) NSTextField *focusAppHintLabel;
+@property(nonatomic, strong) NSTextField *automationPolicyLabel;
 @property(nonatomic, strong) NSButton *focusAppResetButton;
 @property(nonatomic, strong) NSPopUpButton *menuBarModePopup;
 @property(nonatomic, strong) NSPopUpButton *restStylePopup;
@@ -1832,6 +1833,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (BOOL)isQuietHoursActiveNow;
 - (BOOL)isLightDistractionModeActive;
 - (NSString *)focusModeStatusText;
+- (NSDictionary<NSString *, NSString *> *)automationPolicyExplanation;
 - (void)updateStatusItemAppearance;
 - (NSDictionary *)statsHistoryIncludingToday;
 @end
@@ -2516,7 +2518,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.autoFocusSwitch];
 
     self.focusAppMatchLabel = [NSTextField wrappingLabelWithString:@""];
-    self.focusAppMatchLabel.frame = NSMakeRect(188, 200, 340, 34);
+    self.focusAppMatchLabel.frame = NSMakeRect(188, 210, 340, 26);
     self.focusAppMatchLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.focusAppMatchLabel.maximumNumberOfLines = 2;
     self.focusAppMatchLabel.textColor = NSColor.secondaryLabelColor;
@@ -2590,6 +2592,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.focusAppHintLabel.maximumNumberOfLines = 2;
     self.focusAppHintLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.focusAppHintLabel];
+
+    self.automationPolicyLabel = [NSTextField wrappingLabelWithString:@""];
+    self.automationPolicyLabel.frame = NSMakeRect(188, 196, 340, 14);
+    self.automationPolicyLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    self.automationPolicyLabel.maximumNumberOfLines = 1;
+    self.automationPolicyLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    self.automationPolicyLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:self.automationPolicyLabel];
 }
 
 - (void)buildStatsSectionInView:(NSView *)view {
@@ -3015,7 +3025,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)refreshAutomationStatus {
     if (!self.focusAppMatchLabel) return;
-    self.focusAppMatchLabel.stringValue = [self.appDelegate focusModeStatusText];
+    NSDictionary<NSString *, NSString *> *policy = [self.appDelegate automationPolicyExplanation];
+    NSString *action = policy[@"action"] ?: @"当前策略";
+    NSString *reason = policy[@"reason"] ?: [self.appDelegate focusModeStatusText];
+    NSString *suggestion = policy[@"suggestion"] ?: @"";
+    self.focusAppMatchLabel.stringValue = [NSString stringWithFormat:@"%@：%@", action, reason];
+    self.automationPolicyLabel.stringValue = suggestion;
     if (self.appDelegate.quietHoursActive) {
         self.quietHoursStatusLabel.stringValue = [NSString stringWithFormat:@"%@-%@ · 只发通知",
                                                    ERFormatClockMinute(self.settings.quietHoursStartMinute),
@@ -3462,6 +3477,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         label.textColor = isBadge ? theme.accent : (isTitle ? settingsPrimaryTextColor : settingsSecondaryTextColor);
     }
     self.focusAppMatchLabel.textColor = settingsSecondaryTextColor;
+    self.automationPolicyLabel.textColor = settingsSecondaryTextColor;
     self.calendarStatusLabel.textColor = settingsSecondaryTextColor;
     self.quietHoursStatusLabel.textColor = settingsSecondaryTextColor;
     self.focusAppHintLabel.textColor = settingsSecondaryTextColor;
@@ -4862,6 +4878,65 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     return [NSString stringWithFormat:@"当前：%@ · %@", name, bundle];
 }
 
+- (NSDictionary<NSString *, NSString *> *)automationPolicyExplanation {
+    NSString *name = self.frontmostAppName.length > 0 ? self.frontmostAppName : @"当前应用";
+    NSString *bundle = self.frontmostAppBundleIdentifier.length > 0 ? self.frontmostAppBundleIdentifier : @"未识别 bundle id";
+    NSString *action = @"正常提醒";
+    NSString *reason = [NSString stringWithFormat:@"%@ · %@", name, bundle];
+    NSString *suggestion = @"到点会按设置弹出休息页并发送通知。";
+
+    if (!self.settings.autoFocusModeEnabled) {
+        action = @"正常提醒";
+        reason = @"自动策略已关闭";
+        suggestion = @"需要会议、演示或视频时降打扰，可以开启自动策略。";
+    } else if (self.autoIgnoreActive) {
+        action = @"正常提醒";
+        reason = [NSString stringWithFormat:@"忽略策略命中：%@ · %@", name, bundle];
+        suggestion = @"此应用会跳过自动策略；若命中不对，可编辑策略关键词。";
+    } else if (self.autoPauseActive) {
+        action = @"自动暂停";
+        if (self.calendarAutoPauseActive && !self.appAutoPauseActive) {
+            NSString *eventTitle = self.currentCalendarEventTitle.length > 0 ? self.currentCalendarEventTitle : @"当前日程";
+            reason = [NSString stringWithFormat:@"日程暂停关键词命中：%@", eventTitle];
+            suggestion = @"计时会顺延且不弹休息页；可在日程策略里调整暂停关键词。";
+        } else {
+            reason = [NSString stringWithFormat:@"自动暂停应用命中：%@ · %@", name, bundle];
+            suggestion = @"计时会顺延且不弹休息页；若暂停过多，可移出自动暂停关键词。";
+        }
+    } else if (self.focusModeEnabled) {
+        action = @"只发通知";
+        reason = @"手动轻打扰已开启";
+        suggestion = @"休息页不会弹出；结束专注后可在菜单栏关闭轻打扰。";
+    } else if (self.presentationFocusActive) {
+        action = @"只发通知";
+        reason = @"检测到全屏/演示状态";
+        suggestion = @"退出全屏或关闭演示联动后会恢复正常弹窗。";
+    } else if (self.quietHoursActive) {
+        action = @"只发通知";
+        reason = [NSString stringWithFormat:@"安静时段命中：%@-%@",
+                  ERFormatClockMinute(self.settings.quietHoursStartMinute),
+                  ERFormatClockMinute(self.settings.quietHoursEndMinute)];
+        suggestion = @"固定时段内不会弹全屏休息页；可调整开始和结束时间。";
+    } else if (self.calendarFocusActive) {
+        NSString *eventTitle = self.currentCalendarEventTitle.length > 0 ? self.currentCalendarEventTitle : @"当前会议";
+        action = @"只发通知";
+        reason = [NSString stringWithFormat:@"日历会议命中：%@", eventTitle];
+        suggestion = @"会议中只保留通知；若误命中，可编辑日程关键词或关闭日历会议。";
+    } else if (self.autoFocusActive) {
+        action = @"只发通知";
+        reason = [NSString stringWithFormat:@"轻打扰应用命中：%@ · %@", name, bundle];
+        suggestion = @"当前应用在轻打扰列表里；若希望弹窗，可移出轻打扰关键词。";
+    }
+
+    NSString *diagnostic = [NSString stringWithFormat:@"最终动作：%@\n命中原因：%@\n建议下一步：%@", action, reason, suggestion];
+    return @{
+        @"action": action,
+        @"reason": reason,
+        @"suggestion": suggestion,
+        @"diagnostic": diagnostic
+    };
+}
+
 - (void)workspaceDidWake:(NSNotification *)notification {
     [self refreshFocusModeState];
     [self repairRestOverlayAfterSystemEvent:notification];
@@ -6248,6 +6323,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [sections addObject:@"## 快速结论"];
     [sections addObject:@"section=recovery-report"];
     [sections addObject:[self recoveryReportDiagnosticText]];
+    [sections addObject:@""];
+    [sections addObject:@"## 自动化策略结论"];
+    [sections addObject:@"section=automation-policy"];
+    [sections addObject:[self automationPolicyExplanation][@"diagnostic"] ?: @"暂无自动化策略结论。"];
     [sections addObject:@""];
     [sections addObject:@"## 完整排查信息"];
     [sections addObject:@"section=support-bundle"];
@@ -9216,6 +9295,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [lines addObject:[NSString stringWithFormat:@"- 真实日历诊断：%@", ERAutomationURLString(@"diagnostics/calendar-real")]];
     [lines addObject:[NSString stringWithFormat:@"- 真实日历联动自检：%@", ERAutomationURLString(@"diagnostics/calendar-live")]];
     [lines addObject:[NSString stringWithFormat:@"自动化状态：%@", [self focusModeStatusText]]];
+    [lines addObject:@"策略结论："];
+    [lines addObject:[self automationPolicyExplanation][@"diagnostic"] ?: @"暂无自动化策略结论。"];
     [lines addObject:[NSString stringWithFormat:@"轻打扰：manual=%@ auto=%@ autoPause=%@ ignored=%@ presentation=%@ quiet=%@ calendar=%@ calendarPause=%@",
                       self.focusModeEnabled ? @"YES" : @"NO",
                       self.autoFocusActive ? @"YES" : @"NO",
