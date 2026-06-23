@@ -3980,6 +3980,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     calendarSectionDetail.textColor = NSColor.secondaryLabelColor;
     [panel addSubview:calendarSectionDetail];
 
+    NSString *currentEventToken = ERTrimmedString(self.appDelegate.currentCalendarEventTitle ?: @"");
+    NSString *currentEventTitle = currentEventToken.length > 0
+        ? [NSString stringWithFormat:@"当前日程：%@", currentEventToken]
+        : @"当前日程：未识别";
+    NSTextField *currentEventLabel = [NSTextField labelWithString:currentEventTitle];
+    currentEventLabel.frame = NSMakeRect(236, 88, 312, 18);
+    currentEventLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    currentEventLabel.textColor = NSColor.secondaryLabelColor;
+    [panel addSubview:currentEventLabel];
+
     NSArray<NSString *> *labels = @[@"只通知", @"自动暂停", @"不处理", @"只通知", @"自动暂停"];
     NSArray<NSString *> *values = @[
         [self.settings.focusAppTokens componentsJoinedByString:@", "],
@@ -4032,6 +4042,24 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         NSTextField *targetField = fields[index];
         objc_setAssociatedObject(button, ERAutomationAppendFieldAssociationKey, targetField, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         objc_setAssociatedObject(button, ERAutomationAppendTokenAssociationKey, currentAppToken ?: @"", OBJC_ASSOCIATION_COPY_NONATOMIC);
+        button.target = self;
+        button.action = @selector(appendCurrentAppToAutomationKeywordField:);
+        [panel addSubview:button];
+    }
+
+    NSArray<NSString *> *appendCalendarTitles = @[@"加到日程只通知", @"加到日程自动暂停"];
+    NSArray<NSNumber *> *appendCalendarTargets = @[@3, @4];
+    for (NSInteger index = 0; index < appendCalendarTitles.count; index++) {
+        NSButton *button = [NSButton buttonWithTitle:appendCalendarTitles[index] target:nil action:nil];
+        button.frame = NSMakeRect(236 + index * 132, 100, 124, 28);
+        button.bezelStyle = NSBezelStyleRounded;
+        button.enabled = currentEventToken.length > 0;
+        button.toolTip = currentEventToken.length > 0
+            ? [NSString stringWithFormat:@"追加 %@", currentEventToken]
+            : @"没有可追加的当前日程";
+        NSTextField *targetField = fields[appendCalendarTargets[index].integerValue];
+        objc_setAssociatedObject(button, ERAutomationAppendFieldAssociationKey, targetField, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(button, ERAutomationAppendTokenAssociationKey, currentEventToken ?: @"", OBJC_ASSOCIATION_COPY_NONATOMIC);
         button.target = self;
         button.action = @selector(appendCurrentAppToAutomationKeywordField:);
         [panel addSubview:button];
