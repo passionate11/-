@@ -1603,6 +1603,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSView *contentView;
 @property(nonatomic, strong) NSVisualEffectView *headerView;
 @property(nonatomic, strong) NSTextField *titleLabel;
+@property(nonatomic, strong) NSView *sidebarSummaryCard;
+@property(nonatomic, strong) NSTextField *sidebarEyebrowLabel;
+@property(nonatomic, strong) NSTextField *sidebarFooterLabel;
+@property(nonatomic, strong) NSArray<NSTextField *> *sidebarLabels;
 @property(nonatomic, strong) NSArray<NSButton *> *sidebarButtons;
 @property(nonatomic, strong) NSArray<NSView *> *sidebarSelectionViews;
 @property(nonatomic, strong) NSArray<NSTextField *> *pageTitleLabels;
@@ -1872,16 +1876,38 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.headerView = header;
 
     NSTextField *title = [NSTextField labelWithString:ERBrandName];
-    title.frame = NSMakeRect(24, 500, 150, 30);
-    title.font = [NSFont systemFontOfSize:24 weight:NSFontWeightSemibold];
+    title.frame = NSMakeRect(24, 508, 150, 26);
+    title.font = [NSFont systemFontOfSize:22 weight:NSFontWeightSemibold];
     [header addSubview:title];
     self.titleLabel = title;
 
+    self.sidebarSummaryCard = ERRoundedView(NSMakeRect(16, 438, 184, 58), [NSColor colorWithWhite:1 alpha:0.36], 12);
+    self.sidebarSummaryCard.layer.borderWidth = 1;
+    [header addSubview:self.sidebarSummaryCard];
+
+    self.sidebarEyebrowLabel = [NSTextField labelWithString:@"今日节奏"];
+    self.sidebarEyebrowLabel.frame = NSMakeRect(14, 36, 150, 16);
+    self.sidebarEyebrowLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
+    [self.sidebarSummaryCard addSubview:self.sidebarEyebrowLabel];
+
     self.summaryLabel = [NSTextField labelWithString:@""];
-    self.summaryLabel.frame = NSMakeRect(24, 460, 156, 42);
+    self.summaryLabel.frame = NSMakeRect(14, 8, 156, 28);
     self.summaryLabel.font = [NSFont monospacedDigitSystemFontOfSize:12 weight:NSFontWeightMedium];
     self.summaryLabel.textColor = NSColor.secondaryLabelColor;
-    [header addSubview:self.summaryLabel];
+    [self.sidebarSummaryCard addSubview:self.summaryLabel];
+
+    NSTextField *navCaption = [NSTextField labelWithString:@"设置"];
+    navCaption.frame = NSMakeRect(24, 402, 160, 16);
+    navCaption.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
+    [header addSubview:navCaption];
+
+    NSDictionary *info = NSBundle.mainBundle.infoDictionary;
+    NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"0.1.44";
+    self.sidebarFooterLabel = [NSTextField labelWithString:[NSString stringWithFormat:@"版本 %@", version]];
+    self.sidebarFooterLabel.frame = NSMakeRect(24, 24, 160, 18);
+    self.sidebarFooterLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    [header addSubview:self.sidebarFooterLabel];
+    self.sidebarLabels = @[self.sidebarEyebrowLabel, navCaption, self.sidebarFooterLabel];
 
     self.paneControl = [[NSSegmentedControl alloc] initWithFrame:NSZeroRect];
     self.paneControl.segmentCount = 6;
@@ -1906,7 +1932,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMutableArray *navButtons = [NSMutableArray arrayWithCapacity:navTitles.count];
     NSMutableArray *selectionViews = [NSMutableArray arrayWithCapacity:navTitles.count];
     for (NSInteger index = 0; index < navTitles.count; index++) {
-        NSView *selection = ERRoundedView(NSMakeRect(16, 396 - index * 40, 184, 32), NSColor.clearColor, 8);
+        NSView *selection = ERRoundedView(NSMakeRect(16, 362 - index * 38, 184, 34), NSColor.clearColor, 9);
         selection.hidden = YES;
         [header addSubview:selection];
         [selectionViews addObject:selection];
@@ -1916,6 +1942,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [button setButtonType:NSButtonTypeToggle];
         button.bezelStyle = NSBezelStyleRegularSquare;
         button.bordered = NO;
+        button.focusRingType = NSFocusRingTypeNone;
         button.image = [NSImage imageWithSystemSymbolName:navIcons[index] accessibilityDescription:navTitles[index]];
         button.imagePosition = NSImageLeft;
         button.alignment = NSTextAlignmentLeft;
@@ -2022,8 +2049,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     sub.textColor = NSColor.secondaryLabelColor;
     [view addSubview:sub];
 
-    NSView *card = ERRoundedView(NSMakeRect(0, 0, 584, 264), NSColor.whiteColor, 14);
-    card.layer.borderColor = ERColor(0.82, 0.84, 0.88, 0.7).CGColor;
+    NSView *card = ERRoundedView(NSMakeRect(0, 0, 584, 264), NSColor.whiteColor, 16);
+    card.layer.borderColor = ERColor(0.82, 0.84, 0.88, 0.56).CGColor;
     card.layer.borderWidth = 1;
     [view addSubview:card];
     return view;
@@ -2034,7 +2061,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMutableArray<NSView *> *dividers = [self.settingDividerViews mutableCopy];
     for (NSInteger index = 0; index < frames.count; index++) {
         NSRect frame = frames[index].rectValue;
-        NSView *row = ERRoundedView(frame, [NSColor colorWithWhite:1 alpha:0.34], 10);
+        NSView *row = ERRoundedView(frame, [NSColor colorWithWhite:1 alpha:0.18], 0);
         [card addSubview:row];
         [rows addObject:row];
 
@@ -2057,7 +2084,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
                         title:(NSTextField **)titleOut
                        detail:(NSTextField **)detailOut
                         badge:(NSTextField **)badgeOut {
-    NSView *band = ERRoundedView(frame, [NSColor colorWithWhite:1 alpha:0.38], 14);
+    NSView *band = ERRoundedView(frame, [NSColor colorWithWhite:1 alpha:0.48], 14);
     band.layer.borderWidth = 1;
     [card addSubview:band];
 
@@ -2915,11 +2942,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.overviewIssueButton.enabled = YES;
 
     NSInteger done = self.appDelegate.todayEyeDone + self.appDelegate.todayStandDone;
-    self.overviewTodayLabel.stringValue = [NSString stringWithFormat:@"今天 %ld 次\n眼 %ld · 站 %ld · 稍后/跳过 %ld",
+    self.overviewTodayLabel.stringValue = [NSString stringWithFormat:@"今天 %ld 次 · 眼 %ld · 站 %ld",
                                            (long)done,
                                            (long)self.appDelegate.todayEyeDone,
-                                           (long)self.appDelegate.todayStandDone,
-                                           (long)(self.appDelegate.todaySnoozed + self.appDelegate.todaySkipped)];
+                                           (long)self.appDelegate.todayStandDone];
 
     NSString *modeText = @"正常提醒";
     NSString *statusTitle = @"下一次提醒";
@@ -3373,6 +3399,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.headerView.wantsLayer = YES;
     self.headerView.material = settingsDarkStyle ? NSVisualEffectMaterialUnderWindowBackground : NSVisualEffectMaterialSidebar;
     self.headerView.layer.backgroundColor = theme.settingsHeader.CGColor;
+    self.sidebarSummaryCard.layer.backgroundColor = (settingsDarkStyle
+        ? [NSColor colorWithWhite:1 alpha:0.065]
+        : [NSColor colorWithWhite:1 alpha:0.34]).CGColor;
+    self.sidebarSummaryCard.layer.borderColor = (settingsDarkStyle
+        ? [NSColor colorWithWhite:1 alpha:0.10]
+        : [NSColor colorWithWhite:1 alpha:0.42]).CGColor;
+    self.sidebarSummaryCard.layer.cornerRadius = 12;
     self.footerView.wantsLayer = YES;
     self.footerView.material = settingsDarkStyle ? NSVisualEffectMaterialUnderWindowBackground : NSVisualEffectMaterialContentBackground;
     self.footerView.layer.backgroundColor = theme.settingsHeader.CGColor;
@@ -3398,10 +3431,16 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSArray<NSView *> *themeCards = @[self.overviewCard, self.eyeCard, self.standCard, self.alertCard, self.automationCard, self.statsCard];
     for (NSView *card in themeCards) {
         card.layer.masksToBounds = YES;
-        ERAddStyleMotifLayers(card.layer, card.bounds, self.settings.restStyle, theme, @"settings-card-motif", 0.36, YES, 0);
+        ERRemoveStyleMotifLayers(card.layer, @"settings-card-motif");
+        if (self.settings.restStyle == ERRestStylePixel || self.settings.restStyle == ERRestStyleToy) {
+            ERAddStyleMotifLayers(card.layer, card.bounds, self.settings.restStyle, theme, @"settings-card-motif", 0.12, YES, 0);
+        }
     }
     self.titleLabel.textColor = settingsPrimaryTextColor;
     self.summaryLabel.textColor = settingsSecondaryTextColor;
+    for (NSTextField *label in self.sidebarLabels) {
+        label.textColor = settingsDarkStyle ? theme.secondary : NSColor.tertiaryLabelColor;
+    }
     [self refreshSidebarAppearance];
     for (NSTextField *label in self.overviewLabels) {
         label.textColor = label == self.overviewEyeTimerLabel || label == self.overviewStandTimerLabel ? settingsPrimaryTextColor : settingsSecondaryTextColor;
@@ -3461,11 +3500,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         label.textColor = settingsSecondaryTextColor;
     }
     NSColor *rowColor = settingsDarkStyle
-        ? [NSColor colorWithWhite:1 alpha:0.045]
-        : [NSColor colorWithWhite:1 alpha:0.42];
+        ? [NSColor colorWithWhite:1 alpha:0.035]
+        : [NSColor colorWithWhite:1 alpha:0.20];
     NSColor *tileColor = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.095]
-        : [NSColor colorWithWhite:1 alpha:0.42];
+        : [NSColor colorWithWhite:1 alpha:0.46];
     NSColor *dividerColor = settingsDarkStyle
         ? [NSColor colorWithWhite:1 alpha:0.10]
         : [theme.cardBorder colorWithAlphaComponent:0.48];
@@ -3486,7 +3525,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.overviewActionBar.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 10;
     for (NSView *row in self.settingRowViews) {
         row.layer.backgroundColor = rowColor.CGColor;
-        row.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 10;
+        row.layer.cornerRadius = 0;
     }
     for (NSView *divider in self.settingDividerViews) {
         divider.layer.backgroundColor = dividerColor.CGColor;
