@@ -35,6 +35,7 @@ bash -n scripts/build_app.sh
 bash -n scripts/diagnose_app.sh
 bash -n scripts/generate_icon.sh
 bash -n scripts/install_app.sh
+bash -n scripts/notarize_release.sh
 bash -n scripts/package_app.sh
 bash -n scripts/preflight_release.sh
 bash -n scripts/release_readiness.sh
@@ -142,6 +143,10 @@ check_contains "$README_CONTENT" "分发维护方案" "distribution plan docs"
 check_contains "$README_CONTENT" "正式签名/公证计划" "distribution signing docs"
 check_contains "$README_CONTENT" "发布就绪检查" "release readiness docs"
 check_contains "$(cat scripts/release_readiness.sh)" "ready for current GitHub zip flow" "release readiness summary"
+check_contains "$(cat scripts/notarize_release.sh)" "NOTARIZE_SUBMIT=1" "notarization submit guard"
+check_contains "$(cat scripts/notarize_release.sh)" "xcrun notarytool submit" "notarization submit command"
+check_contains "$(cat scripts/notarize_release.sh)" "ready for dry-run plan" "notarization dry-run summary"
+check_contains "$README_CONTENT" "公证准备检查" "notarization readiness docs"
 check_contains "$README_CONTENT" "v0.1.45 自动化真实体验补强" "next roadmap docs"
 check_contains "$SOURCE_CONTENT" "ERSettingsQuickSetupSeenKey" "quick setup seen preference"
 check_contains "$SOURCE_CONTENT" "快速配置..." "quick setup menu"

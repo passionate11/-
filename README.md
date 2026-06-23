@@ -193,6 +193,14 @@ scripts/release_readiness.sh
 
 脚本只读地汇总版本、git 状态、发布 zip、已构建/已安装 App、签名、Gatekeeper、GitHub Release workflow 和自动更新当前方案；`scripts/release_readiness.sh --strict` 会在关键失败时返回非零，适合发版前留存一份不打扰工作的检查快照。
 
+## 公证准备检查
+
+```bash
+scripts/notarize_release.sh
+```
+
+脚本默认只做 dry-run，检查发布 zip、notarytool、解包后的 App、签名和 Gatekeeper 状态，不会联系 Apple。准备好 Developer ID 和 Apple 凭据后，可以用 `NOTARIZE_SUBMIT=1 APPLE_ID=... APPLE_TEAM_ID=... APPLE_APP_PASSWORD=... scripts/notarize_release.sh` 提交公证；当前 GitHub zip 流程仍可在没有这些凭据时正常发布。
+
 ## 本机诊断
 
 ```bash
@@ -365,6 +373,7 @@ songyixia://diagnostics/calendar-live
 - 产品化反馈闭环：关于窗口、检查更新、下载页、问题反馈和问题反馈包串成一条普通用户能走完的链路。
 - 分发维护方案：菜单栏可复制当前 Release 发布方式、安装状态、正式签名/公证计划和自动更新评估，让 v0.1.47 的长期维护路径更明确。
 - 发布就绪检查：新增只读脚本汇总版本、git/tag、zip、App bundle、签名、Gatekeeper、Release workflow 和自动更新方案，CI 发布前也会跑 strict 检查。
+- 公证准备检查：新增 dry-run 公证脚本，先验证 zip、notarytool、签名和 Gatekeeper；有 Developer ID 与 Apple 凭据后可显式提交 notarytool。
 
 ### 下一批优先级
 

@@ -20,6 +20,7 @@ jobs:
           bash -n scripts/diagnose_app.sh
           bash -n scripts/generate_icon.sh
           bash -n scripts/install_app.sh
+          bash -n scripts/notarize_release.sh
           bash -n scripts/package_app.sh
           bash -n scripts/preflight_release.sh
           bash -n scripts/release_readiness.sh
