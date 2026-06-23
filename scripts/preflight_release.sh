@@ -49,6 +49,7 @@ bash -n scripts/preflight_release.sh
 bash -n scripts/release_readiness.sh
 bash -n scripts/roadmap_status.sh
 bash -n scripts/settings_contract_readiness.sh
+bash -n scripts/settings_visual_readiness.sh
 bash -n scripts/smoke_test.sh
 bash -n scripts/swiftui_migration_readiness.sh
 
@@ -488,6 +489,11 @@ echo "==> Verifying settings contract readiness"
 SETTINGS_CONTRACT_OUTPUT="$(scripts/settings_contract_readiness.sh --strict)"
 [[ "$SETTINGS_CONTRACT_OUTPUT" == *"Readiness:"*"settings contract assessed"* ]] || fail "settings contract readiness did not complete"
 [[ "$SETTINGS_CONTRACT_OUTPUT" == *"Contract status:"*"prototype only"* ]] || fail "settings contract should remain prototype until SwiftUI owns the shipping schema"
+
+echo "==> Verifying settings visual readiness"
+SETTINGS_VISUAL_OUTPUT="$(scripts/settings_visual_readiness.sh --strict)"
+[[ "$SETTINGS_VISUAL_OUTPUT" == *"Readiness:"*"settings visual assessed"* ]] || fail "settings visual readiness did not complete"
+[[ "$SETTINGS_VISUAL_OUTPUT" == *"Theme Noise Control"* ]] || fail "settings visual readiness missing theme noise section"
 
 echo "==> Verifying roadmap status"
 ROADMAP_STATUS_OUTPUT="$(scripts/roadmap_status.sh --strict)"

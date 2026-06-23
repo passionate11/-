@@ -2,6 +2,7 @@
 
 ## main
 
+- 设置页视觉再设计：左侧品牌侧栏、透明导航、右侧 648px 内容区、概览/眼睛/站立/显示/自动化/统计页间距和主题降噪重新收敛，并新增 `scripts/settings_visual_readiness.sh` 做无弹窗静态检查。
 - 新增 `scripts/settings_contract_readiness.sh`，只读检查当前 Objective-C/AppKit 版本的 UserDefaults 设置合约和 SwiftUI 草稿的存储差距，明确 SwiftUI 切换前必须补齐同一套 per-key schema 或迁移层。
 - 设置窗口再次视觉精修：窗口加宽到 944px，右侧内容区、概览卡片、眼睛/站立行、显示预览和自动化摘要重新对齐，并降低背景、阴影和主题图案干扰。
 - 新增 `scripts/auto_update_readiness.sh` 和菜单项 `复制自动更新评估`，只读检查当前 GitHub Release 手动更新链路、Sparkle 缺口、Developer ID/公证前置条件，并接入 Release workflow、preflight、路线图状态和完整排查包。

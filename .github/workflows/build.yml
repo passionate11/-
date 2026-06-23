@@ -28,6 +28,7 @@ jobs:
           bash -n scripts/release_readiness.sh
           bash -n scripts/roadmap_status.sh
           bash -n scripts/settings_contract_readiness.sh
+          bash -n scripts/settings_visual_readiness.sh
           bash -n scripts/smoke_test.sh
           bash -n scripts/swiftui_migration_readiness.sh
 
