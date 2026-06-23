@@ -88,6 +88,8 @@ static NSString *const ERStatsNotificationOnlyKey = @"statsNotificationOnly";
 static NSString *const ERStatsAutoPauseSessionsKey = @"statsAutoPauseSessions";
 static NSString *const ERStatsAutoPauseSecondsKey = @"statsAutoPauseSeconds";
 static NSString *const ERStatsHistoryKey = @"statsHistory";
+static NSString *const ERLastAutomationActionTextKey = @"lastAutomationActionText";
+static NSString *const ERLastAutomationActionAtKey = @"lastAutomationActionAt";
 static NSString *const ERRecoveryHistoryKey = @"recoveryHistory";
 static NSString *const ERBrandName = @"松一下";
 static NSString *const ERGitHubURLString = @"https://github.com/passionate11/-";
@@ -1537,6 +1539,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic, strong) NSTextField *calendarStatusLabel;
 @property(nonatomic, strong) NSTextField *focusAppHintLabel;
 @property(nonatomic, strong) NSTextField *automationPolicyLabel;
+@property(nonatomic, strong) NSTextField *automationLastActionLabel;
+@property(nonatomic, strong) NSView *automationStatusStripe;
 @property(nonatomic, strong) NSButton *focusAppResetButton;
 @property(nonatomic, strong) NSPopUpButton *menuBarModePopup;
 @property(nonatomic, strong) NSPopUpButton *restStylePopup;
@@ -1673,6 +1677,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 @property(nonatomic) NSInteger todayAutoPauseSessions;
 @property(nonatomic) NSInteger todayAutoPauseSeconds;
 @property(nonatomic) BOOL autoPauseSessionActive;
+@property(nonatomic, strong) NSDate *lastAutomationActionAt;
+@property(nonatomic, copy) NSString *lastAutomationActionText;
 @property(nonatomic, strong) NSDate *lastStandCompletedAt;
 @property(nonatomic, copy) NSString *lastStandCompletionText;
 @property(nonatomic, copy) NSString *lastStandCompletionAdvice;
@@ -1834,6 +1840,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (BOOL)isLightDistractionModeActive;
 - (NSString *)focusModeStatusText;
 - (NSDictionary<NSString *, NSString *> *)automationPolicyExplanation;
+- (void)recordAutomationAction:(NSString *)action reason:(NSString *)reason;
+- (NSString *)lastAutomationActionSummary;
 - (void)updateStatusItemAppearance;
 - (NSDictionary *)statsHistoryIncludingToday;
 @end
@@ -1852,6 +1860,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.settings = settings;
     self.appDelegate = appDelegate;
     window.title = [NSString stringWithFormat:@"%@ 设置", ERBrandName];
+    window.titlebarAppearsTransparent = YES;
+    window.movableByWindowBackground = YES;
     window.delegate = self;
     window.releasedWhenClosed = NO;
     window.level = NSNormalWindowLevel;
@@ -1878,12 +1888,17 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.headerView = header;
 
     NSTextField *title = [NSTextField labelWithString:ERBrandName];
-    title.frame = NSMakeRect(24, 508, 150, 26);
+    title.frame = NSMakeRect(24, 500, 150, 26);
     title.font = [NSFont systemFontOfSize:22 weight:NSFontWeightSemibold];
     [header addSubview:title];
     self.titleLabel = title;
 
-    self.sidebarSummaryCard = ERRoundedView(NSMakeRect(16, 438, 184, 58), [NSColor colorWithWhite:1 alpha:0.36], 12);
+    NSTextField *subtitle = [NSTextField labelWithString:@"菜单栏休息提醒"];
+    subtitle.frame = NSMakeRect(24, 482, 160, 18);
+    subtitle.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    [header addSubview:subtitle];
+
+    self.sidebarSummaryCard = ERRoundedView(NSMakeRect(16, 420, 184, 58), [NSColor colorWithWhite:1 alpha:0.36], 12);
     self.sidebarSummaryCard.layer.borderWidth = 1;
     [header addSubview:self.sidebarSummaryCard];
 
@@ -1898,8 +1913,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.summaryLabel.textColor = NSColor.secondaryLabelColor;
     [self.sidebarSummaryCard addSubview:self.summaryLabel];
 
-    NSTextField *navCaption = [NSTextField labelWithString:@"设置"];
-    navCaption.frame = NSMakeRect(24, 402, 160, 16);
+    NSTextField *navCaption = [NSTextField labelWithString:@"设置项目"];
+    navCaption.frame = NSMakeRect(24, 384, 160, 16);
     navCaption.font = [NSFont systemFontOfSize:11 weight:NSFontWeightSemibold];
     [header addSubview:navCaption];
 
@@ -1909,7 +1924,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.sidebarFooterLabel.frame = NSMakeRect(24, 24, 160, 18);
     self.sidebarFooterLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     [header addSubview:self.sidebarFooterLabel];
-    self.sidebarLabels = @[self.sidebarEyebrowLabel, navCaption, self.sidebarFooterLabel];
+    self.sidebarLabels = @[subtitle, self.sidebarEyebrowLabel, navCaption, self.sidebarFooterLabel];
 
     self.paneControl = [[NSSegmentedControl alloc] initWithFrame:NSZeroRect];
     self.paneControl.segmentCount = 6;
@@ -1934,7 +1949,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMutableArray *navButtons = [NSMutableArray arrayWithCapacity:navTitles.count];
     NSMutableArray *selectionViews = [NSMutableArray arrayWithCapacity:navTitles.count];
     for (NSInteger index = 0; index < navTitles.count; index++) {
-        NSView *selection = ERRoundedView(NSMakeRect(16, 362 - index * 38, 184, 34), NSColor.clearColor, 9);
+        NSView *selection = ERRoundedView(NSMakeRect(16, 344 - index * 38, 184, 34), NSColor.clearColor, 9);
         selection.hidden = YES;
         [header addSubview:selection];
         [selectionViews addObject:selection];
@@ -1942,9 +1957,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         NSButton *button = [NSButton buttonWithTitle:navTitles[index] target:self action:@selector(selectSidebarPane:)];
         button.frame = selection.frame;
         [button setButtonType:NSButtonTypeToggle];
-        button.bezelStyle = NSBezelStyleRegularSquare;
+        button.bezelStyle = NSBezelStyleShadowlessSquare;
         button.bordered = NO;
         button.focusRingType = NSFocusRingTypeNone;
+        button.imageScaling = NSImageScaleProportionallyDown;
         button.image = [NSImage imageWithSystemSymbolName:navIcons[index] accessibilityDescription:navTitles[index]];
         button.imagePosition = NSImageLeft;
         button.alignment = NSTextAlignmentLeft;
@@ -2054,6 +2070,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSView *card = ERRoundedView(NSMakeRect(0, 0, 584, 264), NSColor.whiteColor, 16);
     card.layer.borderColor = ERColor(0.82, 0.84, 0.88, 0.56).CGColor;
     card.layer.borderWidth = 1;
+    card.layer.masksToBounds = NO;
+    card.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:0.14].CGColor;
+    card.layer.shadowOpacity = 0.08;
+    card.layer.shadowRadius = 18;
+    card.layer.shadowOffset = CGSizeMake(0, -5);
     [view addSubview:card];
     return view;
 }
@@ -2506,46 +2527,66 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)buildAutomationSectionInView:(NSView *)view {
     NSView *card = self.automationCard;
     [self addSettingRowsToCard:card frames:@[
-        [NSValue valueWithRect:NSMakeRect(18, 194, 548, 54)],
-        [NSValue valueWithRect:NSMakeRect(18, 132, 548, 54)],
-        [NSValue valueWithRect:NSMakeRect(18, 76, 548, 48)],
-        [NSValue valueWithRect:NSMakeRect(18, 24, 548, 42)]
+        [NSValue valueWithRect:NSMakeRect(18, 174, 548, 74)],
+        [NSValue valueWithRect:NSMakeRect(18, 116, 548, 52)],
+        [NSValue valueWithRect:NSMakeRect(18, 62, 548, 48)],
+        [NSValue valueWithRect:NSMakeRect(18, 18, 548, 38)]
     ] dividerX:30 dividerWidth:516];
 
-    [card addSubview:[self captionLabel:@"当前状态" frame:NSMakeRect(30, 222, 100, 16)]];
+    self.automationStatusStripe = ERRoundedView(NSMakeRect(174, 188, 3, 42), NSColor.controlAccentColor, 1.5);
+    [card addSubview:self.automationStatusStripe];
+
+    [card addSubview:[self captionLabel:@"策略结论" frame:NSMakeRect(30, 222, 100, 16)]];
     self.autoFocusSwitch = [NSButton checkboxWithTitle:@"启用自动策略" target:self action:@selector(toggleOnly:)];
-    self.autoFocusSwitch.frame = NSMakeRect(30, 202, 126, 22);
+    self.autoFocusSwitch.frame = NSMakeRect(30, 196, 126, 22);
     [card addSubview:self.autoFocusSwitch];
 
     self.focusAppMatchLabel = [NSTextField wrappingLabelWithString:@""];
-    self.focusAppMatchLabel.frame = NSMakeRect(188, 210, 340, 26);
-    self.focusAppMatchLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
-    self.focusAppMatchLabel.maximumNumberOfLines = 2;
+    self.focusAppMatchLabel.frame = NSMakeRect(190, 214, 338, 18);
+    self.focusAppMatchLabel.font = [NSFont systemFontOfSize:12.5 weight:NSFontWeightSemibold];
+    self.focusAppMatchLabel.maximumNumberOfLines = 1;
+    self.focusAppMatchLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     self.focusAppMatchLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.focusAppMatchLabel];
 
-    [card addSubview:[self captionLabel:@"场景模式" frame:NSMakeRect(30, 160, 100, 16)]];
+    self.automationPolicyLabel = [NSTextField wrappingLabelWithString:@""];
+    self.automationPolicyLabel.frame = NSMakeRect(190, 197, 338, 16);
+    self.automationPolicyLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    self.automationPolicyLabel.maximumNumberOfLines = 1;
+    self.automationPolicyLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    self.automationPolicyLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:self.automationPolicyLabel];
+
+    self.automationLastActionLabel = [NSTextField wrappingLabelWithString:@""];
+    self.automationLastActionLabel.frame = NSMakeRect(190, 180, 338, 16);
+    self.automationLastActionLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightRegular];
+    self.automationLastActionLabel.maximumNumberOfLines = 1;
+    self.automationLastActionLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    self.automationLastActionLabel.textColor = NSColor.secondaryLabelColor;
+    [card addSubview:self.automationLastActionLabel];
+
+    [card addSubview:[self captionLabel:@"场景模式" frame:NSMakeRect(30, 144, 100, 16)]];
     self.calendarFocusSwitch = [NSButton checkboxWithTitle:@"日历会议" target:self action:@selector(toggleOnly:)];
-    self.calendarFocusSwitch.frame = NSMakeRect(30, 140, 100, 22);
+    self.calendarFocusSwitch.frame = NSMakeRect(30, 124, 100, 22);
     [card addSubview:self.calendarFocusSwitch];
 
     self.presentationFocusSwitch = [NSButton checkboxWithTitle:@"全屏/演示" target:self action:@selector(toggleOnly:)];
-    self.presentationFocusSwitch.frame = NSMakeRect(140, 140, 120, 22);
+    self.presentationFocusSwitch.frame = NSMakeRect(140, 124, 120, 22);
     [card addSubview:self.presentationFocusSwitch];
 
     self.calendarStatusLabel = [NSTextField wrappingLabelWithString:@""];
-    self.calendarStatusLabel.frame = NSMakeRect(286, 136, 242, 34);
+    self.calendarStatusLabel.frame = NSMakeRect(286, 120, 242, 34);
     self.calendarStatusLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
     self.calendarStatusLabel.maximumNumberOfLines = 2;
     self.calendarStatusLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.calendarStatusLabel];
 
-    [card addSubview:[self captionLabel:@"固定时段" frame:NSMakeRect(30, 104, 100, 16)]];
+    [card addSubview:[self captionLabel:@"固定时段" frame:NSMakeRect(30, 90, 100, 16)]];
     self.quietHoursSwitch = [NSButton checkboxWithTitle:@"安静时段" target:self action:@selector(toggleOnly:)];
-    self.quietHoursSwitch.frame = NSMakeRect(30, 84, 108, 22);
+    self.quietHoursSwitch.frame = NSMakeRect(30, 70, 108, 22);
     [card addSubview:self.quietHoursSwitch];
 
-    self.quietHoursStartField = [[NSTextField alloc] initWithFrame:NSMakeRect(152, 83, 64, 24)];
+    self.quietHoursStartField = [[NSTextField alloc] initWithFrame:NSMakeRect(152, 69, 64, 24)];
     self.quietHoursStartField.font = [NSFont monospacedDigitSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.quietHoursStartField.bezelStyle = NSTextFieldRoundedBezel;
     self.quietHoursStartField.alignment = NSTextAlignmentCenter;
@@ -2555,11 +2596,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.quietHoursStartField];
 
     NSTextField *quietHoursToLabel = [NSTextField labelWithString:@"到"];
-    quietHoursToLabel.frame = NSMakeRect(224, 86, 20, 18);
+    quietHoursToLabel.frame = NSMakeRect(224, 72, 20, 18);
     quietHoursToLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:quietHoursToLabel];
 
-    self.quietHoursEndField = [[NSTextField alloc] initWithFrame:NSMakeRect(250, 83, 64, 24)];
+    self.quietHoursEndField = [[NSTextField alloc] initWithFrame:NSMakeRect(250, 69, 64, 24)];
     self.quietHoursEndField.font = [NSFont monospacedDigitSystemFontOfSize:12 weight:NSFontWeightRegular];
     self.quietHoursEndField.bezelStyle = NSTextFieldRoundedBezel;
     self.quietHoursEndField.alignment = NSTextAlignmentCenter;
@@ -2569,37 +2610,29 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [card addSubview:self.quietHoursEndField];
 
     self.quietHoursStatusLabel = [NSTextField wrappingLabelWithString:@""];
-    self.quietHoursStatusLabel.frame = NSMakeRect(330, 78, 198, 34);
+    self.quietHoursStatusLabel.frame = NSMakeRect(330, 64, 198, 34);
     self.quietHoursStatusLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     self.quietHoursStatusLabel.maximumNumberOfLines = 2;
     self.quietHoursStatusLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.quietHoursStatusLabel];
 
-    [card addSubview:[self captionLabel:@"高级策略" frame:NSMakeRect(30, 50, 100, 16)]];
+    [card addSubview:[self captionLabel:@"高级策略" frame:NSMakeRect(30, 40, 100, 16)]];
     NSButton *editKeywordsButton = [NSButton buttonWithTitle:@"编辑策略关键词..." target:self action:@selector(editAutomationKeywords:)];
-    editKeywordsButton.frame = NSMakeRect(132, 32, 142, 28);
+    editKeywordsButton.frame = NSMakeRect(132, 24, 142, 28);
     editKeywordsButton.bezelStyle = NSBezelStyleRounded;
     [card addSubview:editKeywordsButton];
 
     self.focusAppResetButton = [NSButton buttonWithTitle:@"默认" target:self action:@selector(resetFocusApps:)];
-    self.focusAppResetButton.frame = NSMakeRect(462, 32, 72, 28);
+    self.focusAppResetButton.frame = NSMakeRect(462, 24, 72, 28);
     self.focusAppResetButton.bezelStyle = NSBezelStyleRounded;
     [card addSubview:self.focusAppResetButton];
 
-    self.focusAppHintLabel = [NSTextField wrappingLabelWithString:@"自动策略按忽略、暂停、轻打扰顺序处理。"];
-    self.focusAppHintLabel.frame = NSMakeRect(288, 30, 160, 32);
+    self.focusAppHintLabel = [NSTextField wrappingLabelWithString:@"优先级：不处理 > 自动暂停 > 只发通知。"];
+    self.focusAppHintLabel.frame = NSMakeRect(288, 22, 160, 32);
     self.focusAppHintLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightRegular];
     self.focusAppHintLabel.maximumNumberOfLines = 2;
     self.focusAppHintLabel.textColor = NSColor.secondaryLabelColor;
     [card addSubview:self.focusAppHintLabel];
-
-    self.automationPolicyLabel = [NSTextField wrappingLabelWithString:@""];
-    self.automationPolicyLabel.frame = NSMakeRect(188, 196, 340, 14);
-    self.automationPolicyLabel.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
-    self.automationPolicyLabel.maximumNumberOfLines = 1;
-    self.automationPolicyLabel.lineBreakMode = NSLineBreakByTruncatingTail;
-    self.automationPolicyLabel.textColor = NSColor.secondaryLabelColor;
-    [card addSubview:self.automationPolicyLabel];
 }
 
 - (void)buildStatsSectionInView:(NSView *)view {
@@ -3029,8 +3062,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSString *action = policy[@"action"] ?: @"当前策略";
     NSString *reason = policy[@"reason"] ?: [self.appDelegate focusModeStatusText];
     NSString *suggestion = policy[@"suggestion"] ?: @"";
+    NSString *lastAction = policy[@"lastAction"] ?: @"最近动作：暂无记录";
     self.focusAppMatchLabel.stringValue = [NSString stringWithFormat:@"%@：%@", action, reason];
-    self.automationPolicyLabel.stringValue = suggestion;
+    self.automationPolicyLabel.stringValue = [NSString stringWithFormat:@"建议：%@", suggestion];
+    self.automationLastActionLabel.stringValue = lastAction;
     if (self.appDelegate.quietHoursActive) {
         self.quietHoursStatusLabel.stringValue = [NSString stringWithFormat:@"%@-%@ · 只发通知",
                                                    ERFormatClockMinute(self.settings.quietHoursStartMinute),
@@ -3445,7 +3480,11 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     self.statsCard.layer.cornerRadius = theme.cornerRadius == 6 ? 8 : 16;
     NSArray<NSView *> *themeCards = @[self.overviewCard, self.eyeCard, self.standCard, self.alertCard, self.automationCard, self.statsCard];
     for (NSView *card in themeCards) {
-        card.layer.masksToBounds = YES;
+        card.layer.masksToBounds = NO;
+        card.layer.shadowColor = [NSColor.blackColor colorWithAlphaComponent:settingsDarkStyle ? 0.34 : 0.16].CGColor;
+        card.layer.shadowOpacity = settingsDarkStyle ? 0.18 : 0.07;
+        card.layer.shadowRadius = settingsDarkStyle ? 22 : 18;
+        card.layer.shadowOffset = CGSizeMake(0, -5);
         ERRemoveStyleMotifLayers(card.layer, @"settings-card-motif");
         if (self.settings.restStyle == ERRestStylePixel || self.settings.restStyle == ERRestStyleToy) {
             ERAddStyleMotifLayers(card.layer, card.bounds, self.settings.restStyle, theme, @"settings-card-motif", 0.12, YES, 0);
@@ -3478,6 +3517,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     }
     self.focusAppMatchLabel.textColor = settingsSecondaryTextColor;
     self.automationPolicyLabel.textColor = settingsSecondaryTextColor;
+    self.automationLastActionLabel.textColor = settingsSecondaryTextColor;
+    self.automationStatusStripe.layer.backgroundColor = theme.accent.CGColor;
     self.calendarStatusLabel.textColor = settingsSecondaryTextColor;
     self.quietHoursStatusLabel.textColor = settingsSecondaryTextColor;
     self.focusAppHintLabel.textColor = settingsSecondaryTextColor;
@@ -3539,6 +3580,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         : [NSColor colorWithWhite:1 alpha:0.24]).CGColor;
     self.overviewActionBar.layer.borderColor = [theme.cardBorder colorWithAlphaComponent:0.46].CGColor;
     self.overviewActionBar.layer.cornerRadius = theme.cornerRadius == 6 ? 6 : 10;
+    self.automationStatusStripe.layer.cornerRadius = theme.cornerRadius == 6 ? 1 : 1.5;
     for (NSView *row in self.settingRowViews) {
         row.layer.backgroundColor = rowColor.CGColor;
         row.layer.cornerRadius = 0;
@@ -4434,6 +4476,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
     [self loadTodayStats];
     [self loadRecoveryHistory];
+    self.lastAutomationActionText = [NSUserDefaults.standardUserDefaults stringForKey:ERLastAutomationActionTextKey];
+    self.lastAutomationActionAt = [NSUserDefaults.standardUserDefaults objectForKey:ERLastAutomationActionAtKey];
     self.lastScreenDiagnosticSummary = ERScreenDiagnosticSummary();
     [self rebuildMenu];
     [self resetAllTimers];
@@ -4805,11 +4849,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             focused = !paused && (quietHours || self.presentationFocusActive || self.calendarFocusActive || ERApplicationMatchesFocusTokens(self.frontmostAppBundleIdentifier, self.frontmostAppName, self.settings.focusAppTokens));
         }
     }
-    if (paused && !self.paused && !self.autoPauseActive && !self.autoPauseSessionActive) {
+    BOOL shouldRecordAutoPauseStart = paused && !self.paused && !self.autoPauseActive && !self.autoPauseSessionActive;
+    BOOL shouldRecordAutoPauseEnd = !paused && self.autoPauseActive;
+    if (shouldRecordAutoPauseStart) {
         self.todayAutoPauseSessions += 1;
         self.autoPauseSessionActive = YES;
         [self saveTodayStats];
-    } else if (!paused && self.autoPauseActive) {
+    } else if (shouldRecordAutoPauseEnd) {
         self.autoPauseSessionActive = NO;
     }
     self.autoIgnoreActive = ignored;
@@ -4823,6 +4869,12 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         self.quietHoursActive = NO;
     }
     self.autoFocusActive = focused;
+    if (shouldRecordAutoPauseStart) {
+        NSDictionary<NSString *, NSString *> *policy = [self automationPolicyExplanation];
+        [self recordAutomationAction:@"自动暂停开始" reason:policy[@"reason"]];
+    } else if (shouldRecordAutoPauseEnd) {
+        [self recordAutomationAction:@"自动暂停结束" reason:@"恢复正常计时"];
+    }
     [self.settingsWindowController refreshAutomationStatus];
 }
 
@@ -4842,6 +4894,25 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (BOOL)isLightDistractionModeActive {
     return self.focusModeEnabled || self.autoFocusActive;
+}
+
+- (void)recordAutomationAction:(NSString *)action reason:(NSString *)reason {
+    if (action.length == 0) return;
+    NSString *detail = reason.length > 0 ? [NSString stringWithFormat:@"%@ · %@", action, reason] : action;
+    self.lastAutomationActionText = detail;
+    self.lastAutomationActionAt = NSDate.date;
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    [defaults setObject:detail forKey:ERLastAutomationActionTextKey];
+    [defaults setObject:self.lastAutomationActionAt forKey:ERLastAutomationActionAtKey];
+    [self.settingsWindowController refreshAutomationStatus];
+}
+
+- (NSString *)lastAutomationActionSummary {
+    if (self.lastAutomationActionText.length == 0) {
+        return @"最近动作：暂无记录";
+    }
+    NSString *time = self.lastAutomationActionAt ? ERFormatClockTime(self.lastAutomationActionAt) : @"未知时间";
+    return [NSString stringWithFormat:@"最近动作：%@ · %@", time, self.lastAutomationActionText];
 }
 
 - (NSString *)focusModeStatusText {
@@ -4928,10 +4999,15 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         suggestion = @"当前应用在轻打扰列表里；若希望弹窗，可移出轻打扰关键词。";
     }
 
-    NSString *diagnostic = [NSString stringWithFormat:@"最终动作：%@\n命中原因：%@\n建议下一步：%@", action, reason, suggestion];
+    NSString *diagnostic = [NSString stringWithFormat:@"最终动作：%@\n命中原因：%@\n最近动作：%@\n建议下一步：%@",
+                            action,
+                            reason,
+                            [self lastAutomationActionSummary],
+                            suggestion];
     return @{
         @"action": action,
         @"reason": reason,
+        @"lastAction": [self lastAutomationActionSummary],
         @"suggestion": suggestion,
         @"diagnostic": diagnostic
     };
@@ -6419,6 +6495,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     } else if ([self isLightDistractionModeActive]) {
         self.todayNotificationOnly += 1;
         [self saveTodayStats];
+        NSDictionary<NSString *, NSString *> *policy = [self automationPolicyExplanation];
+        NSString *kindTitle = kind == ERReminderKindEye ? @"眼睛提醒" : @"站立提醒";
+        [self recordAutomationAction:[NSString stringWithFormat:@"%@只发通知", kindTitle] reason:policy[@"reason"]];
     }
 }
 
@@ -6738,6 +6817,8 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 
 - (void)toggleFocusMode:(id)sender {
     self.focusModeEnabled = !self.focusModeEnabled;
+    [self recordAutomationAction:(self.focusModeEnabled ? @"手动轻打扰开启" : @"手动轻打扰关闭")
+                          reason:@"菜单栏切换"];
     if (self.focusModeEnabled && self.restWindowController) {
         [self.restWindowController close];
         self.restWindowController = nil;
