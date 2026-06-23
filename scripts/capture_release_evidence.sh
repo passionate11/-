@@ -78,6 +78,7 @@ run_capture "release_readiness" env APP_TARGET="$APP_BUNDLE" ARCHIVE_PATH="$ARCH
 run_capture "auto_update_readiness" env APP_TARGET="$APP_BUNDLE" ARCHIVE_PATH="$ARCHIVE_PATH" "$ROOT_DIR/scripts/auto_update_readiness.sh" --strict
 run_capture "roadmap_status" "$ROOT_DIR/scripts/roadmap_status.sh" --strict
 run_capture "settings_visual_readiness" "$ROOT_DIR/scripts/settings_visual_readiness.sh" --strict
+run_capture "automation_keyword_config_readiness" "$ROOT_DIR/scripts/automation_keyword_config_readiness.sh" --strict
 run_capture "automation_policy_readiness" "$ROOT_DIR/scripts/automation_policy_readiness.sh" --strict
 run_capture "release_evidence_readiness" "$ROOT_DIR/scripts/release_evidence_readiness.sh" --strict
 run_capture "settings_contract_readiness" "$ROOT_DIR/scripts/settings_contract_readiness.sh" --strict

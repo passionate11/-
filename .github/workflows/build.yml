@@ -16,6 +16,7 @@ jobs:
 
       - name: Check shell scripts
         run: |
+          bash -n scripts/automation_keyword_config_readiness.sh
           bash -n scripts/automation_policy_readiness.sh
           bash -n scripts/build_app.sh
           bash -n scripts/capture_release_evidence.sh
