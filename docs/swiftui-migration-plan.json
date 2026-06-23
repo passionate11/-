@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "migrationStatus": "prototype only",
+  "sourceParityMatrix": "docs/swiftui-parity-matrix.json",
+  "sourceSettingsContract": "docs/settings-contract.json",
+  "shippingImplementation": "Sources/EyeRestObjC/main.m",
+  "swiftUIDraft": "Sources/EyeRest/main.swift",
+  "switchGuard": "Keep Objective-C/AppKit as the shipping app until every phase below is complete and the parity matrix has zero required missing features.",
+  "phases": [
+    {
+      "id": "settings-contract-foundation",
+      "order": 1,
+      "title": "Settings contract and settings shell",
+      "status": "not started",
+      "requiredBeforeSwitch": true,
+      "featureIds": [
+        "debug-seconds-rhythm",
+        "settings-window",
+        "overview-dashboard"
+      ],
+      "exitEvidence": [
+        "SwiftUI reads and writes the same per-key UserDefaults contract",
+        "seconds-level time fields preserve the 10-second debug rhythm",
+        "overview, eye, stand, display, automation, and stats settings pages are represented"
+      ],
+      "recommendedNextPort": "Port the settings contract first, then rebuild the overview/settings shell without replacing the shipping app."
+    },
+    {
+      "id": "timers-rest-overlay",
+      "order": 2,
+      "title": "Dual timers and rest overlay policy",
+      "status": "not started",
+      "requiredBeforeSwitch": true,
+      "featureIds": [
+        "dual-timers",
+        "rest-window-level-policy"
+      ],
+      "exitEvidence": [
+        "eyeDueAt and standDueAt remain independent",
+        "eye and stand rest states reschedule independently",
+        "ordinary rest windows yield while topmost mode remains opt-in"
+      ],
+      "recommendedNextPort": "Port independent timers, rest state transitions, yielded overlay behavior, and topmost policy."
+    },
+    {
+      "id": "automation-recovery",
+      "order": 3,
+      "title": "Automation, presentation, calendar, and display recovery",
+      "status": "not started",
+      "requiredBeforeSwitch": true,
+      "featureIds": [
+        "automation-policy",
+        "calendar-presentation-light-distraction",
+        "display-recovery"
+      ],
+      "exitEvidence": [
+        "automation priority remains ignore > auto-pause > notify-only",
+        "calendar, presentation, quiet-hours, and app policies explain their final action",
+        "display and settings-window recovery diagnostics remain available"
+      ],
+      "recommendedNextPort": "Port policy explanation, keyword templates, EventKit checks, presentation detection, quiet hours, and display recovery diagnostics."
+    },
+    {
+      "id": "stats-release-support",
+      "order": 4,
+      "title": "Stats, backup, update, and support flow",
+      "status": "not started",
+      "requiredBeforeSwitch": true,
+      "featureIds": [
+        "stats-backup-export",
+        "release-update-support"
+      ],
+      "exitEvidence": [
+        "stats history, CSV export, JSON backup, and JSON restore preserve the current schema",
+        "about, update check, install guide, issue bundle, and support bundle remain available",
+        "release readiness and evidence capture still pass without full-screen smoke tests"
+      ],
+      "recommendedNextPort": "Port stats schema, import/export, GitHub release lookup, install guide, issue bundle, and evidence hooks."
+    }
+  ]
+}

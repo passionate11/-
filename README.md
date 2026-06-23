@@ -29,6 +29,7 @@
 - 设置页侧栏带有应用徽章、紧凑节奏摘要、底部版本信息和更轻的 macOS 列表导航；右侧页面标题带原生图标徽章与主题强调线，主卡片使用浅阴影与轻量分区，优先保证清爽可读。
 - 设置窗口分栏继续精修：侧栏宽度、右侧内容区、底部操作区和概览快捷操作条重新对齐，透明点击层保留可点性，自绘轻按钮底减少旧式按钮感。
 - 设置页侧栏继续去灰框：导航点击层近乎不可见，实际视觉由选中竖条、图标底和原生列表高亮承担，左侧节奏摘要也增加主题强调线。
+- 设置页 macOS 质感继续收敛：侧栏点击层改成不绘制的专用按钮，选中态使用更安静的原生 source list 高亮，概览快捷操作条降成轻 toolbar。
 - 到点可弹出休息页，并发送系统通知；默认不强制置顶，点击卡片外背景或切到其他 App 时会让开，需要严格打断时可开启置顶强提醒。
 - 支持多种整体风格：极简呼吸、松弛森林、像素窗边、软糖玩具、夜间护眼。
 - 风格会同时影响设置窗口和全屏休息页。
@@ -200,7 +201,7 @@ scripts/preflight_release.sh
 scripts/capture_release_evidence.sh
 ```
 
-脚本会先运行发布前检查并重新生成 zip、sha256 和 Release Notes，然后把 `preflight_release`、`release_readiness`、`auto_update_readiness`、`roadmap_status`、设置页视觉检查、自动化策略检查、设置合约检查、SwiftUI 迁移检查和已安装 App 诊断统一保存到 `dist/release-evidence-<version>-<build>-<time>/`。它不会运行全屏冒烟测试，适合发版前留存一份低打扰证据包。
+脚本会先运行发布前检查并重新生成 zip、sha256 和 Release Notes，然后把 `preflight_release`、`release_readiness`、`auto_update_readiness`、`roadmap_status`、设置页视觉检查、自动化策略检查、设置合约检查、SwiftUI 迁移检查、SwiftUI 阶段计划检查和已安装 App 诊断统一保存到 `dist/release-evidence-<version>-<build>-<time>/`。它不会运行全屏冒烟测试，适合发版前留存一份低打扰证据包。
 
 ## 发布就绪检查
 
@@ -249,6 +250,14 @@ scripts/swiftui_migration_readiness.sh
 ```
 
 脚本只读地比较当前 Objective-C/AppKit 版本和 `Sources/EyeRest/main.swift` SwiftUI 草稿，列出双计时、设置页、恢复、自动化、统计、更新/反馈等迁移缺口。迁移功能矩阵沉淀在 `docs/swiftui-parity-matrix.json`，记录每个必须补齐的功能、正式版锚点、SwiftUI 草稿锚点、风险和下一步移植建议。当前结论会明确标记为 `prototype only`，避免误把 SwiftUI 草稿当成可替换的正式版本。
+
+## SwiftUI 迁移阶段计划
+
+```bash
+scripts/swiftui_parity_plan.sh
+```
+
+脚本只读地读取 `docs/swiftui-migration-plan.json`、`docs/swiftui-parity-matrix.json` 和 `docs/settings-contract.json`，把 10 个必须补齐的 SwiftUI parity 缺口分成 4 个阶段：设置合约和设置壳、双计时与休息窗口策略、自动化与恢复、统计/更新/支持流。当前仍保持 `prototype only`，正式版继续由 Objective-C/AppKit 承载，只有 4 个阶段全部完成且 parity 矩阵没有 required 缺口后才考虑切换。
 
 ## 设置合约准备检查
 
@@ -446,6 +455,7 @@ songyixia://diagnostics/calendar-live
 - 设置页 macOS 风格再收敛：侧栏按钮只保留点击层，选中态改成主题色胶囊；右侧卡片、分组行、阴影和底部栏继续降噪，减少灰色表单感。
 - 设置页侧栏去灰框：透明点击层进一步降到近乎不可见，导航项改用选中竖条、图标底和轻列表高亮来表达状态，避免看起来像一排浅灰按钮。
 - 设置页 0.1.44 收尾精修：侧栏选中态改用 macOS 系统选中行，分组行转为透明底加细分隔线，主卡片圆角、阴影、主题底色和像素/玩具图案强度继续降低。
+- 设置页原生感微调：侧栏点击层改成不绘制的 `ERSettingsSidebarButton`，选中行改用更安静的 source list 背景，概览快捷操作条弱化为轻 toolbar。
 - 产品化反馈闭环：关于窗口、检查更新、下载页、问题反馈和问题反馈包串成一条普通用户能走完的链路。
 - 更新资源直达：检查更新会解析 GitHub Release assets，优先打开 `songyixia-*.zip` 的直接下载链接，减少用户在发布页里找文件。
 - 分发维护方案：菜单栏可复制当前 Release 发布方式、安装状态、正式签名/公证计划和自动更新评估，让 v0.1.47 的长期维护路径更明确。
@@ -456,6 +466,7 @@ songyixia://diagnostics/calendar-live
 - 发布包校验：打包时生成 `songyixia-*.zip.sha256`，发布前检查和发布就绪检查都会验证 checksum，GitHub artifact 和 Release 一起上传。
 - 发布说明生成：新增 Release Notes 脚本，把下载文件、SHA256、安装步骤、本次更新和反馈入口整理成用户可读的 GitHub Release 正文。
 - SwiftUI 迁移准备：新增 `docs/swiftui-parity-matrix.json` 和只读迁移检查脚本，明确 SwiftUI 草稿仍是 prototype，并列出正式切换前必须补齐的功能缺口。
+- SwiftUI 迁移阶段计划：新增 `docs/swiftui-migration-plan.json` 和 `scripts/swiftui_parity_plan.sh`，把 10 个 required parity 缺口拆成 4 个阶段，并接入低打扰发布证据包。
 - 设置合约准备：新增 `docs/settings-contract.json` 和只读脚本检查正式版 UserDefaults per-key schema、默认值、旧键迁移和 SwiftUI 草稿 JSON 存储的差距，避免未来迁移导致设置丢失。
 
 ### 下一批优先级
@@ -468,15 +479,15 @@ songyixia://diagnostics/calendar-live
 
 #### v0.1.46 设置页继续打磨
 
-- 计划：继续收敛二级页控件密度，重点处理按钮文案、表单行节奏、夜间/像素/玩具风格的文字对比和风格预览细节。
-- 验收：设置页不再像调试面板；左侧侧栏、右侧标题、主卡片、footer 和弹窗的按钮层级一致；侧栏没有灰框按钮感；`settings_visual_readiness.sh --strict` 通过。
+- 计划：继续收敛二级页控件密度，重点处理按钮文案、表单行节奏、夜间/像素/玩具风格的文字对比、侧栏 source list 质感和风格预览细节。
+- 验收：设置页不再像调试面板；左侧侧栏、右侧标题、主卡片、footer 和弹窗的按钮层级一致；侧栏没有灰框按钮感，概览快捷操作条不再像一排旧式按钮；`settings_visual_readiness.sh --strict` 通过。
 - 验证：静态编译、视觉就绪脚本和必要的窗口级截图，避免触发全屏休息页。
 
 #### v0.1.47 分发和长期维护
 
 - 计划：把 Release 下载、覆盖安装、检查更新、反馈包、自动更新评估、签名/公证和 SwiftUI 迁移合并成一条维护清单。
 - 验收：普通用户能从 GitHub Release 下载 zip、拖入 `/Applications`、确认版本、检查更新并复制反馈包；自动更新和公证仍保持明确的前置条件。
-- 验证：`capture_release_evidence.sh`、`release_readiness.sh`、`auto_update_readiness.sh`、`settings_contract_readiness.sh` 和打包校验。
+- 验证：`capture_release_evidence.sh`、`release_readiness.sh`、`auto_update_readiness.sh`、`settings_contract_readiness.sh`、`swiftui_parity_plan.sh` 和打包校验。
 
 ### 后续可以探索
 

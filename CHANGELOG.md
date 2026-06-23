@@ -2,6 +2,8 @@
 
 ## main
 
+- 设置页 macOS 质感继续收敛：侧栏点击层改为不绘制的 `ERSettingsSidebarButton`，选中态使用更安静的 source list 背景，概览快捷操作条降成轻 toolbar。
+- 新增 `docs/swiftui-migration-plan.json` 和 `scripts/swiftui_parity_plan.sh`，把 10 个 required SwiftUI parity 缺口拆成设置合约、双计时/休息窗、自动化/恢复、统计/更新 4 个迁移阶段，并接入 preflight、路线图和发布证据包。
 - 设置页 0.1.44 收尾精修：侧栏选中态改用 macOS 系统选中行，分组行转为透明底加细分隔线，主卡片圆角、阴影、主题底色和像素/玩具图案强度继续降低。
 - 新增 `docs/swiftui-parity-matrix.json`，把 SwiftUI 草稿距离正式版的 10 个功能缺口沉淀成机器可读迁移矩阵，并接入 SwiftUI 迁移检查。
 - 新增 `docs/settings-contract.json`，把正式版 28 个 per-key UserDefaults 设置项、默认值、类型和 SwiftUI 迁移要求沉淀成机器可读合约，并接入设置合约检查。

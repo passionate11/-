@@ -81,6 +81,7 @@ run_capture "settings_visual_readiness" "$ROOT_DIR/scripts/settings_visual_readi
 run_capture "automation_policy_readiness" "$ROOT_DIR/scripts/automation_policy_readiness.sh" --strict
 run_capture "settings_contract_readiness" "$ROOT_DIR/scripts/settings_contract_readiness.sh" --strict
 run_capture "swiftui_migration_readiness" "$ROOT_DIR/scripts/swiftui_migration_readiness.sh" --strict
+run_capture "swiftui_parity_plan" "$ROOT_DIR/scripts/swiftui_parity_plan.sh" --strict
 run_capture "diagnose_installed_app" env APP_TARGET="$APP_INSTALLED" "$ROOT_DIR/scripts/diagnose_app.sh"
 
 mkdir -p "$DIST_DIR"

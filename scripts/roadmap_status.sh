@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_FILE="$ROOT_DIR/Sources/EyeRestObjC/main.m"
 README_FILE="$ROOT_DIR/README.md"
 VERSION_FILE="$ROOT_DIR/VERSION"
+SWIFTUI_PLAN_FILE="$ROOT_DIR/docs/swiftui-migration-plan.json"
 STRICT=0
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -53,7 +54,7 @@ fail_check() {
 contains() {
   local file="$1"
   local token="$2"
-  [[ -f "$file" ]] && grep -q "$token" "$file"
+  [[ -f "$file" ]] && grep -Fq -- "$token" "$file"
 }
 
 check_evidence() {
@@ -85,7 +86,10 @@ print_kv "Status" "implemented-with-diagnostics"
 print_section "v0.1.46 Settings Polish"
 check_evidence "wide settings window" "NSMakeRect(0, 0, 944, 592)"
 check_evidence "sidebar divider" "sidebarDividerView"
+check_evidence "sidebar no-draw button" "ERSettingsSidebarButton"
+check_evidence "quiet selected row" "unemphasizedSelectedContentBackgroundColor"
 check_evidence "overview light actions" "overviewActionButtonShells"
+check_evidence "toolbar action shells" "shell.layer.borderWidth = settingsDarkStyle ? 0.5 : 0"
 check_evidence "page icon badges" "pageIconBadgeViews"
 check_evidence "style preview motif" "stylePreviewMotif"
 check_evidence "settings visual readiness" "settings visual assessed" "$ROOT_DIR/scripts/settings_visual_readiness.sh"
@@ -98,6 +102,9 @@ check_evidence "notarization readiness" "公证准备检查" "$README_FILE"
 check_evidence "SwiftUI migration" "SwiftUI 迁移准备检查" "$README_FILE"
 check_evidence "SwiftUI parity matrix" "swiftui-parity-matrix.json" "$README_FILE"
 check_evidence "SwiftUI parity machine file" "\"migrationStatus\": \"prototype only\"" "$ROOT_DIR/docs/swiftui-parity-matrix.json"
+check_evidence "SwiftUI phase plan docs" "SwiftUI 迁移阶段计划" "$README_FILE"
+check_evidence "SwiftUI phase plan file" "\"settings-contract-foundation\"" "$SWIFTUI_PLAN_FILE"
+check_evidence "SwiftUI phase plan script" "SwiftUI parity plan assessed" "$ROOT_DIR/scripts/swiftui_parity_plan.sh"
 check_evidence "settings contract" "设置合约准备检查" "$README_FILE"
 check_evidence "settings contract json" "settings-contract.json" "$README_FILE"
 check_evidence "settings contract machine file" "\"storageModel\": \"per-key UserDefaults\"" "$ROOT_DIR/docs/settings-contract.json"
@@ -106,6 +113,7 @@ check_evidence "release notes" "发布说明生成" "$README_FILE"
 check_evidence "release evidence bundle" "发布证据包" "$README_FILE"
 check_evidence "auto update script" "auto_update_readiness.sh" "$SOURCE_FILE"
 check_evidence "release evidence script" "capture_release_evidence.sh" "$ROOT_DIR/scripts/capture_release_evidence.sh"
+check_evidence "release evidence parity plan" "swiftui_parity_plan" "$ROOT_DIR/scripts/capture_release_evidence.sh"
 print_kv "Status" "implemented-release-readiness"
 
 print_section "Product Surface"
@@ -120,6 +128,7 @@ check_evidence "auto update copy action" "copyAutoUpdateReadiness:"
 check_evidence "auto update text" "autoUpdateReadinessText"
 check_evidence "settings contract script" "settings_contract_readiness.sh" "$ROOT_DIR/scripts/settings_contract_readiness.sh"
 check_evidence "settings visual script" "settings_visual_readiness.sh" "$ROOT_DIR/scripts/settings_visual_readiness.sh"
+check_evidence "SwiftUI parity plan script" "swiftui_parity_plan.sh" "$ROOT_DIR/scripts/swiftui_parity_plan.sh"
 check_evidence "automation policy script" "automation_policy_readiness.sh" "$ROOT_DIR/scripts/automation_policy_readiness.sh"
 
 print_section "Summary"
