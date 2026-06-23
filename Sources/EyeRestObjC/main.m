@@ -3913,8 +3913,41 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [alert addButtonWithTitle:@"恢复默认"];
     [alert addButtonWithTitle:@"取消"];
 
-    NSView *panel = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 520, 220)];
-    NSArray<NSString *> *labels = @[@"应用只通知", @"应用自动暂停", @"应用不处理", @"日程只通知", @"日程自动暂停"];
+    NSView *panel = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 560, 340)];
+    NSTextField *priorityHint = [NSTextField wrappingLabelWithString:@"命中多个策略时，会按“不处理 > 自动暂停 > 只发通知”处理。"];
+    priorityHint.frame = NSMakeRect(0, 314, 548, 20);
+    priorityHint.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
+    priorityHint.textColor = NSColor.secondaryLabelColor;
+    [panel addSubview:priorityHint];
+
+    NSTextField *appSectionTitle = [NSTextField labelWithString:@"应用策略"];
+    appSectionTitle.frame = NSMakeRect(0, 280, 180, 20);
+    appSectionTitle.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
+    [panel addSubview:appSectionTitle];
+
+    NSTextField *appSectionDetail = [NSTextField labelWithString:@"按前台应用名称或 bundle id 命中。"];
+    appSectionDetail.frame = NSMakeRect(0, 262, 420, 18);
+    appSectionDetail.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    appSectionDetail.textColor = NSColor.secondaryLabelColor;
+    [panel addSubview:appSectionDetail];
+
+    NSView *separator = [[NSView alloc] initWithFrame:NSMakeRect(0, 132, 548, 1)];
+    separator.wantsLayer = YES;
+    separator.layer.backgroundColor = NSColor.separatorColor.CGColor;
+    [panel addSubview:separator];
+
+    NSTextField *calendarSectionTitle = [NSTextField labelWithString:@"日程策略"];
+    calendarSectionTitle.frame = NSMakeRect(0, 106, 180, 20);
+    calendarSectionTitle.font = [NSFont systemFontOfSize:13 weight:NSFontWeightSemibold];
+    [panel addSubview:calendarSectionTitle];
+
+    NSTextField *calendarSectionDetail = [NSTextField labelWithString:@"按日程标题、地点或日历名称命中。"];
+    calendarSectionDetail.frame = NSMakeRect(0, 88, 420, 18);
+    calendarSectionDetail.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+    calendarSectionDetail.textColor = NSColor.secondaryLabelColor;
+    [panel addSubview:calendarSectionDetail];
+
+    NSArray<NSString *> *labels = @[@"只通知", @"自动暂停", @"不处理", @"只通知", @"自动暂停"];
     NSArray<NSString *> *values = @[
         [self.settings.focusAppTokens componentsJoinedByString:@", "],
         [self.settings.autoPauseAppTokens componentsJoinedByString:@", "],
@@ -3923,22 +3956,29 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self.settings.calendarAutoPauseTokens componentsJoinedByString:@", "]
     ];
     NSArray<NSString *> *placeholders = @[
-        @"会议/演示类应用：只发通知，不弹休息页",
-        @"视频/游戏类应用：暂停计时并顺延",
-        @"误命中兜底：照常提醒，不降打扰",
-        @"会议/站会：只发通知，不弹休息页",
-        @"录制/直播/面试：暂停计时并顺延"
+        @"应用只通知：会议、演示类应用，不弹休息页",
+        @"应用自动暂停：视频、游戏类应用，暂停计时并顺延",
+        @"应用不处理：误命中兜底，照常提醒",
+        @"日程只通知：会议、站会，不弹休息页",
+        @"日程自动暂停：录制、直播、面试，暂停计时并顺延"
+    ];
+    NSArray<NSNumber *> *rowYs = @[
+        @226,
+        @190,
+        @154,
+        @52,
+        @16
     ];
     NSMutableArray<NSTextField *> *fields = [NSMutableArray arrayWithCapacity:labels.count];
     for (NSInteger index = 0; index < labels.count; index++) {
-        CGFloat y = 176 - index * 40;
+        CGFloat y = rowYs[index].doubleValue;
         NSTextField *label = [NSTextField labelWithString:[NSString stringWithFormat:@"%@：", labels[index]]];
-        label.frame = NSMakeRect(0, y + 4, 96, 22);
+        label.frame = NSMakeRect(0, y + 4, 98, 22);
         label.alignment = NSTextAlignmentRight;
         label.textColor = NSColor.secondaryLabelColor;
         [panel addSubview:label];
 
-        NSTextField *field = [[NSTextField alloc] initWithFrame:NSMakeRect(110, y, 390, 26)];
+        NSTextField *field = [[NSTextField alloc] initWithFrame:NSMakeRect(112, y, 436, 26)];
         field.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
         field.bezelStyle = NSTextFieldRoundedBezel;
         field.placeholderString = placeholders[index];
