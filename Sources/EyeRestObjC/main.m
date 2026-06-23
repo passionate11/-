@@ -6819,23 +6819,47 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"未知";
     NSString *build = [info[@"CFBundleVersion"] isKindOfClass:NSString.class] ? info[@"CFBundleVersion"] : @"未知";
     NSString *bundlePath = bundle.bundlePath ?: @"/Applications/松一下.app";
+    NSString *archiveName = [NSString stringWithFormat:@"songyixia-%@-%@.zip", version, build];
+    NSString *checksumName = [archiveName stringByAppendingString:@".sha256"];
+    NSString *installState = [bundlePath isEqualToString:@"/Applications/松一下.app"]
+        ? @"已在 /Applications 标准位置运行"
+        : @"当前不在 /Applications，建议覆盖安装到 /Applications/松一下.app";
     return [NSString stringWithFormat:
             @"%@ 安装/更新说明\n\n"
             @"当前版本：%@ (%@)\n"
             @"当前安装位置：%@\n"
-            @"下载页：%@\n\n"
-            @"1. 打开下载页，下载最新 songyixia-<version>-<build>.zip。\n"
-            @"2. 解压得到 %@.app，拖入 /Applications 覆盖旧版本。\n"
-            @"3. 打开菜单栏「关于 %@...」确认版本。\n"
-            @"4. 遇到问题时，先点「排查中心」->「复制问题反馈包」，再点「反馈问题...」。\n\n"
+            @"当前状态：%@\n"
+            @"下载页：%@\n"
+            @"建议下载：%@\n"
+            @"校验文件：%@\n\n"
+            @"更新步骤\n"
+            @"1. 打开下载页，下载最新 %@，同页可下载 %@ 用于 SHA256 校验。\n"
+            @"2. 退出正在运行的 %@，解压 zip 得到 %@.app。\n"
+            @"3. 把 %@.app 拖入 /Applications 覆盖旧版本；如果系统询问，选择替换。\n"
+            @"4. 重新打开 %@，在菜单栏「关于 %@...」确认版本。\n"
+            @"5. 遇到问题时，先点「排查中心」->「复制问题反馈包」，再点「反馈问题...」。\n\n"
+            @"校验可选\n"
+            @"- 终端进入下载目录后可运行：shasum -a 256 -c %@\n"
+            @"- 校验通过后再覆盖安装，更适合公开分发或转发给别人。\n\n"
+            @"反馈包链接：%@\n"
             @"源码：%@",
             ERBrandName,
             version,
             build,
             bundlePath,
+            installState,
             ERLatestReleaseURLString,
+            archiveName,
+            checksumName,
+            archiveName,
+            checksumName,
             ERBrandName,
             ERBrandName,
+            ERBrandName,
+            ERBrandName,
+            ERBrandName,
+            checksumName,
+            ERAutomationURLString(@"diagnostics/issue-bundle"),
             ERGitHubURLString];
 }
 
