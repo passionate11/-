@@ -1757,6 +1757,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSString *)issueBundleDiagnosticText;
 - (NSString *)productSupportSummaryText;
 - (NSString *)installGuideText;
+- (NSString *)distributionPlanText;
 - (void)copyRecoveryDiagnostic:(id)sender;
 - (void)copyApplicationDiagnostic:(id)sender;
 - (void)copyDisplayDiagnostic:(id)sender;
@@ -1765,6 +1766,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)copySupportBundleDiagnostic:(id)sender;
 - (void)copyIssueBundleDiagnostic:(id)sender;
 - (void)copyInstallGuide:(id)sender;
+- (void)copyDistributionPlan:(id)sender;
 - (void)restEyeNow:(id)sender;
 - (void)restStandNow:(id)sender;
 - (void)pauseForSeconds:(NSTimeInterval)seconds;
@@ -5657,6 +5659,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     update.target = self;
     [self.menu addItem:update];
 
+    NSMenuItem *distributionPlan = [[NSMenuItem alloc] initWithTitle:@"复制分发维护方案" action:@selector(copyDistributionPlan:) keyEquivalent:@""];
+    distributionPlan.target = self;
+    [self.menu addItem:distributionPlan];
+
     NSMenuItem *feedback = [[NSMenuItem alloc] initWithTitle:@"反馈问题..." action:@selector(openIssueFeedback:) keyEquivalent:@""];
     feedback.target = self;
     [self.menu addItem:feedback];
@@ -6529,6 +6535,48 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             ERGitHubURLString];
 }
 
+- (NSString *)distributionPlanText {
+    NSBundle *bundle = NSBundle.mainBundle;
+    NSDictionary *info = bundle.infoDictionary;
+    NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"未知";
+    NSString *build = [info[@"CFBundleVersion"] isKindOfClass:NSString.class] ? info[@"CFBundleVersion"] : @"未知";
+    NSString *bundlePath = bundle.bundlePath ?: @"/Applications/松一下.app";
+    NSString *installState = [bundlePath isEqualToString:@"/Applications/松一下.app"]
+        ? @"已在 /Applications 标准位置运行"
+        : @"当前不在 /Applications 标准位置，发布给普通用户前建议用安装脚本覆盖到 /Applications";
+    return [NSString stringWithFormat:
+            @"%@ 分发维护方案\n\n"
+            @"当前状态：%@ (%@)，%@\n"
+            @"安装位置：%@\n"
+            @"下载页：%@\n"
+            @"源码：%@\n\n"
+            @"当前发布方式\n"
+            @"- GitHub Actions 在 tag 上运行发布前检查，并上传 dist/songyixia-<version>-<build>.zip。\n"
+            @"- 本地和 CI 都使用 scripts/preflight_release.sh 校验构建、签名、打包、诊断和文档守卫。\n"
+            @"- 普通用户更新路径保持简单：下载 zip，解压，把 %@.app 拖入 /Applications 覆盖，再用「检查更新...」确认版本。\n\n"
+            @"签名和公证方案\n"
+            @"- 当前默认使用 ad-hoc 签名，适合开发、内测和 GitHub artifact 完整性校验。\n"
+            @"- 进入公开分发前，准备 Developer ID Application 证书，把 CODESIGN_IDENTITY 配成正式证书后复用现有构建脚本。\n"
+            @"- 正式 zip 发布前新增 notarytool 公证和 stapler 固化，验证命令应覆盖 spctl、codesign 和解压后的 app。\n\n"
+            @"自动更新方案\n"
+            @"- 短期继续使用 GitHub Release API 的手动检查更新，风险低、依赖少。\n"
+            @"- 如果用户规模扩大，再评估 Sparkle：需要 appcast、ed25519 签名、版本迁移策略和回滚说明。\n"
+            @"- 在未完成正式签名/公证前，不建议启用自动后台替换，避免 Gatekeeper 和权限问题。\n\n"
+            @"下一步清单\n"
+            @"1. 保持 Release zip、安装说明、反馈包和检查更新链路稳定。\n"
+            @"2. 准备 Developer ID 证书和 notarytool 密钥，先在 CI secret 里 dry-run。\n"
+            @"3. 增加公证后的 Gatekeeper 验证，再决定是否接 Sparkle 自动更新。\n"
+            @"4. 每次发布前保留 preflight 输出和 diagnose 输出，方便回溯。",
+            ERBrandName,
+            version,
+            build,
+            installState,
+            bundlePath,
+            ERLatestReleaseURLString,
+            ERGitHubURLString,
+            ERBrandName];
+}
+
 - (void)evaluateReminderKind:(ERReminderKind)kind {
     BOOL enabled = kind == ERReminderKindEye ? self.settings.eyeEnabled : self.settings.standEnabled;
     if (!enabled) return;
@@ -7224,6 +7272,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [pasteboard clearContents];
     [pasteboard setString:[self installGuideText] forType:NSPasteboardTypeString];
     [self noteRecoveryEventTitle:@"安装更新" detail:@"已复制安装更新说明"];
+    [self publishState];
+}
+
+- (void)copyDistributionPlan:(id)sender {
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:[self distributionPlanText] forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"分发维护" detail:@"已复制分发维护方案"];
     [self publishState];
 }
 

@@ -54,7 +54,7 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: showQuickSetup: applyQuickSetupProfile: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText copyRecoveryReportDiagnostic: recoveryReportDiagnosticText runRecoveryMatrixSuite: runRecoveryMatrixSuiteStep: finishRecoveryMatrixSuiteWithTotal: copySupportBundleDiagnostic: supportBundleDiagnosticText copyIssueBundleDiagnostic: issueBundleDiagnosticText copyInstallGuide: installGuideText toggleRestWindowTopmost:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: showQuickSetup: applyQuickSetupProfile: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText copyRecoveryReportDiagnostic: recoveryReportDiagnosticText runRecoveryMatrixSuite: runRecoveryMatrixSuiteStep: finishRecoveryMatrixSuiteWithTotal: copySupportBundleDiagnostic: supportBundleDiagnosticText copyIssueBundleDiagnostic: issueBundleDiagnosticText copyInstallGuide: installGuideText copyDistributionPlan: distributionPlanText toggleRestWindowTopmost:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
@@ -132,7 +132,13 @@ check_contains "$README_CONTENT" "产品化反馈闭环" "product feedback loop 
 check_contains "$SOURCE_CONTENT" "productSupportSummaryText" "product support summary helper"
 check_contains "$SOURCE_CONTENT" "复制安装更新说明" "install guide menu item"
 check_contains "$SOURCE_CONTENT" "已复制安装更新说明" "install guide copy status"
+check_contains "$SOURCE_CONTENT" "distributionPlanText" "distribution maintenance plan helper"
+check_contains "$SOURCE_CONTENT" "复制分发维护方案" "distribution plan menu item"
+check_contains "$SOURCE_CONTENT" "正式签名/公证" "distribution signing and notarization plan"
+check_contains "$SOURCE_CONTENT" "Sparkle" "distribution auto update plan"
 check_contains "$README_CONTENT" "复制安装更新说明" "install guide docs"
+check_contains "$README_CONTENT" "分发维护方案" "distribution plan docs"
+check_contains "$README_CONTENT" "正式签名/公证计划" "distribution signing docs"
 check_contains "$README_CONTENT" "v0.1.45 自动化真实体验补强" "next roadmap docs"
 check_contains "$SOURCE_CONTENT" "ERSettingsQuickSetupSeenKey" "quick setup seen preference"
 check_contains "$SOURCE_CONTENT" "快速配置..." "quick setup menu"
