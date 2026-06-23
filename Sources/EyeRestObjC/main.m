@@ -1763,6 +1763,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (NSString *)installGuideText;
 - (NSString *)distributionPlanText;
 - (NSString *)roadmapStatusText;
+- (NSString *)autoUpdateReadinessText;
 - (void)copyRecoveryDiagnostic:(id)sender;
 - (void)copyApplicationDiagnostic:(id)sender;
 - (void)copyDisplayDiagnostic:(id)sender;
@@ -1773,6 +1774,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)copyInstallGuide:(id)sender;
 - (void)copyDistributionPlan:(id)sender;
 - (void)copyRoadmapStatus:(id)sender;
+- (void)copyAutoUpdateReadiness:(id)sender;
 - (void)restEyeNow:(id)sender;
 - (void)restStandNow:(id)sender;
 - (void)pauseForSeconds:(NSTimeInterval)seconds;
@@ -5597,6 +5599,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         @[@"复制问题反馈包", ERAutomationURLString(@"diagnostics/issue-bundle")],
         @[@"复制完整排查包", ERAutomationURLString(@"diagnostics/support-bundle")],
         @[@"复制路线图状态", ERAutomationURLString(@"diagnostics/roadmap-status")],
+        @[@"复制自动更新评估", ERAutomationURLString(@"diagnostics/auto-update-readiness")],
         @[@"运行显示变化追踪自检", ERAutomationURLString(@"diagnostics/display-change-trace")],
         @[@"运行真实显示环境自检", ERAutomationURLString(@"diagnostics/display-live")],
         @[@"运行窗口让开压测", ERAutomationURLString(@"diagnostics/overlay-yield")],
@@ -5724,6 +5727,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     NSMenuItem *roadmapStatus = [[NSMenuItem alloc] initWithTitle:@"复制路线图状态" action:@selector(copyRoadmapStatus:) keyEquivalent:@""];
     roadmapStatus.target = self;
     [self.menu addItem:roadmapStatus];
+
+    NSMenuItem *autoUpdateReadiness = [[NSMenuItem alloc] initWithTitle:@"复制自动更新评估" action:@selector(copyAutoUpdateReadiness:) keyEquivalent:@""];
+    autoUpdateReadiness.target = self;
+    [self.menu addItem:autoUpdateReadiness];
 
     NSMenuItem *feedback = [[NSMenuItem alloc] initWithTitle:@"反馈问题..." action:@selector(openIssueFeedback:) keyEquivalent:@""];
     feedback.target = self;
@@ -6482,6 +6489,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [sections addObject:[NSString stringWithFormat:@"- 自动化诊断：%@", ERAutomationURLString(@"automation/diagnostic")]];
     [sections addObject:[NSString stringWithFormat:@"- 真实日历诊断：%@", ERAutomationURLString(@"diagnostics/calendar-real")]];
     [sections addObject:[NSString stringWithFormat:@"- 路线图状态：%@", ERAutomationURLString(@"diagnostics/roadmap-status")]];
+    [sections addObject:[NSString stringWithFormat:@"- 自动更新评估：%@", ERAutomationURLString(@"diagnostics/auto-update-readiness")]];
     [sections addObject:@""];
     [sections addObject:@"--- 应用诊断 ---"];
     [sections addObject:@"section=application"];
@@ -6514,6 +6522,10 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [sections addObject:@"--- 路线图状态 ---"];
     [sections addObject:@"section=roadmap-status"];
     [sections addObject:[self roadmapStatusText]];
+    [sections addObject:@""];
+    [sections addObject:@"--- 自动更新评估 ---"];
+    [sections addObject:@"section=auto-update-readiness"];
+    [sections addObject:[self autoUpdateReadinessText]];
     return [sections componentsJoinedByString:@"\n"];
 }
 
@@ -6683,7 +6695,7 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"nextCheck=必要时只打开设置页截图，不跑全屏冒烟，重点看夜间/像素/玩具风格文字是否清楚。\n\n"
             @"v0.1.47 分发和长期维护\n"
             @"status=implemented-release-readiness\n"
-            @"evidence=release_readiness.sh,notarize_release.sh,swiftui_migration_readiness.sh,zip.sha256,generate_release_notes.sh\n"
+            @"evidence=release_readiness.sh,notarize_release.sh,auto_update_readiness.sh,swiftui_migration_readiness.sh,zip.sha256,generate_release_notes.sh\n"
             @"currentDistribution=GitHub Release zip + SHA256 + 手动检查更新；Developer ID/公证/Sparkle 仍按方案推进。\n"
             @"nextCheck=发布前保留 preflight、release_readiness、diagnose_app 输出。\n\n"
             @"当前运行状态\n"
@@ -6709,6 +6721,51 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             self.settings.restWindowTopmost ? @"on" : @"off",
             [self isLightDistractionModeActive] ? @"on" : @"off",
             [self focusModeStatusText]];
+}
+
+- (NSString *)autoUpdateReadinessText {
+    NSBundle *bundle = NSBundle.mainBundle;
+    NSDictionary *info = bundle.infoDictionary;
+    NSString *version = [info[@"CFBundleShortVersionString"] isKindOfClass:NSString.class] ? info[@"CFBundleShortVersionString"] : @"未知";
+    NSString *build = [info[@"CFBundleVersion"] isKindOfClass:NSString.class] ? info[@"CFBundleVersion"] : @"未知";
+    NSString *bundlePath = bundle.bundlePath ?: @"未知";
+    NSString *sparklePath = [bundle.privateFrameworksPath stringByAppendingPathComponent:@"Sparkle.framework"] ?: @"";
+    BOOL sparkleBundled = sparklePath.length > 0 && [NSFileManager.defaultManager fileExistsAtPath:sparklePath];
+    NSString *feedURL = [info[@"SUFeedURL"] isKindOfClass:NSString.class] ? info[@"SUFeedURL"] : @"";
+    NSString *publicKey = [info[@"SUPublicEDKey"] isKindOfClass:NSString.class] ? info[@"SUPublicEDKey"] : @"";
+    return [NSString stringWithFormat:
+            @"%@ 自动更新评估\n"
+            @"autoUpdateReadiness=1\n"
+            @"version=%@(%@)\n"
+            @"generatedAt=%@\n"
+            @"installPath=%@\n"
+            @"currentStatus=manual-github-release\n\n"
+            @"当前更新链路\n"
+            @"- 「检查更新...」读取 GitHub Release API，优先打开 songyixia-*.zip 下载资源。\n"
+            @"- Release workflow 上传 zip 和 zip.sha256，发布说明包含安装步骤和 SHA256。\n"
+            @"- 用户仍然手动下载、解压、拖入 /Applications 覆盖旧版本。\n\n"
+            @"Sparkle 准备度\n"
+            @"sparkleFramework=%@\n"
+            @"SUFeedURL=%@\n"
+            @"SUPublicEDKey=%@\n"
+            @"appcast=not-configured\n\n"
+            @"签名/公证前置条件\n"
+            @"- 当前默认 ad-hoc 签名；公开自动更新前需要 Developer ID Application 证书。\n"
+            @"- zip 公证和 stapler 固化需要先通过 notarytool 流程。\n"
+            @"- 在未完成正式签名/公证前，不建议启用自动后台替换，避免 Gatekeeper 和权限问题。\n\n"
+            @"建议下一步\n"
+            @"1. 继续保留当前手动 GitHub Release 更新链路。\n"
+            @"2. 准备 Developer ID 与 notarytool 凭据，先跑 scripts/notarize_release.sh dry-run/submit。\n"
+            @"3. 若用户规模扩大，再引入 Sparkle.framework、SUFeedURL、SUPublicEDKey、appcast、ed25519 签名和回滚说明。\n"
+            @"4. 每次发布前运行 scripts/auto_update_readiness.sh --strict、scripts/release_readiness.sh --strict 和 scripts/preflight_release.sh。",
+            ERBrandName,
+            version,
+            build,
+            ERFormatClockTime(NSDate.date),
+            bundlePath,
+            sparkleBundled ? @"bundled" : @"missing",
+            feedURL.length > 0 ? feedURL : @"missing",
+            publicKey.length > 0 ? @"configured" : @"missing"];
 }
 
 - (void)evaluateReminderKind:(ERReminderKind)kind {
@@ -7422,6 +7479,14 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
     [pasteboard clearContents];
     [pasteboard setString:[self roadmapStatusText] forType:NSPasteboardTypeString];
     [self noteRecoveryEventTitle:@"路线图" detail:@"已复制路线图状态"];
+    [self publishState];
+}
+
+- (void)copyAutoUpdateReadiness:(id)sender {
+    NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
+    [pasteboard clearContents];
+    [pasteboard setString:[self autoUpdateReadinessText] forType:NSPasteboardTypeString];
+    [self noteRecoveryEventTitle:@"自动更新" detail:@"已复制自动更新评估"];
     [self publishState];
 }
 
@@ -9584,6 +9649,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         } else if ([argument isEqualToString:@"roadmap-status"] || [argument isEqualToString:@"roadmap"] || [argument isEqualToString:@"todo"]) {
             [self copyRoadmapStatus:nil];
             detail = @"复制路线图状态";
+        } else if ([argument isEqualToString:@"auto-update-readiness"] || [argument isEqualToString:@"auto-update"] || [argument isEqualToString:@"sparkle-readiness"]) {
+            [self copyAutoUpdateReadiness:nil];
+            detail = @"复制自动更新评估";
         } else if ([argument isEqualToString:@"display-change-trace"] || [argument isEqualToString:@"display-trace"] || [argument isEqualToString:@"screen-change-trace"]) {
             [self runDisplayChangeTraceSelfCheck:nil];
             detail = @"运行显示变化追踪自检";

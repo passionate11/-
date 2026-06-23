@@ -33,6 +33,9 @@ jobs:
       - name: Notarization readiness
         run: scripts/notarize_release.sh
 
+      - name: Auto update readiness
+        run: APP_TARGET=outputs/EyeRest.app scripts/auto_update_readiness.sh --strict
+
       - name: Generate release notes
         run: scripts/generate_release_notes.sh
 

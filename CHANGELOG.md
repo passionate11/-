@@ -2,6 +2,7 @@
 
 ## main
 
+- 新增 `scripts/auto_update_readiness.sh` 和菜单项 `复制自动更新评估`，只读检查当前 GitHub Release 手动更新链路、Sparkle 缺口、Developer ID/公证前置条件，并接入 Release workflow、preflight、路线图状态和完整排查包。
 - 菜单栏新增 `复制路线图状态`，同时新增 `scripts/roadmap_status.sh`，可只读汇总 v0.1.45-0.1.47 的完成证据、下一步检查和当前运行状态，并接入问题反馈包/完整排查包。
 - 设置窗口继续精修：窗口加宽到 920px，侧栏、右侧内容和底部操作区重新对齐，概览快捷操作改为自绘轻按钮底，整体更接近 macOS 设置面板。
 - 新增 `scripts/swiftui_migration_readiness.sh`，只读评估 SwiftUI 草稿和当前 Objective-C/AppKit 版本的功能差距，明确 SwiftUI 版本仍是 prototype，避免误切换。

@@ -135,6 +135,8 @@ open outputs/EyeRest.app
 
 菜单栏里的 `复制分发维护方案` 会把当前版本、安装位置、Release 发布方式、正式签名/公证方案和自动更新评估复制出来，方便做发布决策或留存维护记录。
 
+菜单栏里的 `复制自动更新评估` 会把当前手动 GitHub Release 更新链路、Sparkle 准备度、Developer ID/公证前置条件和推荐下一步复制出来。当前不会启用自动后台替换。
+
 菜单栏里的 `排查中心` 会收纳应用、恢复、显示、自动化、日历诊断和各类压测入口。遇到锁屏、睡眠、午休、外接屏或窗口层级问题时，可以先用 `复制恢复场景矩阵` 看每个场景对应的压测入口和最近是否跑过，用 `复制恢复问题报告` 查看结论和下一步建议，也可以用 `运行恢复矩阵套件` 顺序跑一轮关键恢复压测；遇到复杂问题时直接用 `复制问题反馈包`，它会生成适合粘贴到 GitHub Issue 的模板，并附带恢复问题报告和完整排查包。
 
 菜单栏里的 `排查中心` -> `复制安装更新说明` 会把当前版本、安装位置、下载页和 4 步安装/反馈流程复制到剪贴板，适合发给别人或自己留存。
@@ -197,6 +199,14 @@ scripts/release_readiness.sh
 ```
 
 脚本只读地汇总版本、git 状态、发布 zip、SHA256 校验、已构建/已安装 App、签名、Gatekeeper、GitHub Release workflow 和自动更新当前方案；`scripts/release_readiness.sh --strict` 会在关键失败时返回非零，适合发版前留存一份不打扰工作的检查快照。
+
+## 自动更新准备检查
+
+```bash
+scripts/auto_update_readiness.sh
+```
+
+脚本只读地检查当前更新链路是否仍适合保持手动 GitHub Release 模式，并列出接入 Sparkle 前需要补齐的条件：`Sparkle.framework`、`SUFeedURL`、`SUPublicEDKey`、appcast、ed25519 签名、Developer ID 签名、公证和回滚说明。`--strict` 只会在配置互相矛盾时失败，例如已经打包 Sparkle 但缺少 feed 或公钥。
 
 ## 路线图状态检查
 
@@ -395,6 +405,7 @@ songyixia://diagnostics/calendar-live
 - 产品化反馈闭环：关于窗口、检查更新、下载页、问题反馈和问题反馈包串成一条普通用户能走完的链路。
 - 更新资源直达：检查更新会解析 GitHub Release assets，优先打开 `songyixia-*.zip` 的直接下载链接，减少用户在发布页里找文件。
 - 分发维护方案：菜单栏可复制当前 Release 发布方式、安装状态、正式签名/公证计划和自动更新评估，让 v0.1.47 的长期维护路径更明确。
+- 自动更新准备检查：新增只读脚本和菜单复制项，明确当前仍走手动 GitHub Release 更新，并列出未来接 Sparkle 前必须补齐的签名、公证、appcast 和回滚条件。
 - 路线图状态：菜单栏可复制 v0.1.45-0.1.47 的完成证据、当前运行状态和推荐下一步；脚本版 `scripts/roadmap_status.sh` 可在不启动 App 的情况下做同类检查。
 - 发布就绪检查：新增只读脚本汇总版本、git/tag、zip、App bundle、签名、Gatekeeper、Release workflow 和自动更新方案，CI 发布前也会跑 strict 检查。
 - 公证准备检查：新增 dry-run 公证脚本，先验证 zip、notarytool、签名和 Gatekeeper；有 Developer ID 与 Apple 凭据后可显式提交 notarytool。

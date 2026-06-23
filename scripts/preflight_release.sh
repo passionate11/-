@@ -39,6 +39,7 @@ plist_value() {
 echo "==> Checking shell scripts"
 bash -n scripts/build_app.sh
 bash -n scripts/diagnose_app.sh
+bash -n scripts/auto_update_readiness.sh
 bash -n scripts/generate_release_notes.sh
 bash -n scripts/generate_icon.sh
 bash -n scripts/install_app.sh
@@ -65,7 +66,7 @@ URL_TYPES="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$INFO_PLIST")
 
 echo "==> Verifying binary entry points"
 STRINGS_OUTPUT="$(strings "$BINARY")"
-for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: showQuickSetup: applyQuickSetupProfile: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText copyRecoveryReportDiagnostic: recoveryReportDiagnosticText runRecoveryMatrixSuite: runRecoveryMatrixSuiteStep: finishRecoveryMatrixSuiteWithTotal: copySupportBundleDiagnostic: supportBundleDiagnosticText copyIssueBundleDiagnostic: issueBundleDiagnosticText copyInstallGuide: installGuideText copyDistributionPlan: distributionPlanText copyRoadmapStatus: roadmapStatusText toggleRestWindowTopmost:; do
+for selector in handleAutomationURL: runRecoveryStressTest: importBackupJSON: showAbout: openIssueFeedback: checkForUpdates: applyQuickRhythm: applyQuickRhythmToken: showQuickSetup: applyQuickSetupProfile: copyApplicationDiagnostic: applicationDiagnosticText copyDisplayDiagnostic: displayDiagnosticText copyRecoveryMatrixDiagnostic: recoveryMatrixDiagnosticText copyRecoveryReportDiagnostic: recoveryReportDiagnosticText runRecoveryMatrixSuite: runRecoveryMatrixSuiteStep: finishRecoveryMatrixSuiteWithTotal: copySupportBundleDiagnostic: supportBundleDiagnosticText copyIssueBundleDiagnostic: issueBundleDiagnosticText copyInstallGuide: installGuideText copyDistributionPlan: distributionPlanText copyRoadmapStatus: roadmapStatusText copyAutoUpdateReadiness: autoUpdateReadinessText toggleRestWindowTopmost:; do
   check_contains "$STRINGS_OUTPUT" "$selector" "selector"
 done
 check_contains "$STRINGS_OUTPUT" "https://github.com/passionate11/-" "GitHub URL"
@@ -153,8 +154,14 @@ check_contains "$SOURCE_CONTENT" "roadmapStatusText" "roadmap status text helper
 check_contains "$SOURCE_CONTENT" "复制路线图状态" "roadmap status menu item"
 check_contains "$SOURCE_CONTENT" "diagnostics/roadmap-status" "roadmap status automation URL"
 check_contains "$SOURCE_CONTENT" "section=roadmap-status" "roadmap status support section"
+check_contains "$SOURCE_CONTENT" "autoUpdateReadinessText" "auto update readiness text helper"
+check_contains "$SOURCE_CONTENT" "复制自动更新评估" "auto update readiness menu item"
+check_contains "$SOURCE_CONTENT" "diagnostics/auto-update-readiness" "auto update readiness automation URL"
+check_contains "$SOURCE_CONTENT" "section=auto-update-readiness" "auto update readiness support section"
 check_contains "$README_CONTENT" "路线图状态检查" "roadmap status docs"
 check_contains "$README_CONTENT" "复制路线图状态" "roadmap status menu docs"
+check_contains "$README_CONTENT" "自动更新准备检查" "auto update readiness docs"
+check_contains "$README_CONTENT" "复制自动更新评估" "auto update readiness menu docs"
 check_contains "$SOURCE_CONTENT" "正式签名/公证" "distribution signing and notarization plan"
 check_contains "$SOURCE_CONTENT" "Sparkle" "distribution auto update plan"
 check_contains "$SOURCE_CONTENT" "browser_download_url" "release asset download URL parsing"
@@ -166,7 +173,10 @@ check_contains "$README_CONTENT" "正式签名/公证计划" "distribution signi
 check_contains "$README_CONTENT" "发布就绪检查" "release readiness docs"
 check_contains "$README_CONTENT" "更新资源直达" "direct update asset docs"
 check_contains "$(cat scripts/release_readiness.sh)" "ready for current GitHub zip flow" "release readiness summary"
+check_contains "$(cat scripts/auto_update_readiness.sh)" "auto update assessed" "auto update readiness summary"
+check_contains "$(cat scripts/auto_update_readiness.sh)" "manual GitHub Release" "auto update manual flow summary"
 check_contains "$(cat scripts/roadmap_status.sh)" "roadmap evidence captured" "roadmap status summary"
+check_contains "$(cat scripts/roadmap_status.sh)" "auto_update_readiness.sh" "roadmap auto update evidence"
 check_contains "$(cat scripts/release_readiness.sh)" "Archive checksum" "release readiness checksum guard"
 check_contains "$(cat scripts/package_app.sh)" "shasum -a 256" "package checksum generation"
 check_contains "$(cat scripts/generate_release_notes.sh)" "SHA256" "release notes checksum section"
@@ -475,5 +485,10 @@ ROADMAP_STATUS_OUTPUT="$(scripts/roadmap_status.sh --strict)"
 [[ "$ROADMAP_STATUS_OUTPUT" == *"Readiness:"*"roadmap evidence captured"* ]] || fail "roadmap status did not capture evidence"
 [[ "$ROADMAP_STATUS_OUTPUT" == *"v0.1.45 Automation Experience"* ]] || fail "roadmap status missing automation section"
 [[ "$ROADMAP_STATUS_OUTPUT" == *"v0.1.47 Distribution Maintenance"* ]] || fail "roadmap status missing distribution section"
+
+echo "==> Verifying auto update readiness"
+AUTO_UPDATE_OUTPUT="$(APP_TARGET="$APP_BUNDLE" ARCHIVE_PATH="$ARCHIVE" scripts/auto_update_readiness.sh --strict)"
+[[ "$AUTO_UPDATE_OUTPUT" == *"Readiness:"*"auto update assessed"* ]] || fail "auto update readiness did not complete"
+[[ "$AUTO_UPDATE_OUTPUT" == *"Auto update status:"*"manual GitHub Release"* ]] || fail "auto update status should remain manual until Sparkle is configured"
 
 echo "==> Preflight passed: $ARCHIVE"
