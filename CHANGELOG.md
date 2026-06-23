@@ -2,6 +2,8 @@
 
 ## main
 
+- 新增 `scripts/automation_policy_readiness.sh` 自动化策略就绪检查，只读检查自动化策略结论、关键词优先级、设置页状态区、诊断和问题反馈包，避免会议/演示/日程策略退回到解释不清。
+- 自动化关键词弹窗文案改为“应用只通知/应用自动暂停/应用不处理/日程只通知/日程自动暂停”，并明确优先级和恢复默认含义。
 - 设置页视觉再设计：左侧品牌侧栏、透明导航、右侧 648px 内容区、概览/眼睛/站立/显示/自动化/统计页间距和主题降噪重新收敛，并新增 `scripts/settings_visual_readiness.sh` 做无弹窗静态检查。
 - 新增 `scripts/settings_contract_readiness.sh`，只读检查当前 Objective-C/AppKit 版本的 UserDefaults 设置合约和 SwiftUI 草稿的存储差距，明确 SwiftUI 切换前必须补齐同一套 per-key schema 或迁移层。
 - 设置窗口再次视觉精修：窗口加宽到 944px，右侧内容区、概览卡片、眼睛/站立行、显示预览和自动化摘要重新对齐，并降低背景、阴影和主题图案干扰。

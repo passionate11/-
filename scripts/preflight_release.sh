@@ -37,6 +37,7 @@ plist_value() {
 }
 
 echo "==> Checking shell scripts"
+bash -n scripts/automation_policy_readiness.sh
 bash -n scripts/build_app.sh
 bash -n scripts/diagnose_app.sh
 bash -n scripts/auto_update_readiness.sh
@@ -227,6 +228,12 @@ check_contains "$SOURCE_CONTENT" "automationLastActionLabel" "automation last ac
 check_contains "$SOURCE_CONTENT" "ERLastAutomationActionTextKey" "automation last action persistence key"
 check_contains "$SOURCE_CONTENT" "lastAutomationActionSummary" "automation last action summary helper"
 check_contains "$SOURCE_CONTENT" "automationStatusStripe" "automation policy visual stripe"
+check_contains "$SOURCE_CONTENT" "优先级：不处理 > 自动暂停 > 只发通知。" "automation keyword priority copy"
+check_contains "$SOURCE_CONTENT" "应用只通知" "automation app notification label"
+check_contains "$SOURCE_CONTENT" "应用自动暂停" "automation app auto pause label"
+check_contains "$SOURCE_CONTENT" "应用不处理" "automation app ignore label"
+check_contains "$SOURCE_CONTENT" "日程只通知" "automation calendar notification label"
+check_contains "$SOURCE_CONTENT" "日程自动暂停" "automation calendar auto pause label"
 check_contains "$SOURCE_CONTENT" "section=automation-policy" "automation policy issue section"
 check_contains "$SOURCE_CONTENT" "最终动作：" "automation policy action text"
 check_contains "$SOURCE_CONTENT" "命中原因：" "automation policy reason text"
@@ -500,6 +507,11 @@ ROADMAP_STATUS_OUTPUT="$(scripts/roadmap_status.sh --strict)"
 [[ "$ROADMAP_STATUS_OUTPUT" == *"Readiness:"*"roadmap evidence captured"* ]] || fail "roadmap status did not capture evidence"
 [[ "$ROADMAP_STATUS_OUTPUT" == *"v0.1.45 Automation Experience"* ]] || fail "roadmap status missing automation section"
 [[ "$ROADMAP_STATUS_OUTPUT" == *"v0.1.47 Distribution Maintenance"* ]] || fail "roadmap status missing distribution section"
+
+echo "==> Verifying automation policy readiness"
+AUTOMATION_POLICY_OUTPUT="$(scripts/automation_policy_readiness.sh --strict)"
+[[ "$AUTOMATION_POLICY_OUTPUT" == *"Readiness:"*"automation policy assessed"* ]] || fail "automation policy readiness did not complete"
+[[ "$AUTOMATION_POLICY_OUTPUT" == *"Keyword Editor"* ]] || fail "automation policy readiness missing keyword editor section"
 
 echo "==> Verifying auto update readiness"
 AUTO_UPDATE_OUTPUT="$(APP_TARGET="$APP_BUNDLE" ARCHIVE_PATH="$ARCHIVE" scripts/auto_update_readiness.sh --strict)"

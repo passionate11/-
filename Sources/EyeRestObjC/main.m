@@ -3908,13 +3908,13 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
 - (void)editAutomationKeywords:(id)sender {
     NSAlert *alert = [[NSAlert alloc] init];
     alert.messageText = @"策略关键词";
-    alert.informativeText = @"多个关键词用逗号、分号或换行分隔。优先级：忽略 > 暂停 > 只发通知。";
+    alert.informativeText = @"多个关键词用逗号、分号或换行分隔。优先级：不处理 > 自动暂停 > 只发通知。恢复默认会回到内置会议、视频、游戏和日程关键词。";
     [alert addButtonWithTitle:@"保存"];
     [alert addButtonWithTitle:@"恢复默认"];
     [alert addButtonWithTitle:@"取消"];
 
     NSView *panel = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 520, 220)];
-    NSArray<NSString *> *labels = @[@"应用通知", @"应用暂停", @"应用忽略", @"日程通知", @"日程暂停"];
+    NSArray<NSString *> *labels = @[@"应用只通知", @"应用自动暂停", @"应用不处理", @"日程只通知", @"日程自动暂停"];
     NSArray<NSString *> *values = @[
         [self.settings.focusAppTokens componentsJoinedByString:@", "],
         [self.settings.autoPauseAppTokens componentsJoinedByString:@", "],
@@ -3923,22 +3923,22 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
         [self.settings.calendarAutoPauseTokens componentsJoinedByString:@", "]
     ];
     NSArray<NSString *> *placeholders = @[
-        @"会议/演示类应用：只发通知",
-        @"视频/游戏类应用：暂停计时",
-        @"误命中兜底：照常提醒",
-        @"会议/站会：只发通知",
-        @"录制/直播/面试：暂停计时"
+        @"会议/演示类应用：只发通知，不弹休息页",
+        @"视频/游戏类应用：暂停计时并顺延",
+        @"误命中兜底：照常提醒，不降打扰",
+        @"会议/站会：只发通知，不弹休息页",
+        @"录制/直播/面试：暂停计时并顺延"
     ];
     NSMutableArray<NSTextField *> *fields = [NSMutableArray arrayWithCapacity:labels.count];
     for (NSInteger index = 0; index < labels.count; index++) {
         CGFloat y = 176 - index * 40;
         NSTextField *label = [NSTextField labelWithString:[NSString stringWithFormat:@"%@：", labels[index]]];
-        label.frame = NSMakeRect(0, y + 4, 86, 22);
+        label.frame = NSMakeRect(0, y + 4, 96, 22);
         label.alignment = NSTextAlignmentRight;
         label.textColor = NSColor.secondaryLabelColor;
         [panel addSubview:label];
 
-        NSTextField *field = [[NSTextField alloc] initWithFrame:NSMakeRect(100, y, 400, 26)];
+        NSTextField *field = [[NSTextField alloc] initWithFrame:NSMakeRect(110, y, 390, 26)];
         field.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
         field.bezelStyle = NSTextFieldRoundedBezel;
         field.placeholderString = placeholders[index];
@@ -6686,9 +6686,9 @@ static ERTheme ERThemeForStyle(ERRestStyle style) {
             @"issueBundle=%@\n\n"
             @"v0.1.45 自动化真实体验补强\n"
             @"status=implemented-with-diagnostics\n"
-            @"evidence=automationPolicyExplanation,automationLastActionLabel,automationDiagnosticText,section=automation-policy\n"
+            @"evidence=automationPolicyExplanation,automationLastActionLabel,automationDiagnosticText,section=automation-policy,automation_policy_readiness.sh\n"
             @"currentPolicy=%@\n"
-            @"nextCheck=复制自动化诊断或问题反馈包，确认最终动作/命中原因/最近动作都能读懂。\n\n"
+            @"nextCheck=运行 automation_policy_readiness.sh --strict，或复制自动化诊断/问题反馈包，确认最终动作、命中原因、最近动作和建议下一步都能读懂。\n\n"
             @"v0.1.46 设置页继续打磨\n"
             @"status=implemented-polish-pass\n"
             @"evidence=944x592-settings-window,sidebarDividerView,overviewActionButtonShells,pageIconBadgeViews,stylePreviewMotif\n"
